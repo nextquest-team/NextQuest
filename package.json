@@ -1,0 +1,24 @@
+{
+  "name": "nextquest",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "db:generate": "pnpm --filter @nextquest/db db:generate",
+    "db:migrate": "pnpm --filter @nextquest/db db:migrate",
+    "db:seed": "pnpm --filter @nextquest/db db:seed",
+    "db:studio": "pnpm --filter @nextquest/db db:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  }
+}

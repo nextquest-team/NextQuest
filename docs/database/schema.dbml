@@ -1,0 +1,336 @@
+// NextQuest.io - Database Schema
+// Copier ce fichier dans https://dbdiagram.io
+
+// ============================================
+// 1. REFERENTIELS
+// ============================================
+
+Table platforms {
+  id uuid [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  icon_url varchar
+}
+
+Table services {
+  id uuid [pk]
+  name varchar [not null]
+  code varchar [unique, not null]
+  api_available boolean [default: true]
+  icon_url varchar
+}
+
+Table service_platforms {
+  service_id uuid [ref: > services.id]
+  platform_id uuid [ref: > platforms.id]
+
+  indexes {
+    (service_id, platform_id) [pk]
+  }
+}
+
+Table genres {
+  id uuid [pk]
+  name varchar [not null]
+  slug varchar [unique, not null]
+  igdb_id int
+}
+
+Table tags {
+  id uuid [pk]
+  name varchar [not null]
+  slug varchar [unique, not null]
+  category varchar [note: 'mood, difficulty, feature']
+}
+
+// ============================================
+// 2. UTILISATEURS & AUTH
+// ============================================
+
+Table users {
+  id uuid [pk]
+  email varchar [unique, not null]
+  username varchar [unique, not null]
+  display_name varchar
+  avatar_url varchar
+  bio text
+  locale varchar [default: 'fr']
+  is_public boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table connected_services {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  service_id uuid [ref: > services.id, not null]
+  external_user_id varchar [not null]
+  external_username varchar
+  access_token text
+  refresh_token text
+  token_expires_at timestamp
+  last_synced_at timestamp
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, service_id) [unique]
+  }
+}
+
+// ============================================
+// 3. JEUX
+// ============================================
+
+Table games {
+  id uuid [pk]
+  igdb_id int
+  rawg_id int
+  title varchar [not null]
+  slug varchar
+  description text
+  cover_url varchar
+  background_url varchar
+  release_date date
+  release_status release_status_enum [default: 'released']
+  developer varchar
+  publisher varchar
+  avg_playtime int [note: 'en minutes']
+  is_custom boolean [default: false]
+  created_by uuid [ref: > users.id]
+  visibility varchar [default: 'private']
+  last_synced_at timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table game_platforms {
+  game_id uuid [ref: > games.id]
+  platform_id uuid [ref: > platforms.id]
+
+  indexes {
+    (game_id, platform_id) [pk]
+  }
+}
+
+Table game_genres {
+  game_id uuid [ref: > games.id]
+  genre_id uuid [ref: > genres.id]
+
+  indexes {
+    (game_id, genre_id) [pk]
+  }
+}
+
+Table game_updates {
+  id uuid [pk]
+  game_id uuid [ref: > games.id, not null]
+  field_changed varchar [not null]
+  old_value varchar
+  new_value varchar
+  source varchar [note: 'igdb, rawg, scraper, manual']
+  detected_at timestamp [default: `now()`]
+  processed boolean [default: false]
+}
+
+// ============================================
+// 4. COLLECTION UTILISATEUR
+// ============================================
+
+Table user_games {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  game_id uuid [ref: > games.id, not null]
+  service_id uuid [ref: > services.id]
+  platform_id uuid [ref: > platforms.id, not null]
+  status game_status_enum [default: 'backlog']
+  rating int [note: '1-10']
+  review text
+  playtime_minutes int
+  started_at date
+  completed_at date
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    (user_id, game_id, platform_id) [unique]
+  }
+}
+
+Table user_game_tags {
+  user_game_id uuid [ref: > user_games.id]
+  tag_id uuid [ref: > tags.id]
+
+  indexes {
+    (user_game_id, tag_id) [pk]
+  }
+}
+
+// ============================================
+// 5. ACHIEVEMENTS & BADGES
+// ============================================
+
+Table external_achievements {
+  id uuid [pk]
+  user_game_id uuid [ref: > user_games.id, not null]
+  external_id varchar [not null]
+  name varchar [not null]
+  description text
+  icon_url varchar
+  unlocked_at timestamp
+  rarity decimal [note: 'pourcentage 0-100']
+
+  indexes {
+    (user_game_id, external_id) [unique]
+  }
+}
+
+Table badges {
+  id uuid [pk]
+  code varchar [unique, not null]
+  name varchar [not null]
+  description text
+  icon_url varchar
+  condition jsonb [not null]
+  created_at timestamp [default: `now()`]
+}
+
+Table user_badges {
+  user_id uuid [ref: > users.id]
+  badge_id uuid [ref: > badges.id]
+  unlocked_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, badge_id) [pk]
+  }
+}
+
+// ============================================
+// 6. SOCIAL
+// ============================================
+
+Table friendships {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  friend_id uuid [ref: > users.id, not null]
+  status friendship_status_enum [default: 'pending']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    (user_id, friend_id) [unique]
+  }
+}
+
+// ============================================
+// 7. MESSAGERIE
+// ============================================
+
+Table conversations {
+  id uuid [pk]
+  type varchar [default: 'direct', note: 'direct, group']
+  name varchar
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table conversation_members {
+  conversation_id uuid [ref: > conversations.id]
+  user_id uuid [ref: > users.id]
+  role varchar [default: 'member']
+  last_read_at timestamp
+  is_muted boolean [default: false]
+  joined_at timestamp [default: `now()`]
+
+  indexes {
+    (conversation_id, user_id) [pk]
+  }
+}
+
+Table messages {
+  id uuid [pk]
+  conversation_id uuid [ref: > conversations.id, not null]
+  sender_id uuid [ref: > users.id]
+  content text [not null]
+  created_at timestamp [default: `now()`]
+  edited_at timestamp
+}
+
+// ============================================
+// 8. NOTIFICATIONS
+// ============================================
+
+Table notifications {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  type varchar [not null]
+  title varchar [not null]
+  body text
+  data jsonb
+  read_at timestamp
+  created_at timestamp [default: `now()`]
+}
+
+Table notification_preferences {
+  user_id uuid [ref: > users.id]
+  type varchar [not null]
+  push_enabled boolean [default: true]
+  email_enabled boolean [default: false]
+
+  indexes {
+    (user_id, type) [pk]
+  }
+}
+
+// ============================================
+// 9. FIL D'ACTUALITE
+// ============================================
+
+Table activities {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  type varchar [not null]
+  data jsonb
+  visibility varchar [default: 'friends_only']
+  created_at timestamp [default: `now()`]
+}
+
+// ============================================
+// 10. RECOMMANDATIONS IA
+// ============================================
+
+Table recommendations {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  game_id uuid [ref: > games.id, not null]
+  reason jsonb
+  score decimal [note: '0-1']
+  feedback varchar [note: 'liked, dismissed, added']
+  created_at timestamp [default: `now()`]
+  feedback_at timestamp
+}
+
+// ============================================
+// ENUMS (pour reference)
+// ============================================
+
+Enum release_status_enum {
+  released
+  upcoming
+  early_access
+  rumored
+  cancelled
+}
+
+Enum game_status_enum {
+  wishlist
+  backlog
+  playing
+  completed
+  abandoned
+}
+
+Enum friendship_status_enum {
+  pending
+  accepted
+  blocked
+}

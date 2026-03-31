@@ -1,0 +1,18 @@
+{
+  "name": "@nextquest/config",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint.config.mjs",
+    "./typescript": "./tsconfig.base.json",
+    "./prettier": "./prettier.config.mjs"
+  },
+  "devDependencies": {
+    "eslint": "^10.1.0",
+    "eslint-config-prettier": "^10.1.5",
+    "typescript-eslint": "^8.33.1",
+    "prettier": "^3.8.1",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "extends": "@nextquest/config/typescript",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
+  "include": ["src", "drizzle.config.ts"]
+}

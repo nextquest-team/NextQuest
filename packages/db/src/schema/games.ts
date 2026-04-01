@@ -1,0 +1,126 @@
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  date,
+  index,
+  unique,
+  primaryKey,
+} from "drizzle-orm/pg-core";
+import { users } from "./users.js";
+import { platforms } from "./services.js";
+import { genres, tags } from "./services.js";
+import {
+  releaseStatusEnum,
+  visibilityEnum,
+  gameUpdateSourceEnum,
+} from "./enums.js";
+
+export const games = pgTable(
+  "games",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    igdbId: integer("igdb_id"),
+    rawgId: integer("rawg_id"),
+    title: varchar("title", { length: 255 }).notNull(),
+    slug: varchar("slug", { length: 255 }).notNull(),
+    description: text("description"),
+    coverUrl: varchar("cover_url", { length: 2048 }),
+    backgroundUrl: varchar("background_url", { length: 2048 }),
+    releaseDate: date("release_date"),
+    releaseStatus: releaseStatusEnum("release_status")
+      .notNull()
+      .default("released"),
+    developer: varchar("developer", { length: 255 }),
+    publisher: varchar("publisher", { length: 255 }),
+    avgPlaytime: integer("avg_playtime"),
+    // Les jeux custom sont ceux ajoutes manuellement par un user (pas dans IGDB/RAWG)
+    isCustom: boolean("is_custom").notNull().default(false),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    // Un jeu custom est prive par defaut, visible uniquement par son createur
+    visibility: visibilityEnum("visibility").notNull().default("private"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("games_igdb_id_idx").on(t.igdbId),
+    index("games_rawg_id_idx").on(t.rawgId),
+    unique("games_slug_unique").on(t.slug),
+  ],
+);
+
+export const gamePlatforms = pgTable(
+  "game_platforms",
+  {
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    platformId: uuid("platform_id")
+      .notNull()
+      .references(() => platforms.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.gameId, t.platformId] })],
+);
+
+export const gameGenres = pgTable(
+  "game_genres",
+  {
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    genreId: uuid("genre_id")
+      .notNull()
+      .references(() => genres.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.gameId, t.genreId] })],
+);
+
+export const gameTags = pgTable(
+  "game_tags",
+  {
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.gameId, t.tagId] })],
+);
+
+// Suivi des changements detectes par les syncs IGDB/RAWG (nouvelle date de sortie, etc.)
+// Sert a notifier les users qui ont ce jeu dans leur collection
+export const gameUpdates = pgTable(
+  "game_updates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    fieldChanged: varchar("field_changed", { length: 100 }).notNull(),
+    oldValue: text("old_value"),
+    newValue: text("new_value"),
+    source: gameUpdateSourceEnum("source").notNull(),
+    detectedAt: timestamp("detected_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // Le worker de notifications marque processed=true apres avoir alerte les users concernes
+    processed: boolean("processed").notNull().default(false),
+  },
+  (t) => [
+    index("game_updates_game_id_detected_at_idx").on(t.gameId, t.detectedAt),
+    index("game_updates_processed_detected_at_idx").on(
+      t.processed,
+      t.detectedAt,
+    ),
+  ],
+);

@@ -1,0 +1,37 @@
+import {
+  pgTable,
+  uuid,
+  timestamp,
+  jsonb,
+  numeric,
+  index,
+} from "drizzle-orm/pg-core";
+import { recommendationFeedbackEnum } from "./enums.js";
+import { users } from "./users.js";
+import { games } from "./games.js";
+
+export const recommendations = pgTable(
+  "recommendations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    // reason en JSONB : explique pourquoi le jeu est recommande (genres similaires, amis, etc.)
+    reason: jsonb("reason"),
+    // Score entre 0 et 1 (ex: 0.875) -- plus c'est haut, plus le match est bon
+    score: numeric("score", { precision: 4, scale: 3 }),
+    // Le feedback utilisateur sert a affiner les futures recommandations
+    feedback: recommendationFeedbackEnum("feedback"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    feedbackAt: timestamp("feedback_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("idx_recommendations_user_id_created_at").on(t.userId, t.createdAt),
+  ],
+);

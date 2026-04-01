@@ -1,317 +1,30 @@
 // NextQuest.io - Database Schema
 // Copier ce fichier dans https://dbdiagram.io
+//
+// Audits de securite et bonnes pratiques : 1er avril 2026
+// Referentiels : OWASP Top 10 (2021), RGPD (UE 2016/679), NIST SP 800-63B
+//
+// Conventions :
+//   - Toutes les PK : UUIDv7 (RFC 9562) pour tri chronologique naturel et performance B-tree
+//   - Tous les timestamps : timestamptz (WITH TIME ZONE) pour le support international FR/EN
+//   - updated_at : mis a jour via trigger PostgreSQL moddatetime ou Drizzle .$onUpdate()
+//   - Encoding : UTF-8, collation par defaut C pour les index, ICU pour les tris alphabetiques
+//   - Toutes les contraintes CHECK documentees en notes sont a implementer dans les migrations Drizzle
 
 // ============================================
-// 1. REFERENTIELS
+// ENUMS
 // ============================================
 
-Table platforms {
-  id uuid [pk]
-  name varchar [not null]
-  code varchar [unique, not null]
-  icon_url varchar
+Enum user_role_enum {
+  user
+  admin
 }
 
-Table services {
-  id uuid [pk]
-  name varchar [not null]
-  code varchar [unique, not null]
-  api_available boolean [default: true]
-  icon_url varchar
+Enum visibility_enum {
+  private
+  friends_only
+  public
 }
-
-Table service_platforms {
-  service_id uuid [ref: > services.id]
-  platform_id uuid [ref: > platforms.id]
-
-  indexes {
-    (service_id, platform_id) [pk]
-  }
-}
-
-Table genres {
-  id uuid [pk]
-  name varchar [not null]
-  slug varchar [unique, not null]
-  igdb_id int
-}
-
-Table tags {
-  id uuid [pk]
-  name varchar [not null]
-  slug varchar [unique, not null]
-  category varchar [note: 'mood, difficulty, feature']
-}
-
-// ============================================
-// 2. UTILISATEURS & AUTH
-// ============================================
-
-Table users {
-  id uuid [pk]
-  email varchar [unique, not null]
-  username varchar [unique, not null]
-  display_name varchar
-  avatar_url varchar
-  bio text
-  locale varchar [default: 'fr']
-  is_public boolean [default: true]
-  created_at timestamp [default: `now()`]
-  updated_at timestamp
-}
-
-Table connected_services {
-  id uuid [pk]
-  user_id uuid [ref: > users.id, not null]
-  service_id uuid [ref: > services.id, not null]
-  external_user_id varchar [not null]
-  external_username varchar
-  access_token text
-  refresh_token text
-  token_expires_at timestamp
-  last_synced_at timestamp
-  created_at timestamp [default: `now()`]
-
-  indexes {
-    (user_id, service_id) [unique]
-  }
-}
-
-// ============================================
-// 3. JEUX
-// ============================================
-
-Table games {
-  id uuid [pk]
-  igdb_id int
-  rawg_id int
-  title varchar [not null]
-  slug varchar
-  description text
-  cover_url varchar
-  background_url varchar
-  release_date date
-  release_status release_status_enum [default: 'released']
-  developer varchar
-  publisher varchar
-  avg_playtime int [note: 'en minutes']
-  is_custom boolean [default: false]
-  created_by uuid [ref: > users.id]
-  visibility varchar [default: 'private']
-  last_synced_at timestamp
-  created_at timestamp [default: `now()`]
-  updated_at timestamp
-}
-
-Table game_platforms {
-  game_id uuid [ref: > games.id]
-  platform_id uuid [ref: > platforms.id]
-
-  indexes {
-    (game_id, platform_id) [pk]
-  }
-}
-
-Table game_genres {
-  game_id uuid [ref: > games.id]
-  genre_id uuid [ref: > genres.id]
-
-  indexes {
-    (game_id, genre_id) [pk]
-  }
-}
-
-Table game_updates {
-  id uuid [pk]
-  game_id uuid [ref: > games.id, not null]
-  field_changed varchar [not null]
-  old_value varchar
-  new_value varchar
-  source varchar [note: 'igdb, rawg, scraper, manual']
-  detected_at timestamp [default: `now()`]
-  processed boolean [default: false]
-}
-
-// ============================================
-// 4. COLLECTION UTILISATEUR
-// ============================================
-
-Table user_games {
-  id uuid [pk]
-  user_id uuid [ref: > users.id, not null]
-  game_id uuid [ref: > games.id, not null]
-  service_id uuid [ref: > services.id]
-  platform_id uuid [ref: > platforms.id, not null]
-  status game_status_enum [default: 'backlog']
-  rating int [note: '1-10']
-  review text
-  playtime_minutes int
-  started_at date
-  completed_at date
-  created_at timestamp [default: `now()`]
-  updated_at timestamp
-
-  indexes {
-    (user_id, game_id, platform_id) [unique]
-  }
-}
-
-Table user_game_tags {
-  user_game_id uuid [ref: > user_games.id]
-  tag_id uuid [ref: > tags.id]
-
-  indexes {
-    (user_game_id, tag_id) [pk]
-  }
-}
-
-// ============================================
-// 5. ACHIEVEMENTS & BADGES
-// ============================================
-
-Table external_achievements {
-  id uuid [pk]
-  user_game_id uuid [ref: > user_games.id, not null]
-  external_id varchar [not null]
-  name varchar [not null]
-  description text
-  icon_url varchar
-  unlocked_at timestamp
-  rarity decimal [note: 'pourcentage 0-100']
-
-  indexes {
-    (user_game_id, external_id) [unique]
-  }
-}
-
-Table badges {
-  id uuid [pk]
-  code varchar [unique, not null]
-  name varchar [not null]
-  description text
-  icon_url varchar
-  condition jsonb [not null]
-  created_at timestamp [default: `now()`]
-}
-
-Table user_badges {
-  user_id uuid [ref: > users.id]
-  badge_id uuid [ref: > badges.id]
-  unlocked_at timestamp [default: `now()`]
-
-  indexes {
-    (user_id, badge_id) [pk]
-  }
-}
-
-// ============================================
-// 6. SOCIAL
-// ============================================
-
-Table friendships {
-  id uuid [pk]
-  user_id uuid [ref: > users.id, not null]
-  friend_id uuid [ref: > users.id, not null]
-  status friendship_status_enum [default: 'pending']
-  created_at timestamp [default: `now()`]
-  updated_at timestamp
-
-  indexes {
-    (user_id, friend_id) [unique]
-  }
-}
-
-// ============================================
-// 7. MESSAGERIE
-// ============================================
-
-Table conversations {
-  id uuid [pk]
-  type varchar [default: 'direct', note: 'direct, group']
-  name varchar
-  created_at timestamp [default: `now()`]
-  updated_at timestamp
-}
-
-Table conversation_members {
-  conversation_id uuid [ref: > conversations.id]
-  user_id uuid [ref: > users.id]
-  role varchar [default: 'member']
-  last_read_at timestamp
-  is_muted boolean [default: false]
-  joined_at timestamp [default: `now()`]
-
-  indexes {
-    (conversation_id, user_id) [pk]
-  }
-}
-
-Table messages {
-  id uuid [pk]
-  conversation_id uuid [ref: > conversations.id, not null]
-  sender_id uuid [ref: > users.id]
-  content text [not null]
-  created_at timestamp [default: `now()`]
-  edited_at timestamp
-}
-
-// ============================================
-// 8. NOTIFICATIONS
-// ============================================
-
-Table notifications {
-  id uuid [pk]
-  user_id uuid [ref: > users.id, not null]
-  type varchar [not null]
-  title varchar [not null]
-  body text
-  data jsonb
-  read_at timestamp
-  created_at timestamp [default: `now()`]
-}
-
-Table notification_preferences {
-  user_id uuid [ref: > users.id]
-  type varchar [not null]
-  push_enabled boolean [default: true]
-  email_enabled boolean [default: false]
-
-  indexes {
-    (user_id, type) [pk]
-  }
-}
-
-// ============================================
-// 9. FIL D'ACTUALITE
-// ============================================
-
-Table activities {
-  id uuid [pk]
-  user_id uuid [ref: > users.id, not null]
-  type varchar [not null]
-  data jsonb
-  visibility varchar [default: 'friends_only']
-  created_at timestamp [default: `now()`]
-}
-
-// ============================================
-// 10. RECOMMANDATIONS IA
-// ============================================
-
-Table recommendations {
-  id uuid [pk]
-  user_id uuid [ref: > users.id, not null]
-  game_id uuid [ref: > games.id, not null]
-  reason jsonb
-  score decimal [note: '0-1']
-  feedback varchar [note: 'liked, dismissed, added']
-  created_at timestamp [default: `now()`]
-  feedback_at timestamp
-}
-
-// ============================================
-// ENUMS (pour reference)
-// ============================================
 
 Enum release_status_enum {
   released
@@ -334,3 +47,732 @@ Enum friendship_status_enum {
   accepted
   blocked
 }
+
+Enum verification_token_type_enum {
+  email_verification
+  password_reset
+}
+
+Enum consent_type_enum {
+  terms_of_service
+  privacy_policy
+  data_processing
+  marketing
+}
+
+Enum report_status_enum {
+  pending
+  reviewed
+  resolved
+  dismissed
+}
+
+Enum conversation_type_enum {
+  direct
+  group
+}
+
+Enum conversation_role_enum {
+  member
+  admin
+}
+
+Enum game_update_source_enum {
+  igdb
+  rawg
+  scraper
+  manual
+}
+
+Enum gdpr_request_type_enum {
+  access
+  rectification
+  erasure
+  portability
+  opposition
+}
+
+Enum gdpr_request_status_enum {
+  pending
+  processing
+  completed
+  rejected
+}
+
+Enum notification_type_enum {
+  friend_request
+  friend_accepted
+  game_release
+  game_update
+  message_received
+  achievement_unlocked
+  recommendation
+  system
+}
+
+Enum activity_type_enum {
+  game_added
+  game_status_changed
+  game_completed
+  game_rated
+  game_reviewed
+  achievement_unlocked
+  badge_earned
+  friend_added
+}
+
+Enum device_platform_enum {
+  ios
+  android
+}
+
+Enum recommendation_feedback_enum {
+  liked
+  dismissed
+  added
+}
+
+// ============================================
+// 1. REFERENTIELS
+// ============================================
+
+Table platforms {
+  id uuid [pk]
+  name varchar(100) [not null]
+  code varchar(50) [unique, not null, note: 'ps5, xbox_series, switch, pc']
+  icon_url varchar(2048)
+  created_at timestamptz [default: `now()`]
+}
+
+Table services {
+  id uuid [pk]
+  name varchar(100) [not null]
+  code varchar(50) [unique, not null, note: 'steam, psn, xbox_live, epic, nintendo']
+  api_available boolean [default: true]
+  icon_url varchar(2048)
+  created_at timestamptz [default: `now()`]
+}
+
+Table service_platforms {
+  service_id uuid [ref: > services.id]
+  platform_id uuid [ref: > platforms.id]
+
+  indexes {
+    (service_id, platform_id) [pk]
+  }
+}
+
+Table genres {
+  id uuid [pk]
+  name varchar(100) [not null]
+  slug varchar(100) [unique, not null]
+  igdb_id int
+  created_at timestamptz [default: `now()`]
+}
+
+Table tags {
+  id uuid [pk]
+  name varchar(100) [not null]
+  slug varchar(100) [unique, not null]
+  category varchar(50) [note: 'mood, difficulty, feature']
+  created_at timestamptz [default: `now()`]
+}
+
+// ============================================
+// 2. UTILISATEURS & AUTH
+// ============================================
+
+Table users {
+  id uuid [pk]
+  email varchar(255) [unique, not null]
+  username varchar(30) [unique, not null]
+  password_hash text [note: 'Argon2id -- nullable pour les users OAuth-only']
+  display_name varchar(50)
+  avatar_url varchar(2048)
+  bio varchar(500)
+  locale varchar(5) [default: 'fr']
+  visibility visibility_enum [default: 'public', note: 'Remplace is_public pour coherence avec games/activities et support friends_only']
+  role user_role_enum [default: 'user']
+  email_verified boolean [default: false]
+  email_verified_at timestamptz
+  failed_login_attempts int [default: 0, note: 'CHECK (>= 0). Reset a 0 apres login reussi']
+  locked_until timestamptz [note: 'Verrouillage apres 5 tentatives echouees']
+  deleted_at timestamptz [note: 'Soft delete RGPD. Anonymiser : email, username, display_name, bio, avatar_url']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+}
+
+// Providers OAuth d'identite (Google, Discord)
+// DISTINCT de connected_services qui sert a l'import gaming
+Table auth_providers {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  provider varchar(50) [not null, note: 'google, discord']
+  provider_id varchar(255) [not null, note: 'ID unique chez le provider']
+  email varchar(255)
+  avatar_url varchar(2048)
+  created_at timestamptz [default: `now()`]
+  // raw_profile OAuth supprime : RGPD minimisation des donnees art. 5.1.c
+  // Seuls les champs necessaires sont conserves dans les colonnes dediees
+
+  indexes {
+    (provider, provider_id) [unique, note: 'Un compte Google = un seul user NextQuest']
+    (user_id, provider) [unique, note: 'Un user ne peut lier qu un seul compte par provider']
+  }
+}
+
+// Sessions actives -- refresh tokens en BDD
+// Le rate limiting global est gere par Redis + fastify-rate-limit, pas en BDD
+Table sessions {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  refresh_token_hash varchar(128) [unique, not null, note: 'SHA-256 du refresh token -- jamais le token brut']
+  family_id uuid [not null, note: 'Chaine de rotation. Token d une generation deja utilisee = vol detecte, revoquer toute la famille']
+  generation int [default: 1, note: 'CHECK (>= 1). Incremente a chaque rotation']
+  device_name varchar(100) [note: 'iPhone de JB, Chrome Windows']
+  ip_address varchar(45) [note: 'IPv4 ou IPv6 -- retention 90 jours max']
+  user_agent text
+  expires_at timestamptz [not null]
+  last_used_at timestamptz [default: `now()`]
+  revoked_at timestamptz [note: 'Non-null = session revoquee']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id) [note: 'Sessions actives par user. Limite applicative : 10 max']
+    (family_id) [note: 'Revocation de toute la famille en cas de vol']
+  }
+}
+
+// Tokens a usage unique (verification email, reset password)
+// A la creation d un nouveau token, invalider tous les tokens existants du meme (user_id, type)
+Table verification_tokens {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  type verification_token_type_enum [not null]
+  token_hash varchar(128) [not null, note: 'SHA-256 du token -- jamais le token brut']
+  attempts int [default: 0, note: 'CHECK (>= 0). Invalider apres 5 tentatives']
+  expires_at timestamptz [not null]
+  used_at timestamptz [note: 'Non-null = token deja utilise']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (token_hash) [unique]
+    (user_id, type) [note: 'Max 3 tokens actifs par type par user. Delai min 60s entre creations']
+  }
+}
+
+// Connexion aux plateformes gaming (import de bibliotheque)
+// DISTINCT de auth_providers qui sert a l'authentification
+Table connected_services {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  service_id uuid [ref: > services.id, not null]
+  external_user_id varchar(255) [not null]
+  external_username varchar(255)
+  access_token_encrypted text [note: 'Chiffre AES-256-GCM -- pas en clair en BDD']
+  refresh_token_encrypted text [note: 'Chiffre AES-256-GCM -- pas en clair en BDD']
+  encryption_key_version int [default: 1, note: 'Version de la cle. Permet rotation sans re-chiffrement immediat']
+  token_expires_at timestamptz
+  last_synced_at timestamptz
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+
+  indexes {
+    (user_id, service_id) [unique]
+  }
+}
+
+// ============================================
+// 3. JEUX
+// ============================================
+
+// Note architecture : developer et publisher sont volontairement denormalises (varchar)
+// car les donnees proviennent d'IGDB/RAWG et aucune feature "parcourir par studio" n'est prevue au MVP.
+// Normalisation (table studios + game_studios) a envisager en V2 si cette feature est ajoutee.
+Table games {
+  id uuid [pk]
+  igdb_id int
+  rawg_id int
+  title varchar(255) [not null, note: 'Index GIN pg_trgm pour recherche floue (zelad -> zelda)']
+  slug varchar(255) [not null, note: 'Genere depuis le titre. Deduplique : the-legend-of-zelda, the-legend-of-zelda-2. Unicite via index']
+  description text
+  cover_url varchar(2048)
+  background_url varchar(2048)
+  release_date date
+  release_status release_status_enum [default: 'released']
+  developer varchar(255)
+  publisher varchar(255)
+  avg_playtime int [note: 'En minutes. CHECK (>= 0)']
+  is_custom boolean [default: false]
+  created_by uuid [ref: > users.id, note: 'Createur du jeu custom. Seul created_by peut modifier un jeu is_custom=true']
+  visibility visibility_enum [default: 'private', note: 'Visibilite des jeux custom uniquement']
+  last_synced_at timestamptz
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+
+  indexes {
+    (igdb_id) [note: 'Dedoublonnage par ID IGDB']
+    (rawg_id) [note: 'Dedoublonnage par ID RAWG']
+    (slug) [unique, note: 'URLs SEO-friendly /games/:slug']
+  }
+}
+
+Table game_platforms {
+  game_id uuid [ref: > games.id]
+  platform_id uuid [ref: > platforms.id]
+
+  indexes {
+    (game_id, platform_id) [pk]
+  }
+}
+
+Table game_genres {
+  game_id uuid [ref: > games.id]
+  genre_id uuid [ref: > genres.id]
+
+  indexes {
+    (game_id, genre_id) [pk]
+  }
+}
+
+// Tags sur les jeux du referentiel (issus d'IGDB/RAWG)
+// DISTINCT de user_game_tags qui sont les tags perso de l'utilisateur sur sa collection
+Table game_tags {
+  game_id uuid [ref: > games.id]
+  tag_id uuid [ref: > tags.id]
+
+  indexes {
+    (game_id, tag_id) [pk]
+  }
+}
+
+Table game_updates {
+  id uuid [pk]
+  game_id uuid [ref: > games.id, not null]
+  field_changed varchar(100) [not null]
+  old_value text
+  new_value text
+  source game_update_source_enum [not null]
+  detected_at timestamptz [default: `now()`]
+  processed boolean [default: false]
+
+  indexes {
+    (game_id, detected_at) [note: 'Historique des MAJ d un jeu']
+    (processed, detected_at) [note: 'File de traitement des MAJ non traitees']
+  }
+}
+
+// ============================================
+// 4. COLLECTION UTILISATEUR
+// ============================================
+
+Table user_games {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  game_id uuid [ref: > games.id, not null]
+  service_id uuid [ref: > services.id]
+  platform_id uuid [ref: > platforms.id, note: 'Nullable quand status=wishlist (jeu pas encore sorti, plateforme inconnue)']
+  status game_status_enum [default: 'backlog']
+  rating int [note: 'CHECK (rating >= 1 AND rating <= 10)']
+  review text
+  playtime_minutes int [note: 'CHECK (>= 0)']
+  is_hidden boolean [default: false, note: 'Masquer de la bibliotheque sans supprimer']
+  started_at date
+  completed_at date
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+
+  indexes {
+    (user_id, game_id, platform_id) [unique, note: 'NULL != NULL en SQL : un user peut avoir plusieurs wishlist sans plateforme pour le meme jeu. Index partiel WHERE platform_id IS NULL ON (user_id, game_id) recommande pour eviter les doublons wishlist']
+    (user_id, status) [note: 'Bibliotheque filtree par statut -- requete la plus frequente']
+  }
+}
+
+Table user_game_tags {
+  user_game_id uuid [ref: > user_games.id]
+  tag_id uuid [ref: > tags.id]
+
+  indexes {
+    (user_game_id, tag_id) [pk]
+  }
+}
+
+// Historique des changements de statut (pour stats, badges, fil d'activite)
+Table user_game_status_history {
+  id uuid [pk]
+  user_game_id uuid [ref: > user_games.id, not null]
+  old_status game_status_enum
+  new_status game_status_enum [not null]
+  changed_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_game_id, changed_at) [note: 'Historique chronologique par jeu']
+  }
+}
+
+// ============================================
+// 5. ACHIEVEMENTS & BADGES
+// ============================================
+
+Table external_achievements {
+  id uuid [pk]
+  user_game_id uuid [ref: > user_games.id, not null]
+  external_id varchar(255) [not null]
+  name varchar(255) [not null]
+  description text
+  icon_url varchar(2048)
+  unlocked_at timestamptz
+  rarity decimal(5,2) [note: 'Pourcentage 0.00-100.00. CHECK (rarity >= 0 AND rarity <= 100)']
+
+  indexes {
+    (user_game_id, external_id) [unique]
+  }
+}
+
+Table badges {
+  id uuid [pk]
+  code varchar(100) [unique, not null]
+  name varchar(255) [not null]
+  description text
+  icon_url varchar(2048)
+  unlock_condition jsonb [not null, note: 'Ex: {"type": "games_completed", "threshold": 10} ou {"type": "playtime_total", "hours": 100}']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+}
+
+Table user_badges {
+  user_id uuid [ref: > users.id]
+  badge_id uuid [ref: > badges.id]
+  unlocked_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, badge_id) [pk]
+  }
+}
+
+// ============================================
+// 6. SOCIAL
+// ============================================
+
+// Ne JAMAIS supprimer une ligne avec status=blocked
+// Avant creation, verifier s'il existe (friend_id, user_id) en status blocked (sens inverse)
+// Concurrence : canonicaliser les paires (toujours user_id < friend_id) ou utiliser advisory lock
+// pour eviter les demandes croisees simultanees
+Table friendships {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  friend_id uuid [ref: > users.id, not null, note: 'CHECK (user_id != friend_id)']
+  status friendship_status_enum [default: 'pending']
+  blocked_at timestamptz [note: 'Horodatage du blocage pour audit']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+
+  indexes {
+    (user_id, friend_id) [unique]
+    (friend_id, status) [note: 'Requete : qui m a envoye une demande d ami ?']
+  }
+}
+
+// ============================================
+// 7. MESSAGERIE
+// ============================================
+// Chiffrement E2E des messages : evolution future V2
+// Pour le MVP, messages en clair en BDD
+
+Table conversations {
+  id uuid [pk]
+  type conversation_type_enum [default: 'direct']
+  name varchar(255)
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+}
+
+Table conversation_members {
+  conversation_id uuid [ref: > conversations.id]
+  user_id uuid [ref: > users.id]
+  role conversation_role_enum [default: 'member']
+  last_read_at timestamptz
+  is_muted boolean [default: false]
+  joined_at timestamptz [default: `now()`]
+
+  indexes {
+    (conversation_id, user_id) [pk]
+  }
+}
+
+Table messages {
+  id uuid [pk]
+  conversation_id uuid [ref: > conversations.id, not null]
+  sender_id uuid [ref: > users.id, note: 'SET NULL a la suppression du user -- message conserve anonymise']
+  content text [not null, note: 'CHECK (length(content) <= 5000)']
+  deleted_at timestamptz [note: 'Soft delete -- reste en BDD mais pas affiche']
+  created_at timestamptz [default: `now()`]
+  edited_at timestamptz
+
+  indexes {
+    (conversation_id, created_at) [note: 'Charger les messages d une conversation, pagines par date']
+  }
+}
+
+// ============================================
+// 8. NOTIFICATIONS
+// ============================================
+
+Table notifications {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  type notification_type_enum [not null]
+  title varchar(255) [not null]
+  body text
+  data jsonb
+  read_at timestamptz
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, read_at, created_at) [note: 'Mes notifications non lues, triees par date']
+  }
+}
+
+Table notification_preferences {
+  user_id uuid [ref: > users.id]
+  type notification_type_enum [not null]
+  push_enabled boolean [default: true]
+  email_enabled boolean [default: false]
+
+  indexes {
+    (user_id, type) [pk]
+  }
+}
+
+// Tokens push pour notifications mobile (FCM/APNs)
+Table user_devices {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  device_token varchar(512) [not null, note: 'Token FCM (Android) ou APNs (iOS)']
+  platform device_platform_enum [not null]
+  device_name varchar(100)
+  last_active_at timestamptz [default: `now()`]
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id) [note: 'Tous les appareils d un user']
+    (device_token) [unique, note: 'Un token = un seul appareil']
+  }
+}
+
+// ============================================
+// 9. FIL D'ACTUALITE
+// ============================================
+
+Table activities {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  type activity_type_enum [not null]
+  data jsonb
+  visibility visibility_enum [default: 'friends_only']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, created_at) [note: 'Fil d activite d un utilisateur, pagine par date']
+  }
+}
+
+// ============================================
+// 10. RECOMMANDATIONS IA
+// ============================================
+
+Table recommendations {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  game_id uuid [ref: > games.id, not null]
+  reason jsonb
+  score decimal(4,3) [note: '0.000-1.000. CHECK (score >= 0 AND score <= 1)']
+  feedback recommendation_feedback_enum
+  created_at timestamptz [default: `now()`]
+  feedback_at timestamptz
+
+  indexes {
+    (user_id, created_at) [note: 'Mes recommandations, triees par date']
+  }
+  // Note metier : un meme jeu peut etre recommande plusieurs fois dans le temps
+  // (ex: apres mise a jour du profil ou du modele IA). Pas de contrainte unique (user_id, game_id).
+}
+
+// ============================================
+// 11. SECURITE & AUDIT
+// ============================================
+
+// Journal de tous les evenements de securite
+// OWASP A09:2021 -- Security Logging and Monitoring
+// Candidat au partitionnement par range sur created_at (partitions trimestrielles)
+Table audit_logs {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, note: 'SET NULL si user supprime -- log conserve anonymise']
+  action varchar(50) [not null, note: 'login, login_failed, password_changed, password_reset, session_revoked, session_revoked_all, account_deleted, account_locked, role_changed, oauth_linked, oauth_unlinked, email_verified, service_connected, service_disconnected']
+  target_type varchar(50) [note: 'user, session, auth_provider, connected_service. FK polymorphe : integrite geree au niveau applicatif']
+  target_id uuid
+  ip_address varchar(45)
+  user_agent text
+  metadata jsonb [note: 'Details contextuels : ancien role, provider, raison du blocage']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id) [note: 'Historique par utilisateur']
+    (action) [note: 'Recherche par type d evenement']
+    (created_at) [note: 'Recherche chronologique et purge > 2 ans']
+  }
+}
+
+// ============================================
+// 12. RGPD & CONFORMITE
+// ============================================
+
+// Consentements utilisateur -- RGPD articles 6, 7
+Table user_consents {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  consent_type consent_type_enum [not null]
+  version varchar(20) [not null, note: 'Version du document accepte : 1.0, 1.1']
+  granted boolean [not null]
+  ip_address varchar(45)
+  user_agent text
+  granted_at timestamptz [note: 'CHECK (granted = false OR granted_at IS NOT NULL). Preuve RGPD art. 7.1']
+  revoked_at timestamptz
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, consent_type) [note: 'Dernier consentement par type']
+  }
+}
+
+// Suivi des demandes d'exercice de droits RGPD (articles 15 a 22)
+Table gdpr_requests {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, note: 'Nullable -- SET NULL a la suppression, preuve conservee']
+  type gdpr_request_type_enum [not null]
+  status gdpr_request_status_enum [default: 'pending']
+  notes text
+  processed_by uuid [ref: > users.id, note: 'Admin qui a traite. SET NULL si admin supprime']
+  processed_at timestamptz
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+}
+
+// ============================================
+// 13. MODERATION & SIGNALEMENTS
+// ============================================
+
+Table reports {
+  id uuid [pk]
+  reporter_id uuid [ref: > users.id, note: 'Nullable -- SET NULL a la suppression, signalement conserve']
+  target_type varchar(50) [not null, note: 'message, review, user, game. FK polymorphe : integrite geree au niveau applicatif']
+  target_id uuid [not null]
+  reason varchar(255) [not null]
+  description text
+  status report_status_enum [default: 'pending']
+  moderated_by uuid [ref: > users.id, note: 'Admin/moderateur. SET NULL si supprime']
+  moderated_at timestamptz
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz
+
+  indexes {
+    (status, created_at) [note: 'Backlog de moderation : signalements en attente']
+  }
+}
+
+// ============================================
+// COMPORTEMENTS ON DELETE (CASCADE / SET NULL)
+// ============================================
+// Implementes dans les migrations Drizzle.
+//
+// -- SUPPRESSION D'UN UTILISATEUR (soft delete + anonymisation RGPD) --
+// Avant suppression : purger notifications par batch pour eviter locks prolonges
+//
+// CASCADE (donnees privees) :
+//   sessions.user_id              -> CASCADE
+//   auth_providers.user_id        -> CASCADE
+//   verification_tokens.user_id   -> CASCADE
+//   connected_services.user_id    -> CASCADE
+//   user_games.user_id            -> CASCADE
+//   user_badges.user_id           -> CASCADE
+//   friendships.user_id           -> CASCADE
+//   friendships.friend_id         -> CASCADE
+//   conversation_members.user_id  -> CASCADE
+//   notifications.user_id         -> CASCADE
+//   notification_preferences      -> CASCADE
+//   activities.user_id            -> CASCADE
+//   recommendations.user_id       -> CASCADE
+//   user_consents.user_id         -> CASCADE
+//   user_devices.user_id          -> CASCADE
+//
+// SET NULL (contributions publiques / traces d'audit) :
+//   messages.sender_id            -> SET NULL
+//   games.created_by              -> SET NULL
+//   audit_logs.user_id            -> SET NULL
+//   gdpr_requests.user_id         -> SET NULL
+//   gdpr_requests.processed_by   -> SET NULL
+//   reports.reporter_id           -> SET NULL
+//   reports.moderated_by          -> SET NULL
+//
+// -- SUPPRESSION D'UN JEU --
+//   user_games.game_id            -> CASCADE
+//   game_platforms.game_id        -> CASCADE
+//   game_genres.game_id           -> CASCADE
+//   game_tags.game_id             -> CASCADE
+//   game_updates.game_id          -> CASCADE
+//   recommendations.game_id       -> CASCADE
+//
+// -- SUPPRESSION D'UN USER_GAME --
+//   external_achievements.user_game_id    -> CASCADE
+//   user_game_tags.user_game_id           -> CASCADE
+//   user_game_status_history.user_game_id -> CASCADE
+//
+// -- SUPPRESSION D'UNE CONVERSATION --
+//   conversation_members.conversation_id -> CASCADE
+//   messages.conversation_id             -> CASCADE
+//
+// -- REFERENTIELS (protections) --
+//   connected_services.service_id -> RESTRICT
+//   user_games.platform_id        -> RESTRICT
+//   user_games.service_id          -> SET NULL
+//   service_platforms.*            -> CASCADE
+//   game_platforms.platform_id     -> CASCADE
+//   game_genres.genre_id           -> CASCADE
+//   game_tags.tag_id               -> CASCADE
+//   user_game_tags.tag_id          -> CASCADE
+//   user_badges.badge_id           -> CASCADE
+
+// ============================================
+// NOTES ARCHITECTURE
+// ============================================
+//
+// RATE LIMITING (Redis + fastify-rate-limit)
+//   - POST /auth/login             : 5 tentatives / minute / IP
+//   - POST /auth/register          : 3 comptes / heure / IP
+//   - POST /auth/password-reset    : 3 demandes / heure / email
+//   - POST /messages               : 30 messages / minute / user
+//   - GET  /api/*                  : 100 requetes / minute / user
+//
+// RETENTION DES DONNEES
+//   - audit_logs                   : 2 ans (obligation legale)
+//   - sessions (revoquees)         : 90 jours puis purge
+//   - sessions.ip_address          : 90 jours puis anonymisation
+//   - verification_tokens (expires): purge toutes les 24h
+//   - notifications (lues)         : 1 an puis purge
+//
+// CHIFFREMENT
+//   - Mots de passe                : Argon2id (OWASP + NIST SP 800-63B)
+//   - Refresh tokens               : SHA-256 (hash, pas le token brut)
+//   - Verification tokens          : SHA-256
+//   - Tokens OAuth gaming          : AES-256-GCM (cle en env var)
+//   - Messages                     : en clair (evolution V2 : E2EE)
+//   - BDD production               : TDE (Transparent Data Encryption) PostgreSQL
+//
+// SCALABILITE
+//   - messages                     : partitionnement par range sur created_at (mensuel) si > 10M lignes
+//   - audit_logs                   : partitionnement par range sur created_at (trimestriel)
+//   - notifications                : purge automatique des notifications lues > 1 an
+//   - activities                   : si perf degradee, fan-out-on-write (materialiser le fil dans Redis)
+//
+// RECHERCHE
+//   - games.title                  : index GIN pg_trgm pour recherche floue

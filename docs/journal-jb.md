@@ -30,3 +30,13 @@
 **Module auth (implementation)** -- Register, login, refresh token (rotation avec detection de vol), logout, logout-all. Endpoints testes et fonctionnels. Cookie HttpOnly pour le web, body JSON pour le mobile.
 
 **Infra PC distant** -- Docker avec PostgreSQL + Redis sur PC Windows, accessible via Tailscale + SSH. Auto-login configure, Docker au demarrage, reboot distant fonctionnel.
+
+---
+
+## 14 avril 2026
+
+**OAuth Google + Microsoft** -- Implementation du flow Authorization Code cote serveur. Architecture extensible : chaque provider est isole dans son propre fichier avec une interface commune (`exchangeCode` + `getUserProfile`). Apple prevu plus tard, l'architecture est prete.
+
+**Logique find-or-create** -- A la connexion OAuth : si le provider est deja lie on login, si l'email existe on lie automatiquement, sinon on cree un nouveau compte. Liaison et deliaison de providers sur un compte existant.
+
+**Correction error handling** -- Les erreurs Zod renvoient maintenant 400 (au lieu de 500), et les erreurs de doublon PostgreSQL renvoient 409. 23 tests unitaires et d'integration.

@@ -18,7 +18,7 @@ const app = Fastify({
 });
 
 // Erreurs de validation Zod -> 400 avec details exploitables par le client
-app.setErrorHandler((error, _request, reply) => {
+app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
   if (error instanceof ZodError) {
     return reply.code(400).send({
       error: "Validation Error",

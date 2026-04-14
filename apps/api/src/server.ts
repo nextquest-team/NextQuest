@@ -1,6 +1,7 @@
 import { config } from "dotenv";
 config({ path: "../../.env" });
 import Fastify from "fastify";
+import { ZodError } from "zod";
 import { registerCors } from "./plugins/cors.js";
 import { registerSwagger } from "./plugins/swagger.js";
 import { registerJwt } from "./plugins/jwt.js";
@@ -14,6 +15,24 @@ const app = Fastify({
       target: "pino-pretty",
     },
   },
+});
+
+// Erreurs de validation Zod -> 400 avec details exploitables par le client
+app.setErrorHandler((error, _request, reply) => {
+  if (error instanceof ZodError) {
+    return reply.code(400).send({
+      error: "Validation Error",
+      details: error.issues.map((issue) => ({
+        field: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+  }
+
+  app.log.error(error);
+  return reply.code(error.statusCode ?? 500).send({
+    error: error.message || "Internal Server Error",
+  });
 });
 
 async function start() {

@@ -33,7 +33,9 @@ export async function authRoutes(app: FastifyInstance) {
     try {
       user = await createUser(input);
     } catch (err: any) {
-      if (err.code === "23505") {
+      // Drizzle encapsule l'erreur postgres dans err.cause (ou directement sur err selon la version)
+      const pgCode = err.code ?? err.cause?.code;
+      if (pgCode === "23505") {
         return reply.code(409).send({ error: "Email ou username deja utilise" });
       }
       app.log.error(err);

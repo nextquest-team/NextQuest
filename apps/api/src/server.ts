@@ -8,6 +8,7 @@ import { registerJwt } from "./plugins/jwt.js";
 import { registerCookie } from "./plugins/cookie.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { oauthRoutes } from "./modules/auth/oauth/oauth.routes.js";
 
 const app = Fastify({
   logger: {
@@ -45,6 +46,7 @@ async function start() {
 
   await app.register(healthRoutes, { prefix: "/api" });
   await app.register(authRoutes, { prefix: "/api" });
+  await app.register(oauthRoutes, { prefix: "/api/auth" });
 
   const port = Number(process.env.PORT) || 3000;
 

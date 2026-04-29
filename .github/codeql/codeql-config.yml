@@ -1,0 +1,25 @@
+name: NextQuest CodeQL config
+
+# Ruleset par defaut + qualite. Le plus strict que CodeQL propose.
+queries:
+  - uses: security-and-quality
+
+# js/missing-rate-limiting est un faux positif sur notre stack :
+# CodeQL ne reconnait pas le pattern @fastify/rate-limit (ni en
+# `config.rateLimit` ni en `preHandler: app.rateLimit(...)`). Il continue
+# de flagger les routes auth alors que :
+# - le plugin est enregistre globalement dans server.ts (registerRateLimit)
+# - chaque route auth/oauth a un override explicite via app.rateLimit()
+#
+# On ne veut pas dismiss les alertes a la main a chaque PR, donc on exclut
+# la regle a la racine. Le rate limiting reste reellement applique au
+# runtime (testable via test E2E ou inspection du plugin Fastify).
+query-filters:
+  - exclude:
+      id: js/missing-rate-limiting
+
+paths-ignore:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/.nuxt/**"
+  - "**/.output/**"

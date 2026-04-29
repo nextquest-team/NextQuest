@@ -14,12 +14,12 @@
   "dependencies": {
     "@nextquest/shared": "workspace:*",
     "nuxt": "^3.16.0",
-    "vue": "^3.5.13",
+    "vue": "^3.5.33",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
     "@nextquest/config": "workspace:*",
     "@nuxtjs/tailwindcss": "^6.13.2",
-    "eslint": "^10.1.0"
+    "eslint": "^10.2.1"
   }
 }

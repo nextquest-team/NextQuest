@@ -15,6 +15,6 @@
   "devDependencies": {
     "@nextquest/config": "workspace:*",
     "typescript": "^5.8.3",
-    "eslint": "^10.1.0"
+    "eslint": "^10.2.1"
   }
 }

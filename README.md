@@ -58,7 +58,7 @@ nextquest/
 
 ```bash
 # 1. Cloner le repo
-git clone git@github.com:Jeeiib/NextQuest.git
+git clone git@github.com:nextquest-team/NextQuest.git
 cd NextQuest
 
 # 2. Installer les dependances

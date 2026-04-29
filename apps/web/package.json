@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@nextquest/shared": "workspace:*",
-    "nuxt": "^3.16.0",
+    "nuxt": "^4.4.2",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },

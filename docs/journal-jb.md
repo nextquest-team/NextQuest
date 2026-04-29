@@ -40,3 +40,15 @@
 **Logique find-or-create** -- A la connexion OAuth : si le provider est deja lie on login, si l'email existe on lie automatiquement, sinon on cree un nouveau compte. Liaison et deliaison de providers sur un compte existant.
 
 **Correction error handling** -- Les erreurs Zod renvoient maintenant 400 (au lieu de 500), et les erreurs de doublon PostgreSQL renvoient 409. 23 tests unitaires et d'integration.
+
+---
+
+## 29 avril 2026
+
+**Tests OAuth en conditions reelles** -- Apps Google + Microsoft creees, flows testes via Chrome DevTools MCP. Le scenario cross-provider valide : un user qui s'inscrit via Google puis se reconnecte via Microsoft (meme email) retrouve son compte avec les 2 providers lies.
+
+**Endpoint `/auth/me`** -- Renvoie le profil du user connecte (id, email, username, displayName, avatarUrl, bio, locale, visibility, role, emailVerified). Necessaire pour que le front affiche l'utilisateur apres OAuth ou refresh de page.
+
+**Documentation Swagger** -- Tous les endpoints groupes en 3 tags (Health, Auth, OAuth) avec descriptions. Lorelei peut explorer l'API via http://localhost:3000/docs et tester les requetes directement.
+
+**Infra dev distante** -- Docker Postgres + Redis tournent sur le PC Windows fixe, accessible via Tailscale (100.71.14.124). Nouveau PC, donc workaround pour le credential helper Docker Desktop sur SSH non-interactif (pre-pull des images en local sur le PC).

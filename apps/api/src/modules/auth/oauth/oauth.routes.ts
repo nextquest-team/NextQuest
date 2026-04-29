@@ -48,7 +48,21 @@ const providerParamSchema = z.object({
 
 export async function oauthRoutes(app: FastifyInstance) {
   // Initiation : renvoie l'URL d'autorisation du provider
-  app.get("/oauth/:provider", async (request, reply) => {
+  app.get("/oauth/:provider", {
+    schema: {
+      tags: ["OAuth"],
+      summary: "Demarrer un flow OAuth",
+      description:
+        "Renvoie l'URL d'autorisation du provider (google, microsoft) que le front utilise pour rediriger l'utilisateur. Pose un cookie state pour la protection CSRF.",
+      params: {
+        type: "object",
+        required: ["provider"],
+        properties: {
+          provider: { type: "string", enum: ["google", "microsoft"] },
+        },
+      },
+    },
+  }, async (request, reply) => {
     const { provider } = providerParamSchema.parse(request.params);
 
     const config = getProviderConfig(provider);
@@ -64,7 +78,14 @@ export async function oauthRoutes(app: FastifyInstance) {
   });
 
   // Callback : le provider redirige ici apres authentification
-  app.get("/oauth/:provider/callback", async (request, reply) => {
+  app.get("/oauth/:provider/callback", {
+    schema: {
+      tags: ["OAuth"],
+      summary: "Callback OAuth (appele par le provider)",
+      description:
+        "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token. En cas d'erreur, redirige vers le front avec ?error=...",
+    },
+  }, async (request, reply) => {
     const { provider } = providerParamSchema.parse(request.params);
 
     const query = request.query as { code?: string; state?: string; error?: string };
@@ -130,7 +151,16 @@ export async function oauthRoutes(app: FastifyInstance) {
   // Lier un provider OAuth a un compte existant (authentifie)
   app.post(
     "/oauth/:provider/link",
-    { onRequest: [async (req) => req.jwtVerify()] },
+    {
+      onRequest: [async (req) => req.jwtVerify()],
+      schema: {
+        tags: ["OAuth"],
+        summary: "Lier un provider OAuth au compte courant",
+        description:
+          "Demarre un flow OAuth pour ajouter un provider supplementaire au compte connecte (ex: deja inscrit en email/password, on ajoute Google).",
+        security: [{ bearerAuth: [] }],
+      },
+    },
     async (request, reply) => {
       const { provider } = providerParamSchema.parse(request.params);
 
@@ -155,7 +185,16 @@ export async function oauthRoutes(app: FastifyInstance) {
   // Deliaison d'un provider (authentifie)
   app.delete(
     "/oauth/:provider/link",
-    { onRequest: [async (req) => req.jwtVerify()] },
+    {
+      onRequest: [async (req) => req.jwtVerify()],
+      schema: {
+        tags: ["OAuth"],
+        summary: "Delier un provider OAuth",
+        description:
+          "Supprime la liaison d'un provider OAuth. Refuse si c'est la seule methode de connexion (l'utilisateur n'a ni mot de passe ni autre provider).",
+        security: [{ bearerAuth: [] }],
+      },
+    },
     async (request, reply) => {
       const { provider } = providerParamSchema.parse(request.params);
       const userId = (request.user as any).sub;

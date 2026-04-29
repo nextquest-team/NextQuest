@@ -59,3 +59,8 @@ temp/
 
 # Drizzle
 migrations/meta/
+
+# Specs internes (cahier des charges, plans de dev) - ne pas exposer en public
+docs/plans/
+docs/specs/
+*.local.md

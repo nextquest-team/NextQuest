@@ -17,9 +17,14 @@ interface OAuthResult {
 
 // Generates a unique username from email or displayName
 function generateUsername(email: string, displayName: string | null): string {
-  const base = displayName
-    ? displayName.toLowerCase().replace(/[^a-z0-9]/g, "")
-    : email.split("@")[0].replace(/[^a-z0-9]/g, "");
+  // Cas observe : Microsoft renvoie un displayName non-null mais qui ne contient
+  // que des caracteres non-alphanumeriques (ex: ideogrammes, ponctuation seule).
+  // Apres sanitization, ca donne une chaine vide -> fallback sur l'email.
+  const fromDisplayName = displayName
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  const fromEmail = email.split("@")[0].replace(/[^a-z0-9]/g, "");
+  const base = fromDisplayName || fromEmail;
   const truncated = base.slice(0, 24) || "user";
   const suffix = randomUUID().slice(0, 5);
   return `${truncated}_${suffix}`;

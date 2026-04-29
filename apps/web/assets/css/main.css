@@ -1,0 +1,128 @@
+@font-face {
+  font-family: 'Knights Quest';
+  src: url('/fonts/knights-quest/KnightsQuest.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Knights Quest Callig';
+  src: url('/fonts/knights-quest/KnightsQuestCallig.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Knights Quest Shielded';
+  src: url('/fonts/knights-quest/KnightsQuestShielded.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  --nq-brown: #5C3317;
+  --nq-brown-dark: #3A1A0A;
+  --nq-cream: #F8F4EA;
+  --nq-beige: #EDE8DC;
+  --nq-red: #8B1F1F;
+  --nq-font: 'Knights Quest', 'Georgia', serif;
+}
+
+html, body {
+  font-family: var(--nq-font);
+  background-color: var(--nq-beige);
+}
+
+/* ── Patch button principal (fond crème, bordure stitchée) ── */
+/*
+ * TODO: Remplacer le box-shadow par border-image avec l'asset knit-stitch.png
+ * pour un rendu authentique quand les assets sont disponibles.
+ * Exemple : border-image: url('/images/ui/knit-border.png') 20 round;
+ */
+.patch-btn {
+  background: var(--nq-cream);
+  border: 3px solid var(--nq-brown);
+  border-radius: 14px;
+  box-shadow: 0 0 0 5px var(--nq-cream), 0 0 0 8px var(--nq-brown);
+  font-family: var(--nq-font);
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--nq-brown-dark);
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  text-transform: none !important;
+}
+
+.patch-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.95);
+}
+
+.patch-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.90);
+}
+
+/* ── Patch button retour (carré, icône) ── */
+.patch-btn-back {
+  background: var(--nq-cream);
+  border: 3px solid var(--nq-brown);
+  border-radius: 10px;
+  box-shadow: 0 0 0 4px var(--nq-cream), 0 0 0 7px var(--nq-brown);
+  color: var(--nq-brown-dark);
+  min-width: 52px !important;
+  height: 52px !important;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.patch-btn-back:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.95);
+}
+
+/* ── Patch button social (fond coloré, texte blanc) ── */
+/* TODO: Ajouter texture feutre via background-image quand les assets sont disponibles */
+.patch-social {
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  font-family: var(--nq-font);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  color: #ffffff !important;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+  text-transform: none !important;
+}
+
+.patch-social:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* ── Inputs ── */
+.nq-input .v-field {
+  border-radius: 12px !important;
+  font-family: var(--nq-font) !important;
+}
+
+.nq-input .v-field__input {
+  font-family: var(--nq-font) !important;
+  color: var(--nq-brown-dark) !important;
+  letter-spacing: 0.03em;
+}
+
+.nq-input .v-field--variant-solo {
+  box-shadow: none !important;
+}
+
+/* Labels de champs */
+.nq-label {
+  font-family: var(--nq-font);
+  font-variant: small-caps;
+  font-size: 0.95rem;
+  color: var(--nq-brown-dark);
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  display: block;
+}

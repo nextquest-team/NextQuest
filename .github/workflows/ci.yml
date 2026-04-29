@@ -6,6 +6,11 @@ on:
   push:
     branches: [main, develop]
 
+# Principe de moindre privilege : le GITHUB_TOKEN n'a besoin que de lire le repo
+# pour checkout. Pas d'ecriture, pas d'autres scopes.
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest

@@ -28,6 +28,8 @@ function getRefreshToken(request: any): string | undefined {
 export async function authRoutes(app: FastifyInstance) {
   // Inscription : cree le user + session, renvoie access token + refresh token
   app.post("/auth/register", {
+    // Anti-abus : limite la creation de comptes a 5 par IP par 15 min
+    config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
     schema: {
       tags: ["Auth"],
       summary: "Inscription email/mot de passe",
@@ -72,6 +74,9 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Login : verifie les credentials, cree une nouvelle session
   app.post("/auth/login", {
+    // Anti brute-force IP-based, en complement du verrouillage compte
+    // (5 echecs / 15 min) gere dans verifyCredentials. 10 / min par IP.
+    config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
     schema: {
       tags: ["Auth"],
       summary: "Connexion email/mot de passe",
@@ -109,6 +114,9 @@ export async function authRoutes(app: FastifyInstance) {
 
   // Rotation du refresh token : l'ancien est invalide, un nouveau est emis
   app.post("/auth/refresh", {
+    // Refresh legitime = 1 fois toutes les 15 min. 30 / min couvre les onglets
+    // multiples sans laisser de marge pour le bruteforce.
+    config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
     schema: {
       tags: ["Auth"],
       summary: "Renouveler l'access token",

@@ -6,6 +6,7 @@ import { registerCors } from "./plugins/cors.js";
 import { registerSwagger } from "./plugins/swagger.js";
 import { registerJwt } from "./plugins/jwt.js";
 import { registerCookie } from "./plugins/cookie.js";
+import { registerRateLimit } from "./plugins/rate-limit.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { oauthRoutes } from "./modules/auth/oauth/oauth.routes.js";
@@ -18,7 +19,9 @@ const app = Fastify({
   },
 });
 
-// Erreurs de validation Zod -> 400 avec details exploitables par le client
+// Erreurs de validation Zod -> 400 avec details exploitables par le client.
+// `error` est typee unknown depuis Fastify 5.8.5, on raffine avec le shape
+// minimal qu'on consomme (statusCode optionnel, message d'Error standard).
 app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
   if (error instanceof ZodError) {
     return reply.code(400).send({
@@ -43,6 +46,7 @@ async function start() {
   await registerSwagger(app);
   await registerJwt(app);
   await registerCookie(app);
+  await registerRateLimit(app);
 
   await app.register(healthRoutes, { prefix: "/api" });
   await app.register(authRoutes, { prefix: "/api" });

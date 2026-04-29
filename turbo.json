@@ -1,5 +1,20 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "JWT_SECRET",
+    "JWT_REFRESH_SECRET",
+    "ENCRYPTION_KEY",
+    "API_BASE_URL",
+    "OAUTH_REDIRECT_URL",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "MICROSOFT_CLIENT_ID",
+    "MICROSOFT_CLIENT_SECRET",
+    "PORT"
+  ],
   "tasks": {
     "dev": {
       "cache": false,
@@ -17,6 +32,9 @@
     },
     "test": {
       "dependsOn": ["^build"]
+    },
+    "db:migrate": {
+      "cache": false
     }
   }
 }

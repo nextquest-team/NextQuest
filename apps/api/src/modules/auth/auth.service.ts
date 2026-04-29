@@ -196,3 +196,28 @@ export async function revokeAllSessions(userId: string) {
     .set({ revokedAt: new Date() })
     .where(eq(sessions.userId, userId));
 }
+
+// Recupere le profil complet pour un utilisateur authentifie.
+// On filtre explicitement les colonnes sensibles (password_hash, lockedUntil...)
+// pour qu'elles ne soient jamais renvoyees au client.
+export async function getUserById(userId: string) {
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      username: users.username,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+      bio: users.bio,
+      locale: users.locale,
+      visibility: users.visibility,
+      role: users.role,
+      emailVerified: users.emailVerified,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .limit(1);
+
+  return user ?? null;
+}

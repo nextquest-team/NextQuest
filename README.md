@@ -58,7 +58,7 @@ nextquest/
 
 ```bash
 # 1. Cloner le repo
-git clone git@github.com:Jeeiib/NextQuest.git
+git clone git@github.com:nextquest-team/NextQuest.git
 cd NextQuest
 
 # 2. Installer les dependances
@@ -77,6 +77,18 @@ pnpm --filter @nextquest/db db:migrate
 # 6. Lancer le projet
 pnpm dev
 ```
+
+### URLs locales
+
+Une fois lance, voici les URLs disponibles :
+
+| Service | URL |
+|---------|-----|
+| API | http://localhost:3000 |
+| **Swagger UI (doc API)** | **http://localhost:3000/docs** |
+| Health check | http://localhost:3000/api/health |
+| Drizzle Studio (BDD) | https://local.drizzle.studio (apres `pnpm --filter @nextquest/db db:studio`) |
+| Web (Nuxt) | http://localhost:3001 |
 
 ### Commandes utiles
 
@@ -143,23 +155,67 @@ Pas besoin d'ecrire du SQL a la main. Le schema vit dans le code, versionne dans
 
 Docker fait tourner PostgreSQL et Redis sur ta machine sans les installer. C'est comme une "mini-VM" isolee. Tu lances `docker compose up -d` et c'est pret.
 
-### L'authentification (en cours)
+### L'authentification
 
-Les utilisateurs se connectent via email/mot de passe ou via Google/Discord (OAuth). Les connexions aux plateformes gaming (Steam, PSN, Xbox) sont un module separe qui sert a importer la bibliotheque de jeux, pas a s'authentifier.
+Les utilisateurs se connectent via email/mot de passe ou via Google/Microsoft (OAuth). Les connexions aux plateformes gaming (Steam, PSN, Xbox) sont un module separe pour importer la bibliotheque de jeux, pas pour s'authentifier.
+
+JWT access token (15 min) + refresh token rotatif 30 jours (cookie HttpOnly pour le web, body pour le mobile). Password hashe en Argon2id, OAuth Authorization Code cote serveur. Detail de chaque endpoint et schema des reponses dans **Swagger : http://localhost:3000/docs**.
+
+| Endpoint | Use case |
+|----------|----------|
+| `POST /api/auth/register` | Inscription email/password |
+| `POST /api/auth/login` | Connexion email/password |
+| `POST /api/auth/refresh` | Renouveler les tokens (rotation auto, detection de vol) |
+| `POST /api/auth/logout` | Deconnexion de la session courante |
+| `POST /api/auth/logout-all` | Deconnexion de toutes les sessions |
+| `GET /api/auth/me` | Profil du user connecte |
+| `GET /api/auth/oauth/:provider` | Demarrer un flow OAuth (`google` ou `microsoft`) |
+| `GET /api/auth/oauth/:provider/callback` | Callback OAuth (appele par le provider) |
+| `POST /api/auth/oauth/:provider/link` | Lier un provider a un compte existant |
+| `DELETE /api/auth/oauth/:provider/link` | Delier un provider |
 
 ## Documentation
 
-- [Architecture et environnement de dev](docs/specs/environnementDev.md) -- Explication de chaque choix technique
 - [Guide Docker](docs/docker.md) -- Comment fonctionne Docker dans le projet
 - [Schema BDD (DBML)](docs/database/schema.dbml) -- Schema relationnel complet (34 tables)
 - [Journal backend (JB)](docs/journal-jb.md) -- Historique des decisions backend
+- [Configuration GitHub](docs/setup-github.md) -- Etat de la config GitHub (rulesets, Dependabot, scanning)
 
 ## Conventions
 
 - **TypeScript strict** partout
-- **Conventional Commits** : `feat:`, `fix:`, `docs:`, `refactor:`, `test:`
+- **Conventional Commits** : `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
 - **Branches** : `main` (prod), `develop` (integration), `feature/*`, `fix/*`
 - **PR obligatoires** avec code review avant merge
+
+## Workflow PR et CI
+
+Chaque feature passe par une PR vers `develop`. L'autre dev review pour comprendre le changement et valider la qualite.
+
+### CI automatique (GitHub Actions)
+
+A chaque push ou PR sur `develop` / `main`, la CI verifie :
+
+| Etape | Description |
+|-------|-------------|
+| Lint | `pnpm lint` -- ESLint sur tous les packages |
+| Typecheck | `pnpm typecheck` -- TypeScript strict sur tous les packages |
+| Migrations | Applique les migrations Drizzle sur une BDD Postgres ephemere |
+| Tests | `pnpm test` -- Vitest avec Postgres + Redis services |
+| Build | `pnpm build` -- compile le code de production |
+
+Les services Postgres 16 et Redis 7 sont demarres dans le runner GitHub. La CI doit etre verte avant tout merge.
+
+### Securite et qualite
+
+- **CodeQL** -- analyse statique GitHub (OWASP Top 10) qui tourne a chaque PR et chaque lundi. Resultats dans l'onglet **Security** du repo.
+- **Dependabot** -- ouvre automatiquement des PRs pour mettre a jour les dependances (npm + GitHub Actions). Les patches/minor sont groupes en une PR par semaine.
+- **Secret scanning** -- active par defaut sur les repos publics, alerte si un secret est commit par erreur.
+
+### Templates et reviewers
+
+- **PR template** (`.github/PULL_REQUEST_TEMPLATE.md`) -- chaque nouvelle PR est pre-remplie avec les sections obligatoires (Resume, Changements, Comment tester, Checklist).
+- **CODEOWNERS** (`.github/CODEOWNERS`) -- ajoute automatiquement les reviewers selon les fichiers modifies (back -> JB, front -> Lorelei, partage -> les deux).
 
 ## Contexte
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 
-defineProps<{
+const props = defineProps<{
   // 'primary' = bouton crème stitché | 'back' = bouton retour carré | 'social' = patch coloré
   variant?: 'primary' | 'back' | 'social'
   color?: string
@@ -10,16 +10,30 @@ defineProps<{
   type?: 'button' | 'submit' | 'reset'
   block?: boolean
 }>()
+
+const isNative = computed(() => props.variant !== 'social')
 </script>
 
 <template>
+  <!-- Boutons primary / back : <button> natif pour que border-image s'affiche correctement -->
+  <button
+    v-if="isNative"
+    :type="type ?? 'button'"
+    :disabled="disabled || loading"
+    :class="[
+      variant === 'back' ? 'patch-btn-back' : 'patch-btn',
+      { 'patch-block': block },
+    ]"
+    v-bind="$attrs"
+  >
+    <slot />
+  </button>
+
+  <!-- Boutons sociaux : v-btn de Vuetify (couleur unie, pas de border-image) -->
   <v-btn
-    :class="{
-      'patch-btn': variant !== 'back' && variant !== 'social',
-      'patch-btn-back': variant === 'back',
-      'patch-social': variant === 'social',
-    }"
-    :color="variant === 'social' ? color : undefined"
+    v-else
+    class="patch-social"
+    :color="color"
     :loading="loading"
     :disabled="disabled"
     :type="type ?? 'button'"

@@ -51,7 +51,7 @@
 
 **Documentation Swagger** -- Tous les endpoints groupes en 3 tags (Health, Auth, OAuth) avec descriptions. Lorelei peut explorer l'API via http://localhost:3000/docs et tester les requetes directement.
 
-**Infra dev distante** -- Docker Postgres + Redis tournent sur le PC Windows fixe, accessible via Tailscale (100.71.14.124). Nouveau PC, donc workaround pour le credential helper Docker Desktop sur SSH non-interactif (pre-pull des images en local sur le PC).
+**Infra dev distante** -- Docker Postgres + Redis tournent sur un PC Windows fixe, accessible via Tailscale (l'IP du tailnet reste prive). Nouveau PC, donc workaround pour le credential helper Docker Desktop sur SSH non-interactif (pre-pull des images en local sur le PC).
 
 **CI/CD industrialisee** -- La CI GitHub Actions inclut maintenant lint + typecheck + migrations + tests + build, avec services Postgres 16 et Redis 7 ephemeres. Ajout de CodeQL (analyse de securite OWASP Top 10), Dependabot (updates auto des deps + actions), template de PR et CODEOWNERS (reviewers auto par chemin). Configs eslint reparees : chaque package re-exporte `@nextquest/config/eslint` pour satisfaire le flat config d'ESLint 9+.
 

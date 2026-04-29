@@ -1,0 +1,43 @@
+# CodeQL : analyse de securite statique fournie par GitHub.
+# Detecte les patterns dangereux (XSS, prototype pollution, etc.) selon
+# OWASP Top 10. Les resultats apparaissent dans l'onglet "Security" du repo.
+name: CodeQL
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  # Analyse complete une fois par semaine, meme sans changement,
+  # pour rattraper les nouveaux patterns ajoutes par GitHub a la base de regles
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript-typescript"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # security-and-quality = ruleset le plus strict (securite + maintenabilite)
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

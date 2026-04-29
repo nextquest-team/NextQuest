@@ -25,6 +25,22 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://nextquest:nextquest@localhost:5432/nextquest_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: test-secret
+      JWT_REFRESH_SECRET: test-refresh-secret
+
     steps:
       - uses: actions/checkout@v4
 
@@ -43,10 +59,14 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Migrations avant les tests : sinon vitest tape sur des tables inexistantes
+      - name: Run database migrations
+        run: pnpm --filter @nextquest/db db:migrate
+
       - name: Test
         run: pnpm test
-        env:
-          DATABASE_URL: postgresql://nextquest:nextquest@localhost:5432/nextquest_test
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-secret
-          JWT_REFRESH_SECRET: test-refresh-secret
+
+      # Build prod : verifie que le code transpile correctement, attrape les
+      # erreurs de bundling specifiques au build (imports manquants, etc.)
+      - name: Build
+        run: pnpm build

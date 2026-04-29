@@ -185,13 +185,43 @@ Tous les endpoints sont documentes dans Swagger : http://localhost:3000/docs
 - [Guide Docker](docs/docker.md) -- Comment fonctionne Docker dans le projet
 - [Schema BDD (DBML)](docs/database/schema.dbml) -- Schema relationnel complet (34 tables)
 - [Journal backend (JB)](docs/journal-jb.md) -- Historique des decisions backend
+- [Configuration GitHub](docs/setup-github.md) -- Actions manuelles a faire dans GitHub Settings (branch protection, Dependabot, CodeQL)
 
 ## Conventions
 
 - **TypeScript strict** partout
-- **Conventional Commits** : `feat:`, `fix:`, `docs:`, `refactor:`, `test:`
+- **Conventional Commits** : `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
 - **Branches** : `main` (prod), `develop` (integration), `feature/*`, `fix/*`
 - **PR obligatoires** avec code review avant merge
+
+## Workflow PR et CI
+
+Chaque feature passe par une PR vers `develop`. L'autre dev review pour comprendre le changement et valider la qualite.
+
+### CI automatique (GitHub Actions)
+
+A chaque push ou PR sur `develop` / `main`, la CI verifie :
+
+| Etape | Description |
+|-------|-------------|
+| Lint | `pnpm lint` -- ESLint sur tous les packages |
+| Typecheck | `pnpm typecheck` -- TypeScript strict sur tous les packages |
+| Migrations | Applique les migrations Drizzle sur une BDD Postgres ephemere |
+| Tests | `pnpm test` -- Vitest avec Postgres + Redis services |
+| Build | `pnpm build` -- compile le code de production |
+
+Les services Postgres 16 et Redis 7 sont demarres dans le runner GitHub. La CI doit etre verte avant tout merge.
+
+### Securite et qualite
+
+- **CodeQL** -- analyse statique GitHub (OWASP Top 10) qui tourne a chaque PR et chaque lundi. Resultats dans l'onglet **Security** du repo.
+- **Dependabot** -- ouvre automatiquement des PRs pour mettre a jour les dependances (npm + GitHub Actions). Les patches/minor sont groupes en une PR par semaine.
+- **Secret scanning** -- active par defaut sur les repos publics, alerte si un secret est commit par erreur.
+
+### Templates et reviewers
+
+- **PR template** (`.github/PULL_REQUEST_TEMPLATE.md`) -- chaque nouvelle PR est pre-remplie avec les sections obligatoires (Resume, Changements, Comment tester, Checklist).
+- **CODEOWNERS** (`.github/CODEOWNERS`) -- ajoute automatiquement les reviewers selon les fichiers modifies (back -> JB, front -> Lorelei, partage -> les deux).
 
 ## Contexte
 

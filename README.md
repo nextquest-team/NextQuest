@@ -157,35 +157,29 @@ Docker fait tourner PostgreSQL et Redis sur ta machine sans les installer. C'est
 
 ### L'authentification
 
-Les utilisateurs se connectent via email/mot de passe ou via Google/Microsoft (OAuth). Les connexions aux plateformes gaming (Steam, PSN, Xbox) sont un module separe qui sert a importer la bibliotheque de jeux, pas a s'authentifier.
+Les utilisateurs se connectent via email/mot de passe ou via Google/Microsoft (OAuth). Les connexions aux plateformes gaming (Steam, PSN, Xbox) sont un module separe pour importer la bibliotheque de jeux, pas pour s'authentifier.
 
-Tous les endpoints sont documentes dans Swagger : http://localhost:3000/docs
+JWT access token (15 min) + refresh token rotatif 30 jours (cookie HttpOnly pour le web, body pour le mobile). Password hashe en Argon2id, OAuth Authorization Code cote serveur. Detail de chaque endpoint et schema des reponses dans **Swagger : http://localhost:3000/docs**.
 
 | Endpoint | Use case |
 |----------|----------|
 | `POST /api/auth/register` | Inscription email/password |
 | `POST /api/auth/login` | Connexion email/password |
-| `POST /api/auth/refresh` | Renouveler le token (auto par le front) |
-| `POST /api/auth/logout` | Deconnexion session courante |
-| `POST /api/auth/logout-all` | Deconnexion globale (compte compromis) |
+| `POST /api/auth/refresh` | Renouveler les tokens (rotation auto, detection de vol) |
+| `POST /api/auth/logout` | Deconnexion de la session courante |
+| `POST /api/auth/logout-all` | Deconnexion de toutes les sessions |
 | `GET /api/auth/me` | Profil du user connecte |
 | `GET /api/auth/oauth/:provider` | Demarrer un flow OAuth (`google` ou `microsoft`) |
 | `GET /api/auth/oauth/:provider/callback` | Callback OAuth (appele par le provider) |
 | `POST /api/auth/oauth/:provider/link` | Lier un provider a un compte existant |
 | `DELETE /api/auth/oauth/:provider/link` | Delier un provider |
 
-**Strategie de tokens :**
-- **Access token JWT** (15 min) : a passer en header `Authorization: Bearer <token>` sur les endpoints proteges
-- **Refresh token** (30 jours) : pose dans un cookie HttpOnly + SameSite=Strict, aussi renvoye dans le body pour le mobile
-- Rotation automatique : chaque `/refresh` revoque l'ancien token et en emet un nouveau, avec detection de vol
-
 ## Documentation
 
-- [Architecture et environnement de dev](docs/specs/environnementDev.md) -- Explication de chaque choix technique
 - [Guide Docker](docs/docker.md) -- Comment fonctionne Docker dans le projet
 - [Schema BDD (DBML)](docs/database/schema.dbml) -- Schema relationnel complet (34 tables)
 - [Journal backend (JB)](docs/journal-jb.md) -- Historique des decisions backend
-- [Configuration GitHub](docs/setup-github.md) -- Actions manuelles a faire dans GitHub Settings (branch protection, Dependabot, CodeQL)
+- [Configuration GitHub](docs/setup-github.md) -- Etat de la config GitHub (rulesets, Dependabot, scanning)
 
 ## Conventions
 

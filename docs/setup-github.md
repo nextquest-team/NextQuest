@@ -1,31 +1,33 @@
 # Configuration GitHub -- Etat actuel
 
-Ce document liste l'etat de la configuration GitHub du repo `Jeeiib/NextQuest` et les **dernieres etapes manuelles** a faire dans GitHub Settings.
+Repo : `nextquest-team/NextQuest` -- **public**
 
-La majorite de la config a ete appliquee automatiquement via le `gh` CLI. Ce qui reste est limite par le plan GitHub (repo prive sans GitHub Advanced Security).
+Toute la securite a ete configuree automatiquement via le `gh` CLI. Ce document trace l'etat final.
 
 ---
 
-## Deja fait automatiquement (via `gh` CLI)
+## Visibilite
 
-### Repository settings
+- **Public** -- Le code est visible par tout le monde, mais aucun externe ne peut merger sans approbation JB ou Lorelei (rulesets stricts).
+- N'importe qui peut forker et ouvrir une PR -> elle ira dans la queue de review, pas mergee tant que pas approuvee par un code owner.
+- Issues, Wiki, Projects, Discussions : **desactives** (pas de spam d'inconnus).
+
+## Repository settings
 
 - Default branch : `develop`
-- `delete_branch_on_merge` : ON (les branches `feature/*` sont supprimees apres merge)
+- `delete_branch_on_merge` : ON (les `feature/*` sont supprimees apres merge)
 - `allow_merge_commit` : OFF (force l'historique lineaire)
 - `allow_squash_merge` : ON
 - `allow_rebase_merge` : ON
-- Dependabot alerts : ON
-- Dependabot security updates : ON (PRs auto pour les CVE)
 
-### Branch protection rulesets
+## Branch protection rulesets
 
-Deux rulesets actifs (visible dans Settings > Rules > Rulesets) :
+Deux rulesets actifs (`Settings > Rules > Rulesets`) :
 
 **Protect develop** (id 15709531)
-- Pull request required (1 approbation, code owner review, dismiss stale, resolve threads)
+- Pull request requise (1 approbation, code owner review, dismiss stale reviews, resoudre les threads)
 - Status check `ci` requis
-- Linear history requise
+- Linear history obligatoire
 - Pas de force push, pas de suppression
 - Methodes de merge : squash + rebase
 
@@ -33,94 +35,52 @@ Deux rulesets actifs (visible dans Settings > Rules > Rulesets) :
 - Memes regles que develop
 - En plus : `require_last_push_approval` (re-review obligatoire si push apres approbation)
 
-JB et Lorelei sont co-owners et peuvent tous les deux push (pas de "restrict who can push").
+JB et Lorelei sont co-owners sans restriction de push.
 
----
+## Securite
+
+- **Dependabot alerts** : ON (32 vulnerabilites detectees sur les deps actuelles, des PRs auto vont arriver)
+- **Dependabot security updates** : ON (PRs auto pour les CVE)
+- **Dependabot version updates** : ON (`.github/dependabot.yml`, weekly minor/patch grouped)
+- **Secret scanning** : ON (alerte si un secret est commit par erreur)
+- **Push protection** : ON (bloque le push avant qu'un secret n'arrive sur GitHub)
+- **Code scanning (CodeQL)** : ON (default setup, OWASP Top 10, weekly + a chaque PR)
+
+## Templates et reviewers
+
+- **PR template** (`.github/PULL_REQUEST_TEMPLATE.md`) -- chaque PR pre-remplie avec Resume / Changements / Comment tester / Checklist
+- **CODEOWNERS** (`.github/CODEOWNERS`) -- reviewers auto par chemin (back -> JB, front -> Lorelei, partage -> les deux)
 
 ## Reste a faire manuellement
 
-Le repo est **prive sans GitHub Advanced Security**, donc certaines features de securite sont desactivees par defaut. Deux options :
+### Inviter Lorelei comme Owner de l'org
 
-### Option A -- Repo public (recommande pour la certification)
+Le scope `admin:org` n'etait pas dans le token `gh` quand j'ai essaye, donc a faire dans l'UI :
 
-Passer le repo en public donne acces gratuit a :
-- Secret scanning + push protection
-- Code scanning (CodeQL)
-- GitHub Advanced Security
+**https://github.com/orgs/nextquest-team/people > Invite member > Meii-Dicale > role: Owner**
 
-**Settings > General > Danger Zone > Change visibility > Make public**
+Owner = elle peut tout faire (settings de l'org, ajout de repos, etc.). Pas d'invitation a accepter pour les changements de role apres ca.
 
-Apres passage en public, activer dans **Settings > Code security and analysis** :
-- Secret scanning : ON
-- Push protection : ON
-- Code scanning : ON (le workflow `.github/workflows/codeql.yml` prendra le relais)
+### Re-verifier que la CodeQL passe
 
-Une fois Code scanning active, le job `Analyze (javascript-typescript)` qui echoue actuellement passera et apparaitra dans la liste des status checks. On pourra alors l'ajouter aux rulesets via :
+Le workflow `.github/workflows/codeql.yml` est custom. Avec le default-setup active aussi, GitHub utilise les deux. Si conflit :
 
-```bash
-# A executer une fois Code scanning active
-gh api repos/Jeeiib/NextQuest/rulesets/15709531 --jq '.rules' > /tmp/rules.json
-# Editer /tmp/rules.json pour ajouter le check
-gh api -X PUT repos/Jeeiib/NextQuest/rulesets/15709531 -f rules=@/tmp/rules.json
-# Pareil pour le ruleset main (id 15709674)
-```
-
-### Option B -- Garder le repo prive
-
-CodeQL ne pourra pas uploader les resultats (job en echec permanent), il faut donc **desactiver le workflow CodeQL** :
-
-```bash
-git rm .github/workflows/codeql.yml
-git commit -m "chore: remove CodeQL workflow (requires public repo or GHAS)"
-```
-
-Et preciser dans la soutenance CDA que CodeQL etait prevu mais necessite un upgrade Advanced Security pour repos prives.
+**Settings > Code security and analysis > Code scanning > Default setup > Disable** (laisser uniquement le workflow custom).
 
 ---
 
-## Inviter Lorelei comme collaboratrice
-
-Si pas deja fait :
-
-**Settings > Collaborators > Add people > Meii-Dicale > role: Maintain**
-
-Le role `Maintain` lui permet de gerer les issues, labels et de merger des PRs (ce que `Write` ne permet pas pour les PRs sur branche protegee).
-
----
-
-## Verifications
+## Commandes de verification
 
 ```bash
 # Lister les rulesets actifs
-gh api repos/Jeeiib/NextQuest/rulesets
+gh api repos/nextquest-team/NextQuest/rulesets
 
-# Voir le detail d'un ruleset
-gh api repos/Jeeiib/NextQuest/rulesets/15709531
-gh api repos/Jeeiib/NextQuest/rulesets/15709674
+# Detail d'un ruleset
+gh api repos/nextquest-team/NextQuest/rulesets/15709531
 
-# Verifier que Dependabot tourne
-gh api repos/Jeeiib/NextQuest/dependabot/alerts 2>&1 | head -5
+# Etat securite
+gh api repos/nextquest-team/NextQuest --jq '.security_and_analysis'
 
-# Tester la protection : tenter un push direct sur develop
-git checkout develop
-git push  # doit etre rejete
+# Tester la protection : tenter un push direct sur develop -> doit etre rejete
+git checkout develop && git push  # rejected
 ```
-
----
-
-## Checklist finale
-
-- [x] Default branch = develop
-- [x] Auto-delete des branches mergees
-- [x] Pas de merge commits (squash + rebase only)
-- [x] Ruleset develop applique
-- [x] Ruleset main applique
-- [x] Dependabot alerts ON
-- [x] Dependabot security updates ON
-- [x] CODEOWNERS en place (back -> JB, front -> Lorelei)
-- [x] PR template en place
-- [x] CI verte (lint + typecheck + migrations + tests + build)
-- [ ] Repo public (ou desactivation CodeQL si on garde prive)
-- [ ] Secret scanning + Push protection (apres passage public)
-- [ ] Code scanning active (apres passage public)
-- [ ] Lorelei ajoutee comme `Maintain`

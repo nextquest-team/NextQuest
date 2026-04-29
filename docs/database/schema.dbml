@@ -229,9 +229,9 @@ Table sessions {
   refresh_token_hash varchar(128) [unique, not null, note: 'SHA-256 du refresh token -- jamais le token brut']
   family_id uuid [not null, note: 'Chaine de rotation. Token d une generation deja utilisee = vol detecte, revoquer toute la famille']
   generation int [default: 1, note: 'CHECK (>= 1). Incremente a chaque rotation']
-  device_name varchar(100) [note: 'iPhone de JB, Chrome Windows']
+  device_name varchar(100) [note: 'Surnom court fourni par l user (ex: iPhone de JB). Ne pas y stocker l UA brut: depasse 100 chars sur Safari recent. UA complet va dans user_agent']
   ip_address varchar(45) [note: 'IPv4 ou IPv6 -- retention 90 jours max']
-  user_agent text
+  user_agent text [note: 'UA brut du navigateur, taille libre']
   expires_at timestamptz [not null]
   last_used_at timestamptz [default: `now()`]
   revoked_at timestamptz [note: 'Non-null = session revoquee']

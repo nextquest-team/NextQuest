@@ -16,12 +16,12 @@
   "dependencies": {
     "dotenv": "^16.6.1",
     "drizzle-orm": "^0.45.2",
-    "postgres": "^3.4.8"
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@nextquest/config": "workspace:*",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^10.1.0",
+    "eslint": "^10.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.8.3"
   }

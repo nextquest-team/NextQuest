@@ -51,9 +51,12 @@ export async function authRoutes(app: FastifyInstance) {
       app.log.error(err);
       throw err;
     }
+    // device_name = surnom court (varchar 100), pas l'UA brut. On laisse vide
+    // tant qu'on n'a pas d'UI pour que le user nomme son appareil. L'UA complet
+    // est stocke dans user_agent (text, taille libre).
     const refreshToken = await createSession(
       user.id,
-      request.headers["user-agent"],
+      undefined,
       request.ip,
       request.headers["user-agent"],
     );
@@ -93,9 +96,11 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(401).send({ error: "Email ou mot de passe incorrect" });
     }
 
+    // Voir commentaire identique dans /auth/register sur le choix d'undefined
+    // pour deviceName.
     const refreshToken = await createSession(
       user.id,
-      request.headers["user-agent"],
+      undefined,
       request.ip,
       request.headers["user-agent"],
     );

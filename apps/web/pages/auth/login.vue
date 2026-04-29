@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'guest' })
 
-const { login, isLoading, error } = useAuth()
+const { login, loginWithOAuth, isLoading, error } = useAuth()
 
 const email = ref('')
 const password = ref('')
@@ -74,18 +74,30 @@ async function handleLogin() {
       </v-form>
 
       <!-- Connexions sociales -->
-      <!-- TODO: implémenter OAuth quand les routes backend sont prêtes (JB) -->
       <div class="social-grid">
-        <UiPatchButton variant="social" color="#4285F4" class="social-btn" disabled>
+        <UiPatchButton
+          variant="social"
+          color="#4285F4"
+          class="social-btn"
+          :disabled="isLoading"
+          @click="loginWithOAuth('google')"
+        >
           Connect with Google
         </UiPatchButton>
 
-        <UiPatchButton variant="social" color="#8B1A2A" class="social-btn" disabled>
-          Connect with Apple
+        <UiPatchButton
+          variant="social"
+          color="#0078D4"
+          class="social-btn"
+          :disabled="isLoading"
+          @click="loginWithOAuth('microsoft')"
+        >
+          Connect with Microsoft
         </UiPatchButton>
 
-        <UiPatchButton variant="social" color="#0078D4" class="social-btn" disabled>
-          Connect with Microsoft
+        <!-- TODO: activer Apple quand JB aura ajouté le provider côté backend -->
+        <UiPatchButton variant="social" color="#1C1C1E" class="social-btn" disabled>
+          Connect with Apple
         </UiPatchButton>
       </div>
     </div>

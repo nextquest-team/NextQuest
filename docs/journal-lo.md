@@ -127,3 +127,48 @@ Avantage : le crème ne déborde pas hors du contour laine (les coins arrondis r
 ### Scripts utiles
 
 Le script Python qui génère `wooly-btn-final.png` est inline dans le journal de session — à conserver pour pouvoir régénérer si on change de palette ou de motif.
+
+---
+
+## 2026-04-29 — Session 3 : Branchement OAuth (Google + Microsoft)
+
+### Contexte
+Rebase sur `develop` qui contient la PR de JB : OAuth Google + Microsoft, route `/auth/me`, hardening sécurité (rate limiting, verrouillage de compte). Côté front il reste à brancher tout ça.
+
+### Endpoints branchés
+
+| Endpoint | Méthode | Avant | Après |
+|----------|---------|-------|-------|
+| `/api/auth/me` | GET | n'existait pas | `fetchMe()` dans `useAuth` |
+| `/api/auth/oauth/:provider` | GET | n'existait pas | `loginWithOAuth(provider)` dans `useAuth` |
+| `/api/auth/oauth/:provider/callback` | GET (backend uniquement) | — | géré par `pages/auth/callback.vue` |
+
+### Fichiers modifiés / créés
+
+- **`composables/useAuth.ts`** : ajout de `fetchMe()` (récupère le user via JWT) et `loginWithOAuth(provider)` (récupère l'URL d'autorisation et redirige le navigateur vers Google/Microsoft)
+- **`pages/auth/callback.vue`** (nouveau) : page d'atterrissage après OAuth. Lit `?token=` du query, appelle `fetchMe(token)`, redirige vers `/`. Gère aussi les erreurs OAuth (`?error=oauth_denied`, `invalid_state`, etc.)
+- **`pages/auth/login.vue`** : boutons Google et Microsoft activés et branchés sur `loginWithOAuth`. Apple reste désactivé (pas de provider Apple côté backend pour l'instant)
+
+### Flow OAuth complet
+
+1. User click sur "Connect with Google"
+2. Front → `GET /api/auth/oauth/google` → reçoit `{ url: "https://accounts.google.com/..." }`
+3. `window.location.href = url` → redirection vers Google
+4. User autorise → Google redirige vers `GET /api/auth/oauth/google/callback?code=...&state=...`
+5. Backend échange le code, crée la session, set le cookie `refresh_token` (httpOnly), redirige vers `http://localhost:3001/auth/callback?token=<jwt>`
+6. Page `/auth/callback` lit le JWT, appelle `/auth/me` pour obtenir le user, redirige vers `/`
+
+### Sécurité
+
+- Le **refresh token** reste dans un cookie httpOnly (inaccessible au JS)
+- Le **JWT access token** est stocké en mémoire (Pinia) — perdu au reload, restauré via le silent refresh au plugin client
+- L'URL `?token=` reste brièvement dans l'historique du navigateur — `router.replace('/')` la nettoie aussitôt après
+- CORS API restreint à `http://localhost:3001` (vérifié)
+
+### TODOs
+
+- [ ] JB doit configurer `GOOGLE_CLIENT_ID/SECRET` et `MICROSOFT_CLIENT_ID/SECRET` dans le `.env` pour tester en local
+- [ ] Tester le flow complet une fois les credentials disponibles
+- [ ] Page `/auth/forgot-password`
+- [ ] Apple OAuth (en attente backend)
+- [ ] Dashboard + redirection post-login (actuellement `/` qui est le landing — quand le dashboard existera, mettre à jour les redirections dans `useAuth` et le middleware `guest`)

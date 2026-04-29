@@ -68,3 +68,8 @@ docs/specs/
 # Chaque dev maintient ses propres notes, jamais commit
 *.local.md
 .local/
+
+# Claude Code (assistant IA)
+.claude/
+CLAUDE.md
+

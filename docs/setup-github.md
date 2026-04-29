@@ -1,109 +1,126 @@
-# Configuration GitHub -- Actions manuelles
+# Configuration GitHub -- Etat actuel
 
-Ce document liste les reglages a appliquer manuellement dans **GitHub Settings** (au-dela des fichiers commits dans le repo).
+Ce document liste l'etat de la configuration GitHub du repo `Jeeiib/NextQuest` et les **dernieres etapes manuelles** a faire dans GitHub Settings.
 
-A faire une seule fois, par un admin du repo.
-
----
-
-## 1. Branch protection sur `develop` et `main`
-
-**Pourquoi :** garantir qu'aucun code non review ou casse n'arrive sur les branches d'integration ou de prod.
-
-### Etapes
-
-1. **Settings > Branches > Add branch ruleset** (ou "Add rule" en classique)
-2. Repeter la config ci-dessous pour `develop` puis pour `main`
-
-### Reglages a activer
-
-| Option | Valeur | Pourquoi |
-|--------|--------|----------|
-| Require a pull request before merging | OUI | Pas de push direct sur develop/main |
-| Require approvals | OUI, 1 approbation | L'autre dev doit valider |
-| Dismiss stale pull request approvals when new commits are pushed | OUI | Forcer une re-review si on push apres approbation |
-| Require review from Code Owners | OUI | CODEOWNERS s'applique automatiquement |
-| Require status checks to pass before merging | OUI | CI doit etre verte |
-| Required status checks | `ci`, `Analyze (javascript-typescript)` | Lint+typecheck+test+build + CodeQL |
-| Require branches to be up to date before merging | OUI | Pas de merge sur une branche obsolete |
-| Require conversation resolution before merging | OUI | Toutes les remarques de review resolues |
-| Require linear history | OUI | Pas de merge commits, historique propre |
-| Block force pushes | OUI | Un force push casserait l'historique partage |
-| Restrict deletions | OUI | Personne ne peut supprimer la branche par accident |
-
-### Exception pour `main`
-
-`main` recoit uniquement des merges depuis `develop` quand on est pret a livrer. Memes regles que `develop`, plus :
-- Restrict who can push : limiter au compte admin (toi)
+La majorite de la config a ete appliquee automatiquement via le `gh` CLI. Ce qui reste est limite par le plan GitHub (repo prive sans GitHub Advanced Security).
 
 ---
 
-## 2. Default branch = `develop`
+## Deja fait automatiquement (via `gh` CLI)
 
-**Pourquoi :** `main` represente la prod stable, `develop` est la branche de travail.
+### Repository settings
 
-**Settings > General > Default branch > Switch to `develop`**
-
----
-
-## 3. Activer Dependabot
-
-Le fichier `.github/dependabot.yml` est deja en place. Reste a verifier que Dependabot est active dans le repo :
-
-**Settings > Code security and analysis** :
+- Default branch : `develop`
+- `delete_branch_on_merge` : ON (les branches `feature/*` sont supprimees apres merge)
+- `allow_merge_commit` : OFF (force l'historique lineaire)
+- `allow_squash_merge` : ON
+- `allow_rebase_merge` : ON
 - Dependabot alerts : ON
-- Dependabot security updates : ON
-- Dependabot version updates : ON (lit le fichier `dependabot.yml`)
+- Dependabot security updates : ON (PRs auto pour les CVE)
+
+### Branch protection rulesets
+
+Deux rulesets actifs (visible dans Settings > Rules > Rulesets) :
+
+**Protect develop** (id 15709531)
+- Pull request required (1 approbation, code owner review, dismiss stale, resolve threads)
+- Status check `ci` requis
+- Linear history requise
+- Pas de force push, pas de suppression
+- Methodes de merge : squash + rebase
+
+**Protect main** (id 15709674)
+- Memes regles que develop
+- En plus : `require_last_push_approval` (re-review obligatoire si push apres approbation)
+
+JB et Lorelei sont co-owners et peuvent tous les deux push (pas de "restrict who can push").
 
 ---
 
-## 4. Activer Code scanning (CodeQL)
+## Reste a faire manuellement
 
-Le workflow `.github/workflows/codeql.yml` est en place. Verifier que GitHub Advanced Security est dispo :
+Le repo est **prive sans GitHub Advanced Security**, donc certaines features de securite sont desactivees par defaut. Deux options :
 
-**Settings > Code security and analysis** :
-- Code scanning : ON
-- Default setup : laisser en advanced (le workflow custom prend le dessus)
+### Option A -- Repo public (recommande pour la certification)
 
-Les resultats apparaissent dans l'onglet **Security > Code scanning alerts**.
+Passer le repo en public donne acces gratuit a :
+- Secret scanning + push protection
+- Code scanning (CodeQL)
+- GitHub Advanced Security
 
----
+**Settings > General > Danger Zone > Change visibility > Make public**
 
-## 5. Secret scanning
-
-Active par defaut sur les repos publics. Pour un repo prive :
-
-**Settings > Code security and analysis** :
+Apres passage en public, activer dans **Settings > Code security and analysis** :
 - Secret scanning : ON
-- Push protection : ON (bloque un push qui contiendrait un secret avant qu'il n'arrive sur GitHub)
+- Push protection : ON
+- Code scanning : ON (le workflow `.github/workflows/codeql.yml` prendra le relais)
+
+Une fois Code scanning active, le job `Analyze (javascript-typescript)` qui echoue actuellement passera et apparaitra dans la liste des status checks. On pourra alors l'ajouter aux rulesets via :
+
+```bash
+# A executer une fois Code scanning active
+gh api repos/Jeeiib/NextQuest/rulesets/15709531 --jq '.rules' > /tmp/rules.json
+# Editer /tmp/rules.json pour ajouter le check
+gh api -X PUT repos/Jeeiib/NextQuest/rulesets/15709531 -f rules=@/tmp/rules.json
+# Pareil pour le ruleset main (id 15709674)
+```
+
+### Option B -- Garder le repo prive
+
+CodeQL ne pourra pas uploader les resultats (job en echec permanent), il faut donc **desactiver le workflow CodeQL** :
+
+```bash
+git rm .github/workflows/codeql.yml
+git commit -m "chore: remove CodeQL workflow (requires public repo or GHAS)"
+```
+
+Et preciser dans la soutenance CDA que CodeQL etait prevu mais necessite un upgrade Advanced Security pour repos prives.
 
 ---
 
-## 6. Inviter Lorelei et configurer ses droits
+## Inviter Lorelei comme collaboratrice
 
-Lorelei est deja collaboratrice (`Meii-Dicale`). Verifier :
+Si pas deja fait :
 
-**Settings > Collaborators** : Meii-Dicale doit avoir le role **Write** (ou **Maintain** pour qu'elle puisse aussi gerer les issues / labels).
+**Settings > Collaborators > Add people > Meii-Dicale > role: Maintain**
 
----
-
-## 7. Issues et Projects (optionnel)
-
-Pour le suivi des taches :
-
-- **Issues** : ON (Settings > Features > Issues)
-- **Projects** : creer un Project type "Board" pour suivre les features par status (To do / In progress / Review / Done)
-
-Si on prefere garder Trello, on n'active pas Projects.
+Le role `Maintain` lui permet de gerer les issues, labels et de merger des PRs (ce que `Write` ne permet pas pour les PRs sur branche protegee).
 
 ---
 
-## Checklist de validation
+## Verifications
 
-Apres avoir fait les etapes ci-dessus, tester :
+```bash
+# Lister les rulesets actifs
+gh api repos/Jeeiib/NextQuest/rulesets
 
-- [ ] Tenter un push direct sur `develop` -> doit etre rejete
-- [ ] Ouvrir une PR -> CI se declenche, CodeQL aussi
-- [ ] Voir Lorelei automatiquement assignee comme reviewer si on touche `apps/web/`
-- [ ] Voir une PR Dependabot apparaitre apres lundi prochain (peut etre force avec `Settings > Code security > Dependabot > Recheck`)
-- [ ] L'onglet **Security** du repo affiche les resultats CodeQL
+# Voir le detail d'un ruleset
+gh api repos/Jeeiib/NextQuest/rulesets/15709531
+gh api repos/Jeeiib/NextQuest/rulesets/15709674
+
+# Verifier que Dependabot tourne
+gh api repos/Jeeiib/NextQuest/dependabot/alerts 2>&1 | head -5
+
+# Tester la protection : tenter un push direct sur develop
+git checkout develop
+git push  # doit etre rejete
+```
+
+---
+
+## Checklist finale
+
+- [x] Default branch = develop
+- [x] Auto-delete des branches mergees
+- [x] Pas de merge commits (squash + rebase only)
+- [x] Ruleset develop applique
+- [x] Ruleset main applique
+- [x] Dependabot alerts ON
+- [x] Dependabot security updates ON
+- [x] CODEOWNERS en place (back -> JB, front -> Lorelei)
+- [x] PR template en place
+- [x] CI verte (lint + typecheck + migrations + tests + build)
+- [ ] Repo public (ou desactivation CodeQL si on garde prive)
+- [ ] Secret scanning + Push protection (apres passage public)
+- [ ] Code scanning active (apres passage public)
+- [ ] Lorelei ajoutee comme `Maintain`

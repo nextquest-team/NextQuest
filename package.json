@@ -26,6 +26,22 @@
       "argon2",
       "esbuild",
       "@parcel/watcher"
-    ]
+    ],
+    "//overrides": "Forcer les versions patch sur les transitives flaggees par Dependabot. A revoir periodiquement quand les parents (expo, nuxt, drizzle-kit) sont updates.",
+    "overrides": {
+      "fast-jwt": ">=6.2.1",
+      "@xmldom/xmldom": ">=0.8.13",
+      "defu": ">=6.1.5",
+      "fastify": ">=5.8.5",
+      "lodash": ">=4.18.0",
+      "tar": ">=7.5.11",
+      "vite": ">=8.0.5",
+      "@fastify/static": ">=9.1.1",
+      "esbuild": ">=0.25.0",
+      "postcss": ">=8.5.10",
+      "unhead": ">=2.1.13 <3",
+      "@unhead/vue": ">=2.1.13 <3",
+      "uuid": ">=14.0.0"
+    }
   }
 }

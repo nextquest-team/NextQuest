@@ -7,7 +7,6 @@ import {
   timestamp,
   jsonb,
   index,
-  unique,
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { notificationTypeEnum, devicePlatformEnum } from "./enums.js";

@@ -47,6 +47,9 @@ const providerParamSchema = z.object({
 export async function oauthRoutes(app: FastifyInstance) {
   // Initiation : renvoie l'URL d'autorisation du provider
   app.get("/oauth/:provider", {
+    // Anti-spam : un user legitime initie un flow OAuth rarement.
+    // 30/min couvre les retries reseau et tabs multiples.
+    config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
     schema: {
       tags: ["OAuth"],
       summary: "Demarrer un flow OAuth",
@@ -77,6 +80,9 @@ export async function oauthRoutes(app: FastifyInstance) {
 
   // Callback : le provider redirige ici apres authentification
   app.get("/oauth/:provider/callback", {
+    // Le callback fait des appels HTTP couteux (echange code, profil),
+    // donc plus restrictif que l'initiation. 20/min suffit largement.
+    config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
     schema: {
       tags: ["OAuth"],
       summary: "Callback OAuth (appele par le provider)",
@@ -151,6 +157,8 @@ export async function oauthRoutes(app: FastifyInstance) {
     "/oauth/:provider/link",
     {
       onRequest: [async (req) => req.jwtVerify()],
+      // Endpoint authentifie mais sensible : 10/min par user
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
       schema: {
         tags: ["OAuth"],
         summary: "Lier un provider OAuth au compte courant",

@@ -5,13 +5,11 @@ import {
   getProviderConfig,
   buildAuthorizationUrl,
   buildCallbackUrl,
-  getSupportedProviders,
 } from "./oauth.config.js";
 import { googleProvider } from "./providers/google.js";
 import { microsoftProvider } from "./providers/microsoft.js";
 import {
   findOrCreateUserFromOAuth,
-  linkProviderToUser,
   unlinkProviderFromUser,
 } from "./oauth.service.js";
 import { createSession } from "../auth.service.js";

@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import Fastify from "fastify";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerCookie } from "../../../plugins/cookie.js";
+import { registerRateLimit } from "../../../plugins/rate-limit.js";
 import { authRoutes } from "../auth.routes.js";
 
 async function buildApp() {
@@ -27,6 +28,7 @@ async function buildApp() {
 
   await registerJwt(app);
   await registerCookie(app);
+  await registerRateLimit(app);
   await app.register(authRoutes, { prefix: "/api" });
   await app.ready();
   return app;

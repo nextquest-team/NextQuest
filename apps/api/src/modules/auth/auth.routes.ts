@@ -76,7 +76,9 @@ export async function authRoutes(app: FastifyInstance) {
   app.post("/auth/login", {
     // Anti brute-force IP-based, en complement du verrouillage compte
     // (5 echecs / 15 min) gere dans verifyCredentials. 10 / min par IP.
-    config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    // Forme preHandler explicite (et non config.rateLimit) pour que les
+    // analyseurs statiques type CodeQL reconnaissent le middleware.
+    preHandler: app.rateLimit({ max: 10, timeWindow: "1 minute" }),
     schema: {
       tags: ["Auth"],
       summary: "Connexion email/mot de passe",

@@ -9,7 +9,9 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
@@ -24,7 +26,12 @@
   },
   "devDependencies": {
     "@nextquest/config": "workspace:*",
+    "@nuxt/test-utils": "^4.0.3",
     "@nuxtjs/tailwindcss": "^6.13.2",
-    "eslint": "^10.1.0"
+    "@pinia/testing": "^1.0.3",
+    "@vue/test-utils": "^2.4.9",
+    "eslint": "^10.1.0",
+    "happy-dom": "^20.9.0",
+    "vitest": "^4.1.2"
   }
 }

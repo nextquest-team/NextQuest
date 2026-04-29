@@ -172,3 +172,17 @@ Rebase sur `develop` qui contient la PR de JB : OAuth Google + Microsoft, route 
 - [ ] Page `/auth/forgot-password`
 - [ ] Apple OAuth (en attente backend)
 - [ ] Dashboard + redirection post-login (actuellement `/` qui est le landing — quand le dashboard existera, mettre à jour les redirections dans `useAuth` et le middleware `guest`)
+
+---
+
+## 2026-04-29 — Session 4 : Tests unitaires frontend
+
+**Stack tests** -- Mise en place de Vitest + @vue/test-utils + @nuxt/test-utils + happy-dom + @pinia/testing. Config dans `apps/web/vitest.config.ts` (utilise `defineVitestConfig` de Nuxt pour bénéficier des auto-imports). Scripts `test` et `test:watch` ajoutés à `apps/web/package.json`. Le workflow CI lance déjà `pnpm test` à la racine via Turborepo, donc tout tourne automatiquement sur chaque PR.
+
+**Couverture** -- 26 tests / 26 passants en 1.7s. Découpage : 3 tests sur le store Pinia (`stores/auth.test.ts`), 10 sur le composable `useAuth` (login, register, refresh, logout, fetchMe, loginWithOAuth — succès et échecs), 5 sur `PatchButton`, 4 sur `PatchInput`, 4 sur les middlewares (`auth`, `guest`).
+
+**Choix techniques** -- Mock de `$fetch` via `vi.stubGlobal` côté Nuxt. Mock de `navigateTo` via `mockNuxtImport` de @nuxt/test-utils (compile-time transform requis pour les auto-imports). Tests Vuetify avec instance de plugin créée par test pour éviter les fuites entre tests.
+
+**Bug fix collatéral** -- Le pattern `try/finally` de `logout()` propageait l'erreur réseau au consommateur. Ajout d'un `catch` silencieux : la déconnexion locale (clear store + redirect) est garantie même si l'API tombe, ce qui est l'UX attendue.
+
+**TODOs** -- Tests E2E avec Playwright à prévoir plus tard pour les flows complets (login form → submit → redirect). Tests sur `pages/auth/callback.vue` à ajouter quand les credentials OAuth seront configurés en local.

@@ -1,0 +1,26 @@
+# Reviewers automatiques par chemin de fichier.
+# Le owner est ajoute automatiquement comme reviewer sur toute PR
+# qui modifie un fichier matchant son pattern.
+#
+# Doc : https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default : si rien d'autre ne matche, les deux devs reviewent
+*           @Jeeiib @Meii-Dicale
+
+# Backend : JB
+/apps/api/          @Jeeiib
+/packages/db/       @Jeeiib
+/docker/            @Jeeiib
+/.github/           @Jeeiib
+
+# Frontend : Lorelei
+/apps/web/          @Meii-Dicale
+/apps/mobile/       @Meii-Dicale
+
+# Code partage : les deux reviewent
+/packages/shared/   @Jeeiib @Meii-Dicale
+/packages/config/   @Jeeiib @Meii-Dicale
+
+# Documentation : les deux peuvent toucher, les deux reviewent
+/docs/              @Jeeiib @Meii-Dicale
+README.md           @Jeeiib @Meii-Dicale

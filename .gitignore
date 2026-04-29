@@ -59,3 +59,12 @@ temp/
 
 # Drizzle
 migrations/meta/
+
+# Specs internes (cahier des charges, feuille de route, fichiers de planning)
+docs/plans/
+docs/specs/
+
+# Notes de dev locales (infra perso, commandes specifiques a chaque poste)
+# Chaque dev maintient ses propres notes, jamais commit
+*.local.md
+.local/

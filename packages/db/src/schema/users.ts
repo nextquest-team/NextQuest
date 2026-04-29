@@ -29,6 +29,9 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").notNull().default("user"),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  // Flag pilote par le tour guide front. Mis a true via POST /api/users/me/onboarding/complete.
+  // Le back ne connait pas les etapes UX du tour, juste cet etat binaire.
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   // Brute-force protection : on verrouille le compte apres N echecs
   failedLoginAttempts: integer("failed_login_attempts")
     .notNull()

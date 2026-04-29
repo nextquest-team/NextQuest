@@ -47,11 +47,14 @@ jobs:
       JWT_REFRESH_SECRET: test-refresh-secret
 
     steps:
-      - uses: actions/checkout@v4
+      # Actions epinglees par SHA exact (pas par tag mutable) :
+      # protege contre une supply-chain attack qui re-pousserait
+      # un tag malveillant. Dependabot bumpe les SHAs automatiquement.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"

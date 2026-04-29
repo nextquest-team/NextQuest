@@ -135,3 +135,69 @@ describe("GET /api/auth/me", () => {
     expect(res.statusCode).toBe(404);
   });
 });
+
+// UA Safari recent : 121 chars, depasse la limite varchar(100) de sessions.device_name
+const LONG_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15";
+
+describe("POST /api/auth/register", () => {
+  beforeEach(cleanup);
+
+  it("accepte un User-Agent de plus de 100 caracteres sans planter", async () => {
+    expect(LONG_UA.length).toBeGreaterThan(100);
+    const app = await buildApp();
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      headers: { "user-agent": LONG_UA },
+      payload: {
+        email: "long-ua@test.com",
+        username: "longua",
+        password: "Test1234!",
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+
+    // La session doit etre persistee : device_name court (ou null), user_agent complet
+    const [session] = await db.select().from(sessions);
+    expect(session).toBeDefined();
+    expect(session.userAgent).toBe(LONG_UA);
+    if (session.deviceName !== null) {
+      expect(session.deviceName.length).toBeLessThanOrEqual(100);
+    }
+  });
+});
+
+describe("POST /api/auth/login", () => {
+  beforeEach(cleanup);
+
+  it("accepte un User-Agent de plus de 100 caracteres sans planter", async () => {
+    const app = await buildApp();
+
+    // On cree d'abord le compte avec un UA court (pas le sujet du test)
+    await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      headers: { "user-agent": "node-test" },
+      payload: {
+        email: "login-ua@test.com",
+        username: "loginua",
+        password: "Test1234!",
+      },
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { "user-agent": LONG_UA },
+      payload: {
+        email: "login-ua@test.com",
+        password: "Test1234!",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+});

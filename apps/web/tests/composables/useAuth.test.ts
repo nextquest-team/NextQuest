@@ -134,13 +134,48 @@ describe('useAuth', () => {
     expect(store.accessToken).toBeNull()
   })
 
-  it('loginWithOAuth redirige le navigateur vers l\'URL du provider', async () => {
+  it('loginWithOAuth expose un message friendly en cas d\'échec sans throw', async () => {
+    const apiError = Object.assign(new Error('Bad Request'), {
+      status: 400,
+      data: { error: 'Provider google is not configured' },
+    })
+    vi.stubGlobal('$fetch', vi.fn().mockRejectedValue(apiError))
+
+    const { loginWithOAuth, error } = useAuth()
+    // Ne doit PAS throw (l'appelant @click ne peut pas catch)
+    await expect(loginWithOAuth('google')).resolves.toBeUndefined()
+    expect(error.value).toBe('Connexion Google indisponible pour le moment')
+  })
+
+  it('loginWithOAuth ouvre une popup vers l\'URL du provider', async () => {
     vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({
       url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=...',
     }))
 
-    // Stub window.location.href pour vérifier la redirection
-    const locationStub = { href: '' }
+    // Stub de window.open : retourne un faux objet popup non fermé
+    const fakePopup = { closed: false, close: vi.fn() } as unknown as Window
+    const openMock = vi.fn().mockReturnValue(fakePopup)
+    vi.stubGlobal('open', openMock)
+
+    const { loginWithOAuth } = useAuth()
+    await loginWithOAuth('google')
+
+    expect(openMock).toHaveBeenCalledWith(
+      expect.stringContaining('accounts.google.com'),
+      'nq-oauth',
+      expect.stringContaining('width=500'),
+    )
+  })
+
+  it('loginWithOAuth fait un fallback en redirection complète si la popup est bloquée', async () => {
+    vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({
+      url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=...',
+    }))
+
+    // window.open retourne null = popup bloquée
+    vi.stubGlobal('open', vi.fn().mockReturnValue(null))
+
+    const locationStub = { href: '', origin: 'http://localhost:3001' }
     Object.defineProperty(window, 'location', {
       writable: true,
       value: locationStub,

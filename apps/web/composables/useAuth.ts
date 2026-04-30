@@ -110,22 +110,71 @@ export const useAuth = () => {
     }
   }
 
-  // Démarre un flow OAuth : récupère l'URL du provider et redirige le navigateur
+  // Démarre un flow OAuth : ouvre une popup vers le provider.
+  // La popup poste son résultat (token ou erreur) au parent via postMessage,
+  // puis se ferme. Si le navigateur bloque la popup, fallback sur la redirection complète.
   async function loginWithOAuth(provider: OAuthProvider) {
     isLoading.value = true
     error.value = null
+
+    let data: OAuthInitResponse
     try {
-      const data = await $fetch<OAuthInitResponse>(
+      data = await $fetch<OAuthInitResponse>(
         `${apiBase}/api/auth/oauth/${provider}`,
         { credentials: 'include' },
       )
-      // Redirection complète vers la page d'autorisation du provider
-      window.location.href = data.url
-    } catch (err: any) {
-      error.value = err.data?.error ?? `Connexion ${provider} indisponible`
+    } catch {
+      const label = provider === 'google' ? 'Google' : 'Microsoft'
+      error.value = `Connexion ${label} indisponible pour le moment`
       isLoading.value = false
-      throw err
+      return
     }
+
+    // Popup centrée
+    const w = 500
+    const h = 700
+    const left = window.screenX + (window.outerWidth - w) / 2
+    const top = window.screenY + (window.outerHeight - h) / 2
+    const popup = window.open(
+      data.url,
+      'nq-oauth',
+      `width=${w},height=${h},left=${left},top=${top}`,
+    )
+
+    // Popup bloquée par le navigateur → fallback
+    if (!popup) {
+      window.location.href = data.url
+      return
+    }
+
+    // Écoute les messages de la popup et nettoie quand elle se ferme
+    const onMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      const msg = event.data
+      if (!msg || typeof msg !== 'object') return
+
+      if (msg.type === 'nq-oauth-success' && typeof msg.token === 'string') {
+        window.removeEventListener('message', onMessage)
+        await fetchMe(msg.token)
+        isLoading.value = false
+        await router.push('/dashboard')
+      } else if (msg.type === 'nq-oauth-error') {
+        window.removeEventListener('message', onMessage)
+        const label = provider === 'google' ? 'Google' : 'Microsoft'
+        error.value = msg.message ?? `Connexion ${label} échouée`
+        isLoading.value = false
+      }
+    }
+    window.addEventListener('message', onMessage)
+
+    // Si la popup se ferme sans postMessage (l'utilisateur a annulé)
+    const watchClosed = window.setInterval(() => {
+      if (popup.closed) {
+        window.clearInterval(watchClosed)
+        window.removeEventListener('message', onMessage)
+        if (isLoading.value) isLoading.value = false
+      }
+    }, 500)
   }
 
   return {

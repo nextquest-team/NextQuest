@@ -73,32 +73,25 @@ async function handleLogin() {
         </UiPatchButton>
       </v-form>
 
-      <!-- Connexions sociales -->
-      <div class="social-grid">
-        <UiPatchButton
-          variant="social"
-          color="#4285F4"
-          class="social-btn"
-          :disabled="isLoading"
-          @click="loginWithOAuth('google')"
-        >
-          Connect with Google
-        </UiPatchButton>
+      <!-- Séparateur visuel -->
+      <div class="auth-separator"><span>Ou continuez avec</span></div>
 
-        <UiPatchButton
-          variant="social"
-          color="#0078D4"
-          class="social-btn"
-          :disabled="isLoading"
+      <!-- Connexions sociales (boutons standards avec logos brand) -->
+      <div class="social-stack">
+        <UiSocialButton
+          provider="google"
+          :loading="isLoading"
+          @click="loginWithOAuth('google')"
+        />
+
+        <UiSocialButton
+          provider="microsoft"
+          :loading="isLoading"
           @click="loginWithOAuth('microsoft')"
-        >
-          Connect with Microsoft
-        </UiPatchButton>
+        />
 
         <!-- TODO: activer Apple quand JB aura ajouté le provider côté backend -->
-        <UiPatchButton variant="social" color="#1C1C1E" class="social-btn" disabled>
-          Connect with Apple
-        </UiPatchButton>
+        <UiSocialButton provider="apple" disabled />
       </div>
     </div>
   </div>
@@ -158,14 +151,33 @@ async function handleLogin() {
   margin-bottom: 0.75rem;
 }
 
-.social-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+.auth-separator {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-family: var(--nq-font);
+  font-variant: small-caps;
+  font-size: 0.85rem;
+  color: var(--nq-brown-dark);
+  letter-spacing: 0.06em;
+  margin: 0.5rem 0;
 }
 
-/* Le 3e bouton (Microsoft) prend toute la largeur */
-.social-grid .social-btn:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
+.auth-separator::before,
+.auth-separator::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--nq-brown);
+  opacity: 0.35;
+}
+
+.auth-separator span {
+  white-space: nowrap;
+}
+
+.social-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 </style>

@@ -186,3 +186,68 @@ Rebase sur `develop` qui contient la PR de JB : OAuth Google + Microsoft, route 
 **Bug fix collatéral** -- Le pattern `try/finally` de `logout()` propageait l'erreur réseau au consommateur. Ajout d'un `catch` silencieux : la déconnexion locale (clear store + redirect) est garantie même si l'API tombe, ce qui est l'UX attendue.
 
 **TODOs** -- Tests E2E avec Playwright à prévoir plus tard pour les flows complets (login form → submit → redirect). Tests sur `pages/auth/callback.vue` à ajouter quand les credentials OAuth seront configurés en local.
+
+---
+
+## 2026-04-30 — Session 5 : Popup OAuth, middleware global, polish UX login
+
+### Contexte
+Suite à la session 3 (OAuth en redirection complète), trois choses à faire : (1) passer le flow OAuth en popup pour ne pas perdre l'état du formulaire de login, (2) protéger toutes les routes par défaut au lieu d'opter-in route par route, (3) remplacer les pastilles unies des boutons sociaux par les vrais logos brand.
+
+### Popup OAuth
+
+Le flow redirection-complète marchait mais avait deux défauts UX : la page de login disparaissait pendant la phase Google/Microsoft (perte du contexte si l'user annule), et au retour le navigateur gardait `?token=…` brièvement dans l'historique.
+
+Nouveau flow :
+1. Click → `loginWithOAuth(provider)` ouvre `window.open(url, 'nq-oauth', 'width=500,height=700,…')`
+2. La popup atterrit sur `/auth/callback?token=…` après la danse OAuth
+3. `pages/auth/callback.vue` détecte `window.opener` non-null → c'est une popup → `postMessage({ type: 'nq-oauth-success', token }, window.location.origin)` puis `window.close()`
+4. La page parente écoute les `message`, vérifie `event.origin === window.location.origin`, appelle `fetchMe(token)`, redirige vers `/dashboard`
+
+**Sécurité** -- `event.origin` vérifié systématiquement (sinon n'importe quel iframe pourrait poster un faux token). `postMessage` cible explicitement `window.location.origin` et pas `'*'`.
+
+**Robustesse** -- 3 chemins de sortie : popup ferme avec succès (postMessage success), popup ferme avec erreur (postMessage error), popup fermée par l'user sans postMessage (`setInterval` watch sur `popup.closed` qui nettoie `isLoading` et le listener). Et si `window.open` retourne `null` (popup bloquée), fallback automatique en redirection complète comme avant.
+
+**Bonus collatéral** -- `loginWithOAuth` ne throw plus. Avant, `@click="loginWithOAuth('google')"` ne pouvait pas catcher l'erreur (Vue n'attend pas la promise des handlers d'event). Maintenant l'erreur est exposée via `error.value` et affichée par le template, comme pour le login email/password.
+
+### Middleware global
+
+`middleware/auth.ts` était nommé sans suffixe `.global`, donc il fallait l'opter-in dans chaque page via `definePageMeta({ middleware: 'auth' })`. Risque évident : oublier de protéger une nouvelle page. Renommé en `auth.global.ts` avec une whitelist explicite des routes publiques :
+
+```ts
+const PUBLIC_ROUTES = new Set(['/', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/callback'])
+```
+
+Tout le reste exige `store.isAuthenticated`. Tests adaptés (`tests/middleware/auth.test.ts`) : un cas pour chaque route publique + un cas pour une route privée non-authentifiée + un cas pour route privée authentifiée.
+
+Les pages `/dashboard` et `/auth/forgot-password` (placeholders pour l'instant) ont été créées en parallèle pour valider que le middleware laisse bien passer la première et bloque la seconde uniquement si non-authentifié.
+
+### SocialButton extrait
+
+Avant, login.vue utilisait `UiPatchButton variant="social" color="#4285F4"` qui rendait juste une pastille unie. Pas glop : Google, Microsoft et Apple ont des chartes graphiques très reconnaissables et les utilisateurs s'attendent à voir leur logo officiel.
+
+Nouveau composant `components/ui/SocialButton.vue` qui :
+- prend une prop `provider: 'google' | 'microsoft' | 'apple'`
+- rend le SVG officiel inline (Google multicolore 4 couleurs, Microsoft 4 carrés brand, Apple silhouette)
+- gère `loading` et `disabled` (Apple reste désactivé en attendant le provider backend)
+- applique le code couleur Apple (blanc-sur-noir) via `.social-btn--apple`
+
+Les SVG sont inline plutôt qu'importés depuis un asset : ils sont petits, jamais réutilisés ailleurs, et inline évite une requête HTTP par bouton.
+
+### Découpage des commits
+
+| Commit | Contenu |
+|--------|---------|
+| `1eb62ff` | middleware global + dashboard + redirections /dashboard |
+| `881cd82` | popup OAuth + SocialButton avec logos brand |
+
+Découpé en deux pour que chaque commit soit atomique : le premier change l'architecture des middlewares et de la redirection post-auth, le second change l'UX du flow OAuth. Les tests passent à chaque commit individuellement (35/35 puis 37/37).
+
+### TODOs restants
+
+- [ ] JB doit configurer `GOOGLE_CLIENT_ID/SECRET` et `MICROSOFT_CLIENT_ID/SECRET` pour tester le flow complet en local
+- [ ] Implémenter vraiment `/auth/forgot-password` (actuellement placeholder)
+- [ ] Implémenter vraiment `/dashboard` (actuellement placeholder)
+- [ ] Apple OAuth (en attente backend)
+- [ ] Tests E2E Playwright sur le flow popup OAuth quand les credentials seront en place
+

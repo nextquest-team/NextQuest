@@ -19,5 +19,7 @@ export default defineConfig({
       },
     },
     fileParallelism: false,
+    // BDD Postgres en reseau Tailscale necessite plus de 10s
+    hookTimeout: 30000,
   },
 });

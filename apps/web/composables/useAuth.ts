@@ -30,8 +30,7 @@ export const useAuth = () => {
         credentials: 'include',
       })
       store.setAuth(data.user, data.accessToken)
-      // TODO: rediriger vers le dashboard quand la page existe
-      await router.push('/')
+      await router.push('/dashboard')
     } catch (err: any) {
       error.value = err.data?.error ?? 'Email ou mot de passe incorrect'
       throw err
@@ -50,8 +49,7 @@ export const useAuth = () => {
         credentials: 'include',
       })
       store.setAuth(data.user, data.accessToken)
-      // TODO: rediriger vers le dashboard quand la page existe
-      await router.push('/')
+      await router.push('/dashboard')
     } catch (err: any) {
       if (err.status === 409) {
         error.value = 'Cet email ou ce pseudo est déjà utilisé'

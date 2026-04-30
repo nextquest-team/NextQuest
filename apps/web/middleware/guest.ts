@@ -1,8 +1,7 @@
-// Redirige les utilisateurs déjà connectés hors des pages auth (login, register)
+// Redirige les utilisateurs déjà connectés hors des pages auth (login, register, landing)
 export default defineNuxtRouteMiddleware(() => {
   const store = useAuthStore()
   if (store.isAuthenticated) {
-    // TODO: rediriger vers /dashboard quand la page existe
-    return navigateTo('/')
+    return navigateTo('/dashboard')
   }
 })

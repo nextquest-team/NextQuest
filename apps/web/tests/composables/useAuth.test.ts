@@ -1,8 +1,44 @@
 // @vitest-environment nuxt
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuth } from '~/composables/useAuth'
 import { useAuthStore } from '~/stores/auth'
+
+// Mock du router : on ne veut pas tester la navigation, juste la logique du composable.
+// Stub complet car Nuxt utilise afterEach/beforeResolve/etc en interne.
+const pushMock = vi.fn().mockResolvedValue(undefined)
+const fakeRouter = {
+  push: pushMock,
+  replace: pushMock,
+  go: vi.fn(),
+  back: vi.fn(),
+  forward: vi.fn(),
+  afterEach: () => () => {},
+  beforeEach: () => () => {},
+  beforeResolve: () => () => {},
+  onError: () => () => {},
+  isReady: () => Promise.resolve(),
+  resolve: (to: any) => ({
+    fullPath: typeof to === 'string' ? to : (to.path ?? '/'),
+    path: typeof to === 'string' ? to : (to.path ?? '/'),
+    query: {},
+    hash: '',
+    name: undefined,
+    params: {},
+    matched: [],
+    meta: {},
+    redirectedFrom: undefined,
+    href: typeof to === 'string' ? to : (to.path ?? '/'),
+  }),
+  currentRoute: { value: { path: '/', fullPath: '/', query: {}, hash: '', name: undefined, params: {}, matched: [], meta: {} } },
+  options: { routes: [] },
+  hasRoute: () => false,
+  getRoutes: () => [],
+  addRoute: vi.fn(),
+  removeRoute: vi.fn(),
+}
+mockNuxtImport('useRouter', () => () => fakeRouter)
 
 const fakeUser = {
   id: 'u-1',
@@ -20,9 +56,10 @@ describe('useAuth', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.restoreAllMocks()
+    pushMock.mockClear()
   })
 
-  it('login stocke user + token et redirige vers /', async () => {
+  it('login stocke user + token et redirige vers /dashboard', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       user: fakeUser,
       accessToken: 'jwt-token',
@@ -43,6 +80,7 @@ describe('useAuth', () => {
         credentials: 'include',
       }),
     )
+    expect(pushMock).toHaveBeenCalledWith('/dashboard')
   })
 
   it('login expose une erreur si l\'API renvoie 401', async () => {

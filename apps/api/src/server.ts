@@ -10,6 +10,7 @@ import { registerRateLimit } from "./plugins/rate-limit.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { oauthRoutes } from "./modules/auth/oauth/oauth.routes.js";
+import { usersRoutes } from "./modules/users/users.routes.js";
 
 const app = Fastify({
   logger: {
@@ -55,6 +56,7 @@ async function start() {
 
   await app.register(healthRoutes, { prefix: "/api" });
   await app.register(authRoutes, { prefix: "/api" });
+  await app.register(usersRoutes, { prefix: "/api" });
   await app.register(oauthRoutes, { prefix: "/api/auth" });
 
   const port = Number(process.env.PORT) || 3000;

@@ -95,10 +95,11 @@ describe("GET /api/auth/me", () => {
       username: "alice",
       displayName: "Alice",
       locale: "fr",
-      role: "user",
       emailVerified: false,
       visibility: "public",
     });
+    // role est volontairement absent du DTO public -- le client lit le JWT pour ca
+    expect(user.role).toBeUndefined();
     // Champs sensibles ne doivent jamais etre presents
     expect(user.passwordHash).toBeUndefined();
     expect(user.failedLoginAttempts).toBeUndefined();

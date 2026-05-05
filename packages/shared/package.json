@@ -10,11 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@nextquest/config": "workspace:*",
-    "typescript": "^5.8.3",
-    "eslint": "^10.2.1"
+    "typescript": "^5.9.3",
+    "eslint": "^10.3.0"
   }
 }

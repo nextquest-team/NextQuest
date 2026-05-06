@@ -29,14 +29,19 @@ const sacocheOpen = ref(false)
           class="dm__sacoche-img"
         />
         <!-- Bouton dans la zone visible (moitié gauche du sac = moitié droite de l'écran) -->
-        <button class="dm__sacoche-btn" @click="sacocheOpen = !sacocheOpen">
+        <button
+          class="dm__sacoche-btn"
+          :aria-expanded="sacocheOpen"
+          :aria-label="t('dashboard.sacoche.inventaire')"
+          @click="sacocheOpen = !sacocheOpen"
+        >
           {{ t('dashboard.sacoche.inventaire') }}
         </button>
       </div>
 
       <!-- Panel landscape — glisse depuis la droite par-dessus les autres éléments -->
       <Transition name="sacoche-slide">
-        <div v-if="sacocheOpen" class="dm__sacoche-panel" @click="sacocheOpen = false">
+        <div v-if="sacocheOpen" class="dm__sacoche-panel" role="dialog" :aria-label="t('dashboard.sacoche.inventaire')" @click="sacocheOpen = false">
           <img
             src="/images/dashboard/hero-landscape.png"
             alt=""

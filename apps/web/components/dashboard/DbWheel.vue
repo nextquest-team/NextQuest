@@ -60,6 +60,21 @@ function onTouchEnd() {
   animation: wheel-turn 0.8s ease-in-out;
 }
 
+/* Focus clavier visible */
+.wheel-btn:focus-visible {
+  outline: 3px solid #264a2e;
+  outline-offset: 6px;
+  border-radius: 50%;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .wheel-btn:hover .wheel-btn__img,
+  .wheel-btn--spinning .wheel-btn__img {
+    animation: none;
+  }
+}
+
 /* Quart de tour à droite puis retour à gauche */
 @keyframes wheel-turn {
   0%   { transform: rotate(0deg); }

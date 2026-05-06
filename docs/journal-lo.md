@@ -553,3 +553,36 @@ Le dashboard est une page privée et authentifiée — le pré-rendu SSR avec de
 - Avatar dynamique depuis API (actuellement image statique)
 - Dashboard desktop : positionnement fin à terminer
 
+---
+
+## 2026-05-06 — Session 11 : Accessibilité dashboard + bug card map mobile
+
+### Ce qui a été fait
+
+#### Accessibilité globale (`main.css`)
+Ajout de trois règles globales dans `assets/css/main.css` :
+- `:focus-visible` — outline vert `#264a2e` pour la navigation clavier, supprimé pour la souris via `:focus:not(:focus-visible)`
+- `@media (prefers-reduced-motion: reduce)` — désactive toutes les animations/transitions pour les utilisateurs ayant activé la préférence OS
+- `.sr-only` — classe utilitaire pour les textes visibles uniquement aux lecteurs d'écran
+
+#### Accessibilité `DbGameCards`
+- `role="region"` + `aria-label="Ma liste de jeux"` sur le container principal
+- Globe : `alt=""` + `aria-hidden="true"` (décoratif, inutile pour les AT)
+- Scroll : `role="list"` + `tabindex="0"` + `aria-label` + gestion clavier `ArrowLeft/ArrowRight` (défile de 120px, `preventDefault()`)
+- Cartes : `role="listitem"` + `aria-label={title}`
+- `:focus-visible` sur `.game-cards__scroll` (outline vert)
+
+#### Accessibilité `DbWheel`
+- `prefers-reduced-motion` scoped : désactive l'animation `wheel-turn` si la préférence est active
+- `:focus-visible` avec `border-radius: 50%` pour conserver la forme ronde du focus
+
+#### Accessibilité `DashboardMobile`
+- `aria-expanded` sur le bouton sacoche
+- `role="dialog"` + `aria-label` sur le panel inventaire
+
+### Points ouverts
+
+- Globe (`card-map-bg.png`) non visible en vue mobile : positionnement `bottom: -530%` à retravailler (valeur % dépend de la hauteur résolue du container → instable). TODO prochaine session.
+- Cards dans le parchemin : ratio toujours trop épais, à affiner.
+- Covers de jeux : placeholders, branchement API IGDB à venir.
+

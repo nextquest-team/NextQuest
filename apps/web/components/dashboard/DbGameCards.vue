@@ -10,36 +10,55 @@ const games = [
   { id: 4, title: "Yoshi's Woolly World" },
   { id: 5, title: 'Resident Evil' },
   { id: 6, title: 'Portal' },
-    { id: 4, title: "Yoshi's Woolly World" },
-  { id: 5, title: 'Resident Evil' },
-  { id: 6, title: 'Portal' },
 ]
 
 function onScroll() {
   if (!scrollEl.value) return
   globeRotation.value = scrollEl.value.scrollLeft * -0.12
 }
+
+function onKeydown(e: KeyboardEvent) {
+  if (!scrollEl.value) return
+  const step = 120
+  if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    scrollEl.value.scrollBy({ left: step, behavior: 'smooth' })
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    scrollEl.value.scrollBy({ left: -step, behavior: 'smooth' })
+  }
+}
 </script>
 
 <template>
-  <div class="game-cards">
+  <div class="game-cards" role="region" aria-label="Ma liste de jeux">
 
-    <!-- Globe qui pivote au scroll -->
+    <!-- Globe décoratif — caché aux lecteurs d'écran -->
     <img
       src="/images/dashboard/card-map-bg.png"
       class="game-cards__globe"
       :style="{ transform: `translateX(-50%) rotate(${globeRotation}deg)` }"
       alt=""
+      aria-hidden="true"
     />
 
     <!-- Scroll horizontal des cartes -->
-    <div class="game-cards__scroll" ref="scrollEl" @scroll="onScroll">
+    <div
+      class="game-cards__scroll"
+      ref="scrollEl"
+      role="list"
+      tabindex="0"
+      aria-label="Liste de jeux, défiler horizontalement"
+      @scroll="onScroll"
+      @keydown="onKeydown"
+    >
       <div class="game-cards__track">
         <div
           v-for="game in games"
           :key="game.id"
           class="game-card"
-          :title="game.title"
+          role="listitem"
+          :aria-label="game.title"
         >
           <!-- TODO: image couverture depuis API (IGDB ou autre) -->
         </div>
@@ -59,7 +78,6 @@ function onScroll() {
   align-items: center;
 }
 
-/* Globe centré, moitié inférieure hors écran, pivote au scroll */
 .game-cards__globe {
   position: absolute;
   bottom: -530%;
@@ -72,7 +90,6 @@ function onScroll() {
   z-index: 0;
 }
 
-/* Conteneur scroll horizontal */
 .game-cards__scroll {
   position: relative;
   z-index: 1;
@@ -82,10 +99,18 @@ function onScroll() {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
+  outline: none;
 }
 
 .game-cards__scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* Focus clavier sur le conteneur scroll */
+.game-cards__scroll:focus-visible {
+  outline: 3px solid #264a2e;
+  outline-offset: 4px;
+  border-radius: 8px;
 }
 
 .game-cards__track {
@@ -95,7 +120,6 @@ function onScroll() {
   width: max-content;
 }
 
-/* Carte jeu */
 .game-card {
   flex-shrink: 0;
   width: min(22vw, 105px);

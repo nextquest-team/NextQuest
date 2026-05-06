@@ -3,11 +3,12 @@
 
 ## Pourquoi on utilise Docker dans NextQuest ?
 
-On n'utilise Docker que pour les **services** (la base de donnees PostgreSQL et le cache Redis), pas pour notre code applicatif (API, web, mobile). Pourquoi cette separation ?
+On utilise Docker pour deux raisons :
 
-- **Les services doivent etre identiques** entre nos machines. Si j'ai PostgreSQL 16 et que Lorelei a PostgreSQL 15, on risque des bugs qui n'apparaissent que chez l'un des deux. Docker garantit qu'on a exactement la meme version avec la meme configuration.
+1. **Les services partagés** (PostgreSQL, Redis) — pour garantir que toute l'equipe a exactement les memes versions avec la meme configuration.
+2. **L'application web** (Nuxt) — un service `web` est disponible en dev avec hot-reload pour ceux qui preferent un environnement isole, et un `Dockerfile` de production existe pour le deploiement.
 
-- **Le code applicatif a besoin du hot-reload.** Quand on modifie un fichier TypeScript, on veut voir le changement instantanement dans le navigateur. Docker ajoute une couche qui ralentit ca. Donc le code tourne en local, directement sur notre machine.
+Note : l'API et le mobile tournent toujours en local pour avoir le meilleur hot-reload possible.
 
 ## Les fichiers Docker du projet
 
@@ -35,8 +36,25 @@ services:
     ports:
       - "6379:6379"
 
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install -g pnpm && pnpm install && pnpm --filter @nextquest/web dev"
+    ports:
+      - "3001:3001"
+    volumes:
+      - ..:/app
+      - web_modules:/app/node_modules
+      - web_nuxt:/app/apps/web/.nuxt
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3001
+      - NUXT_PUBLIC_API_BASE=http://localhost:3000
+
 volumes:
   pgdata:
+  web_modules:
+  web_nuxt:
 ```
 
 Explication ligne par ligne :
@@ -59,6 +77,52 @@ Un script SQL execute automatiquement a la premiere creation de la base. On y me
 **`redis:7-alpine`**
 Meme principe pour Redis : version 7, variante legere, port 6379.
 
+### Le service `web` (Nuxt 3)
+
+```yaml
+web:
+  image: node:22-alpine
+  working_dir: /app
+  command: sh -c "npm install -g pnpm && pnpm install && pnpm --filter @nextquest/web dev"
+  ports:
+    - "3001:3001"
+  volumes:
+    - ..:/app
+    - web_modules:/app/node_modules
+    - web_nuxt:/app/apps/web/.nuxt
+```
+
+**`image: node:22-alpine`**
+On part d'une image Node.js 22 minimale (pas besoin d'un Dockerfile dédié pour le dev, on installe pnpm a la volee dans la commande).
+
+**`volumes: ..:/app`**
+Le repertoire racine du monorepo est monte dans `/app` du conteneur. Quand tu modifies un fichier sur ta machine, le conteneur le voit immediatement → hot reload.
+
+**`volumes: web_modules:/app/node_modules`**
+Volumes nommes pour preserver les `node_modules` du conteneur (les dependances natives compilees pour Linux ne doivent pas etre ecrasees par celles de macOS/Windows).
+
+**`ports: "3001:3001"`**
+Le serveur Nuxt dev tourne sur le port 3001 du conteneur, accessible via `localhost:3001`.
+
+**Important :** la premiere fois, le `pnpm install` peut prendre 1-2 minutes. Les fois suivantes, le volume `web_modules` accelere le demarrage.
+
+### Le Dockerfile de production (apps/web/Dockerfile)
+
+Pour deployer l'app web en production, on a un `Dockerfile` multi-stage :
+
+1. **Stage builder** : installe pnpm, copie les sources du monorepo, lance `pnpm --filter @nextquest/web build` pour generer le bundle Nuxt optimise (`apps/web/.output/`).
+2. **Stage runner** : ne contient que le `.output` Nuxt et lance `node server/index.mjs`.
+
+L'image finale est tres legere (pas de devDependencies, pas de sources). Elle expose le port 3001 et peut etre deployee sur n'importe quel hebergeur compatible Docker (Fly.io, Railway, AWS ECS, etc.).
+
+```bash
+# Build de l'image production
+docker build -f apps/web/Dockerfile -t nextquest-web .
+
+# Run en local pour tester la prod
+docker run -p 3001:3001 nextquest-web
+```
+
 ### init.sql
 
 ```sql
@@ -78,7 +142,15 @@ Ce script s'execute une seule fois, quand le conteneur PostgreSQL est cree pour 
 pnpm docker:up
 ```
 
-Ca lance PostgreSQL et Redis en arriere-plan. On peut verifier qu'ils tournent :
+Ca lance **PostgreSQL, Redis et le web** en arriere-plan. Le web sera disponible sur [http://localhost:3001](http://localhost:3001).
+
+Pour ne lancer que les services BDD/cache (sans le web) :
+
+```bash
+docker compose -f docker/docker-compose.yml up -d postgres redis
+```
+
+On peut verifier qu'ils tournent :
 
 ```bash
 docker ps

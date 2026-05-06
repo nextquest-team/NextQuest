@@ -9,7 +9,7 @@ const { t } = useI18n()
       alt="Parchemin"
       class="parchemin__img"
     />
-    <button class="parchemin__btn">{{ t('dashboard.parchemin') }}</button>
+    <NuxtLink to="/actualites" class="parchemin__btn">{{ t('dashboard.parchemin') }}</NuxtLink>
   </div>
 </template>
 
@@ -37,6 +37,7 @@ const { t } = useI18n()
   appearance: none;
   border: none;
   cursor: pointer;
+  text-decoration: none;
   font-family: var(--nq-font);
   font-size: clamp(0.6rem, 1.8vw, 0.85rem);
   padding: 5px 14px;

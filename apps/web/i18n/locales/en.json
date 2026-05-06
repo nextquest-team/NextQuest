@@ -31,6 +31,13 @@
       "button": "My profile"
     },
     "parchemin": "News",
-    "sacoche": "Inventory"
+    "sacoche": {
+      "inventaire": "Inventory",
+      "gameList": "See my game list",
+      "addGame": "Add a game"
+    },
+    "wheel": {
+      "alt": "Next Quest"
+    }
   }
 }

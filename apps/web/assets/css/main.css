@@ -1,0 +1,170 @@
+@font-face {
+  font-family: 'Knights Quest';
+  src: url('/fonts/knights-quest/KnightsQuest.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Knights Quest Callig';
+  src: url('/fonts/knights-quest/KnightsQuestCallig.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Knights Quest Shielded';
+  src: url('/fonts/knights-quest/KnightsQuestShielded.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  --nq-brown: #5C3317;
+  --nq-brown-dark: #3A1A0A;
+  --nq-cream: #F8F4EA;
+  --nq-beige: #EDE8DC;
+  --nq-red: #8B1F1F;
+  --nq-font: 'Knights Quest', 'Georgia', serif;
+}
+
+html, body {
+  font-family: var(--nq-font);
+  background-color: var(--nq-beige);
+}
+
+/*
+ * Bordure laine via border-image 9-slice.
+ * Le PNG (600x600) → 90px de bord. Les coins gardent leur netteté,
+ * les côtés se répètent (round) pour s'adapter à toute taille.
+ */
+
+/* ── Patch button principal (fond crème, bordure laine) ── */
+.patch-btn {
+  /* Reset du style par défaut du <button> */
+  appearance: none;
+  outline: none;
+  font: inherit;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  padding: 14px 32px;
+
+  /* Le crème est cuit directement dans le PNG → pas besoin de background */
+  background: transparent;
+  border: 26px solid transparent;
+  border-image: url('/images/buttons/wooly-btn-final.png') 350 fill round;
+
+  font-family: var(--nq-font);
+  font-size: 1.1rem;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--nq-brown-dark);
+  text-align: center;
+
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.patch-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.95);
+}
+
+.patch-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.90);
+}
+
+.patch-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Largeur 100% quand block=true */
+.patch-btn.patch-block,
+.patch-btn-back.patch-block {
+  width: 100%;
+  display: flex;
+}
+
+/* ── Patch button retour (petit carré, icône) ── */
+.patch-btn-back {
+  appearance: none;
+  outline: none;
+  font: inherit;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+
+  /* Le crème est cuit directement dans le PNG → pas besoin de background */
+  background: transparent;
+  border: 20px solid transparent;
+  border-image: url('/images/buttons/wooly-btn-final.png') 350 fill round;
+
+  color: var(--nq-brown-dark);
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.patch-btn-back:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.95);
+}
+
+.patch-btn-back:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ── Patch button social (fond coloré, texte blanc) ── */
+/* TODO: Ajouter texture feutre via background-image quand les assets sont disponibles */
+.patch-social {
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  font-family: var(--nq-font);
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  color: #ffffff !important;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+  text-transform: none !important;
+}
+
+.patch-social:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* ── Inputs ── */
+.nq-input .v-field {
+  border-radius: 12px !important;
+  font-family: var(--nq-font) !important;
+}
+
+.nq-input .v-field__input {
+  font-family: var(--nq-font) !important;
+  color: var(--nq-brown-dark) !important;
+  letter-spacing: 0.03em;
+}
+
+.nq-input .v-field--variant-solo {
+  box-shadow: none !important;
+}
+
+/* Labels de champs */
+.nq-label {
+  font-family: var(--nq-font);
+  font-variant: small-caps;
+  font-size: 0.95rem;
+  color: var(--nq-brown-dark);
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  display: block;
+}

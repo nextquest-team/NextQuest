@@ -1,0 +1,36 @@
+{
+  "auth": {
+    "login": "Connexion",
+    "register": "Inscription",
+    "logout": "Déconnexion",
+    "forgotPassword": "Mot de passe oublié",
+    "orContinueWith": "Ou continuez avec",
+    "comingSoon": "Cette fonctionnalité arrive bientôt.",
+    "fields": {
+      "email": "Adresse Mail",
+      "emailPlaceholder": "exemple{'@'}email.com",
+      "password": "Mot de passe",
+      "passwordConfirm": "Confirmation mot de passe",
+      "username": "Pseudo",
+      "usernamePlaceholder": "MonPseudo"
+    },
+    "validation": {
+      "emailRequired": "Email requis",
+      "emailInvalid": "Email invalide",
+      "passwordRequired": "Mot de passe requis",
+      "passwordMin": "8 caractères minimum",
+      "usernameRequired": "Pseudo requis",
+      "usernameMin": "3 caractères minimum",
+      "usernameMax": "30 caractères maximum",
+      "confirmRequired": "Confirmation requise",
+      "passwordMismatch": "Les mots de passe ne correspondent pas"
+    }
+  },
+  "dashboard": {
+    "profile": {
+      "button": "Mon profil"
+    },
+    "parchemin": "Actualités",
+    "sacoche": "Inventaire"
+  }
+}

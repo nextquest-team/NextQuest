@@ -1,0 +1,36 @@
+{
+  "auth": {
+    "login": "Login",
+    "register": "Sign up",
+    "logout": "Logout",
+    "forgotPassword": "Forgot password",
+    "orContinueWith": "Or continue with",
+    "comingSoon": "This feature is coming soon.",
+    "fields": {
+      "email": "Email address",
+      "emailPlaceholder": "example{'@'}email.com",
+      "password": "Password",
+      "passwordConfirm": "Confirm password",
+      "username": "Username",
+      "usernamePlaceholder": "MyUsername"
+    },
+    "validation": {
+      "emailRequired": "Email is required",
+      "emailInvalid": "Invalid email",
+      "passwordRequired": "Password is required",
+      "passwordMin": "Minimum 8 characters",
+      "usernameRequired": "Username is required",
+      "usernameMin": "Minimum 3 characters",
+      "usernameMax": "Maximum 30 characters",
+      "confirmRequired": "Confirmation is required",
+      "passwordMismatch": "Passwords do not match"
+    }
+  },
+  "dashboard": {
+    "profile": {
+      "button": "My profile"
+    },
+    "parchemin": "News",
+    "sacoche": "Inventory"
+  }
+}

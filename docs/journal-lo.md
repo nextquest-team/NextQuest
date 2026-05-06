@@ -478,3 +478,37 @@ Border-radius 12px pour adoucir les angles.
 - [ ] Implémenter le contenu réel du dashboard desktop + navigation sidebar
 - [ ] Remplacer l'avatar statique par l'avatar dynamique de l'utilisateur (API)
 
+---
+
+## 2026-05-06 — Session 9 : Fix hydratation dashboard
+
+### Problème
+
+Avertissement Vue au chargement du dashboard :
+
+```
+Hydration text content mismatch on <span class="profile-card__username">
+  - rendered on server: ""
+  - expected on client: "meii7"
+```
+
+### Cause
+
+Le cycle SSR + hydratation du dashboard se déroulait en deux temps :
+1. **SSR** : Nuxt rend la page côté serveur → `user.value` est `null` (le store est vide, la session n'est pas encore restaurée) → `username = ''`
+2. **Client** : le plugin `auth.client.ts` appelle `refreshTokens()`, restaure la session, `user.value` devient l'utilisateur réel → `username = 'meii7'`
+
+Vue détecte la divergence entre le HTML produit par le serveur (`''`) et ce que le client attendait (`'meii7'`) → mismatch d'hydratation.
+
+### Fix
+
+Double protection dans `pages/dashboard.vue` :
+
+**1. `definePageMeta({ ssr: false })`** — désactive le rendu SSR de la page entière (macro compile-time, nécessite un redémarrage du serveur Nuxt pour prendre effet).
+
+**2. `<ClientOnly>`** — wrapping runtime des composants DashboardMobile/Desktop. Nuxt ne les rend pas côté serveur, ils attendent que le client soit initialisé. Efficace immédiatement sans restart, complémentaire à `ssr: false`.
+
+### Décision technique
+
+Le dashboard est une page privée et authentifiée — le pré-rendu SSR avec des données utilisateur vides n'apporte aucune valeur (pas de SEO, pas de performance perçue). Désactiver SSR + `<ClientOnly>` est le pattern correct pour toutes les pages nécessitant une session active.
+

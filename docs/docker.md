@@ -3,12 +3,13 @@
 
 ## Pourquoi on utilise Docker dans NextQuest ?
 
-On utilise Docker pour deux raisons :
+On utilise Docker pour garantir que toute l'equipe a exactement les memes versions et la meme configuration :
 
-1. **Les services partagés** (PostgreSQL, Redis) — pour garantir que toute l'equipe a exactement les memes versions avec la meme configuration.
-2. **L'application web** (Nuxt) — un service `web` est disponible en dev avec hot-reload pour ceux qui preferent un environnement isole, et un `Dockerfile` de production existe pour le deploiement.
+1. **Les services partagés** (PostgreSQL, Redis)
+2. **L'API Fastify** — service `api` en dev avec hot-reload via `tsx watch`
+3. **L'application web** (Nuxt) — service `web` en dev avec hot-reload
 
-Note : l'API et le mobile tournent toujours en local pour avoir le meilleur hot-reload possible.
+Note : le mobile tourne toujours en local.
 
 ## Les fichiers Docker du projet
 
@@ -36,6 +37,29 @@ services:
     ports:
       - "6379:6379"
 
+  api:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install -g pnpm && pnpm install && pnpm --filter @nextquest/api dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ..:/app
+      - api_modules:/app/node_modules
+    env_file:
+      - ../.env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+      - DATABASE_URL=postgresql://nextquest:nextquest@postgres:5432/nextquest
+      - REDIS_URL=redis://redis:6379
+      - API_BASE_URL=http://api:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   web:
     image: node:22-alpine
     working_dir: /app
@@ -49,10 +73,14 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=3001
+      - NUXT_API_BASE=http://api:3000
       - NUXT_PUBLIC_API_BASE=http://localhost:3000
+    depends_on:
+      - api
 
 volumes:
   pgdata:
+  api_modules:
   web_modules:
   web_nuxt:
 ```
@@ -76,6 +104,38 @@ Un script SQL execute automatiquement a la premiere creation de la base. On y me
 
 **`redis:7-alpine`**
 Meme principe pour Redis : version 7, variante legere, port 6379.
+
+### Le service `api` (Fastify)
+
+```yaml
+api:
+  image: node:22-alpine
+  command: sh -c "npm install -g pnpm && pnpm install && pnpm --filter @nextquest/api dev"
+  ports:
+    - "3000:3000"
+  env_file:
+    - ../.env
+  environment:
+    - DATABASE_URL=postgresql://nextquest:nextquest@postgres:5432/nextquest
+    - REDIS_URL=redis://redis:6379
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+```
+
+**`env_file: ../.env`**
+Charge toutes les variables du `.env` racine (JWT, secrets OAuth, etc.). Les variables `environment` du service surchargent ensuite les valeurs `localhost` par les noms de services Docker internes (`postgres`, `redis`).
+
+**`depends_on` avec `condition: service_healthy`**
+L'API ne démarre qu'une fois que postgres et redis ont répondu à leur healthcheck. Evite les crashs au démarrage si la base n'est pas encore prête.
+
+**Double URL pour le web Nuxt :**
+
+Le service `web` injecte deux variables :
+- `NUXT_API_BASE=http://api:3000` — utilisé côté serveur (SSR, middleware), reste dans le réseau Docker
+- `NUXT_PUBLIC_API_BASE=http://localhost:3000` — utilisé par le browser, qui ne connaît pas le réseau Docker interne
 
 ### Le service `web` (Nuxt 3)
 
@@ -142,7 +202,10 @@ Ce script s'execute une seule fois, quand le conteneur PostgreSQL est cree pour 
 pnpm docker:up
 ```
 
-Ca lance **PostgreSQL, Redis et le web** en arriere-plan. Le web sera disponible sur [http://localhost:3001](http://localhost:3001).
+Ca lance **PostgreSQL, Redis, l'API et le web** en arriere-plan.
+- API disponible sur [http://localhost:3000](http://localhost:3000)
+- Swagger docs sur [http://localhost:3000/docs](http://localhost:3000/docs)
+- Web disponible sur [http://localhost:3001](http://localhost:3001)
 
 Pour ne lancer que les services BDD/cache (sans le web) :
 
@@ -212,6 +275,34 @@ Pour verifier que Docker fonctionne :
 docker --version
 docker compose version
 ```
+
+## Redémarrer un service après ajout de dépendance
+
+Quand on ajoute un nouveau module Nuxt (ex: `@nuxtjs/i18n`) ou une dépendance qui génère des types auto-import, il faut redémarrer le container `web` pour que `nuxt prepare` se relance et que les nouveaux types soient disponibles :
+
+```bash
+docker compose -f docker/docker-compose.yml restart web
+```
+
+Ou stopper/relancer complètement :
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --force-recreate web
+```
+
+## Hot reload des nouveaux fichiers (polling Vite)
+
+Sur macOS + Docker avec un volume monté, le watcher de fichiers natif ne détecte pas toujours les nouveaux fichiers créés depuis l'hôte. Le polling Vite est activé dans `nuxt.config.ts` :
+
+```ts
+vite: {
+  server: {
+    watch: { usePolling: true, interval: 1000 }
+  }
+}
+```
+
+Cela permet à Nuxt de détecter les nouveaux composants `.vue`, fichiers de traduction `locales/`, etc. sans redémarrer le container.
 
 ## Rappel : workflow complet de demarrage
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'guest' })
 
+const { t } = useI18n()
 const { register, isLoading, error } = useAuth()
 
 const username = ref('')
@@ -10,24 +11,24 @@ const passwordConfirm = ref('')
 const form = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
 const usernameRules = [
-  (v: string) => !!v || 'Pseudo requis',
-  (v: string) => v.length >= 3 || '3 caractères minimum',
-  (v: string) => v.length <= 30 || '30 caractères maximum',
+  (v: string) => !!v || t('auth.validation.usernameRequired'),
+  (v: string) => v.length >= 3 || t('auth.validation.usernameMin'),
+  (v: string) => v.length <= 30 || t('auth.validation.usernameMax'),
 ]
 
 const emailRules = [
-  (v: string) => !!v || 'Email requis',
-  (v: string) => /.+@.+\..+/.test(v) || 'Email invalide',
+  (v: string) => !!v || t('auth.validation.emailRequired'),
+  (v: string) => /.+@.+\..+/.test(v) || t('auth.validation.emailInvalid'),
 ]
 
 const passwordRules = [
-  (v: string) => !!v || 'Mot de passe requis',
-  (v: string) => v.length >= 8 || '8 caractères minimum',
+  (v: string) => !!v || t('auth.validation.passwordRequired'),
+  (v: string) => v.length >= 8 || t('auth.validation.passwordMin'),
 ]
 
 const passwordConfirmRules = [
-  (v: string) => !!v || 'Confirmation requise',
-  (v: string) => v === password.value || 'Les mots de passe ne correspondent pas',
+  (v: string) => !!v || t('auth.validation.confirmRequired'),
+  (v: string) => v === password.value || t('auth.validation.passwordMismatch'),
 ]
 
 async function handleRegister() {
@@ -54,29 +55,29 @@ async function handleRegister() {
         <div class="auth-fields">
           <UiPatchInput
             v-model="username"
-            label="Pseudo"
-            placeholder="MonPseudo"
+            :label="t('auth.fields.username')"
+            :placeholder="t('auth.fields.usernamePlaceholder')"
             :rules="usernameRules"
           />
 
           <UiPatchInput
             v-model="email"
-            label="Adresse Mail"
+            :label="t('auth.fields.email')"
             type="email"
-            placeholder="exemple@email.com"
+            :placeholder="t('auth.fields.emailPlaceholder')"
             :rules="emailRules"
           />
 
           <UiPatchInput
             v-model="password"
-            label="Mot de passe"
+            :label="t('auth.fields.password')"
             type="password"
             :rules="passwordRules"
           />
 
           <UiPatchInput
             v-model="passwordConfirm"
-            label="Mot de passe"
+            :label="t('auth.fields.passwordConfirm')"
             type="password"
             :rules="passwordConfirmRules"
           />
@@ -91,7 +92,7 @@ async function handleRegister() {
           block
           :loading="isLoading"
         >
-          Inscription
+          {{ t('auth.register') }}
         </UiPatchButton>
       </v-form>
     </div>

@@ -247,7 +247,234 @@ Découpé en deux pour que chaque commit soit atomique : le premier change l'arc
 
 - [ ] JB doit configurer `GOOGLE_CLIENT_ID/SECRET` et `MICROSOFT_CLIENT_ID/SECRET` pour tester le flow complet en local
 - [ ] Implémenter vraiment `/auth/forgot-password` (actuellement placeholder)
-- [ ] Implémenter vraiment `/dashboard` (actuellement placeholder)
+- [x] Implémenter `/dashboard` → session 6
 - [ ] Apple OAuth (en attente backend)
 - [ ] Tests E2E Playwright sur le flow popup OAuth quand les credentials seront en place
+
+---
+
+## 2026-05-06 — Session 6 : Dashboard (structure) + Dockerisation API
+
+### Contexte
+
+Nouvelle branche `dashboard` créée depuis `develop`. Deux objectifs : poser la structure du dashboard avec une vue mobile et une vue desktop distinctes, et finaliser la dockerisation de l'API (le TODO de la session 1 restait ouvert).
+
+### Dashboard — deux composants distincts
+
+Le dashboard aura des dispositions complètement différentes selon l'appareil : navigation en bas sur mobile, sidebar latérale sur desktop. Plutôt que de gérer ça avec des media queries dans un seul composant, on utilise deux composants dédiés commutés par `useDisplay` de Vuetify.
+
+**Fichiers créés :**
+- `components/dashboard/DashboardMobile.vue` — layout colonne pleine hauteur, navigation pied de page à venir
+- `components/dashboard/DashboardDesktop.vue` — layout sidebar (260px fixe) + zone principale
+- `pages/dashboard.vue` — orchestre le switch via `useDisplay().mobile`
+
+**Pattern utilisé :**
+
+```ts
+// pages/dashboard.vue
+import { useDisplay } from 'vuetify'
+const { mobile } = useDisplay()
+```
+
+```html
+<DashboardMobile v-if="mobile" :username @logout />
+<DashboardDesktop v-else :username @logout />
+```
+
+`useDisplay` est réactif : si l'utilisateur redimensionne la fenêtre, le bon composant s'affiche instantanément sans rechargement.
+
+### Dockerisation de l'API
+
+**Service `api` ajouté dans `docker-compose.yml` :**
+- Même pattern que le service `web` : `node:22-alpine` + `tsx watch` via `pnpm --filter @nextquest/api dev`
+- `depends_on` avec `condition: service_healthy` sur `postgres` et `redis` — l'API ne démarre qu'une fois les deux services prêts (healthcheck)
+- `env_file: ../.env` pour les variables (JWT, OAuth, etc.)
+- Surcharge des URLs internes Docker dans `environment` (voir ci-dessous)
+
+**Problème réseau Docker → fix en deux couches :**
+
+Le `.env` contient `DATABASE_URL=...@localhost:5432` qui ne fonctionne pas dans le réseau Docker. Le service `api` surcharge ces valeurs :
+
+```yaml
+environment:
+  - DATABASE_URL=postgresql://nextquest:nextquest@postgres:5432/nextquest
+  - REDIS_URL=redis://redis:6379
+  - API_BASE_URL=http://api:3000
+```
+
+**Bug `ERR_NAME_NOT_RESOLVED` sur `http://api:3000` depuis le browser :**
+
+`NUXT_PUBLIC_API_BASE=http://api:3000` était injecté dans le browser qui ne connaît pas le réseau Docker interne. Fix : deux variables séparées.
+
+| Variable | Valeur Docker | Contexte |
+|----------|--------------|----------|
+| `NUXT_API_BASE` | `http://api:3000` | SSR / middleware (tourne dans le container) |
+| `NUXT_PUBLIC_API_BASE` | `http://localhost:3000` | Browser (tourne sur la machine host) |
+
+Dans `nuxt.config.ts`, `runtimeConfig.apiBase` (privé, server-only) + `runtimeConfig.public.apiBase` (exposé au client).
+
+Dans `useAuth.ts` :
+```ts
+const apiBase = import.meta.server ? config.apiBase : config.public.apiBase
+```
+
+**`.env.example` restructuré** — sections commentées, hints de génération des secrets (`openssl rand -base64 64` pour JWT, `openssl rand -hex 32` pour la clé de chiffrement), URIs OAuth précisées, `NUXT_PUBLIC_API_BASE` ajouté.
+
+### Décisions techniques
+
+| Choix | Raison |
+|-------|--------|
+| Deux composants Dashboard distincts | Dispositions trop différentes pour gérer avec des media queries — un seul composant aurait été illisible |
+| `useDisplay` Vuetify plutôt que CSS breakpoints | Réactif en JS, permet de conditionner la logique (pas seulement le style), cohérent avec le reste de l'app Vuetify |
+| `depends_on` avec `condition: service_healthy` | Évite les crashs au démarrage si l'API tente de se connecter avant que postgres/redis soient prêts |
+| `env_file` + surcharge `environment` | Le `.env` reste la source de vérité pour le dev local, Docker surcharge uniquement ce qui doit changer (les hostnames) |
+| `import.meta.server` dans `useAuth` | Pattern Nuxt 3 officiel pour distinguer SSR/client — plus fiable que `process.server` déprécié |
+
+### TODOs
+
+- [ ] Implémenter le contenu réel du dashboard mobile (collection, recommandations, fil d'activité)
+- [ ] Implémenter le contenu réel du dashboard desktop + navigation sidebar
+- [ ] Tester le flow complet login → dashboard une fois les credentials OAuth configurés
+
+---
+
+## 2026-05-06 — Session 7 : Dashboard mobile (composants) + i18n
+
+### Contexte
+
+Suite de la branche `dashboard`. Deux axes : (1) construire les composants de la section supérieure du dashboard mobile pas à pas, (2) mettre en place l'internationalisation (`@nuxtjs/i18n`) sur tout le frontend.
+
+### Dashboard mobile — section supérieure
+
+Le dashboard mobile est découpé en 3 zones flex-column :
+- `dm__top` (40%) — ProfileCard + Parchemin + Sacoche en row
+- `dm__mid` (flex: 1) — roue centrale (à venir)
+- `dm__bot` (30%) — carte de jeu horizontale (à venir)
+
+**Problème de nommage Nuxt résolu :**
+
+Les composants placés dans `components/dashboard/` sont enregistrés par Nuxt avec le préfixe du dossier. `DbProfileCard.vue` doit donc être appelé `<DashboardDbProfileCard>` (et non `<DbProfileCard>`). Les templates utilisaient le mauvais nom, d'où les erreurs SSR "Failed to resolve component". Corrigé dans `DashboardMobile.vue`.
+
+**`DbProfileCard.vue`** — composant carte de profil :
+- Fond : avatar utilisateur (`avatar-profile.png`) en `position: absolute` z-index 1
+- Overlay : cadre tressé vert (`encadrement-vert.png`) via `::after` pseudo-element z-index 2 — le cadre est visuellement au-dessus de l'avatar
+- Contenu : bouton "Mon profil" + pseudo utilisateur en z-index 3
+- Aspect ratio 143/257 pour coller aux proportions du cadre Figma
+
+**`DbParchemin.vue`** et **`DbSacoche.vue`** — placeholders colorés en attente des assets définitifs.
+
+### i18n — mise en place complète
+
+**Installation :** `@nuxtjs/i18n` ajouté aux dépendances `apps/web`.
+
+**Configuration `nuxt.config.ts` :**
+- Stratégie `no_prefix` (pas de `/fr/dashboard`, `/en/dashboard` — l'URL reste la même)
+- Détection automatique via la langue du navigateur : `fr-*` (fr-BE, fr-CA, fr-CH, etc.) → locale `fr` ; tout autre navigateur → fallback `en`
+- Préférence mémorisée dans le cookie `nq_locale`
+
+**Fichiers de traduction :**
+- `locales/fr.json` — French (source of truth)
+- `locales/en.json` — English
+
+**Clés organisées par domaine :**
+```
+auth.login / auth.register / auth.logout
+auth.forgotPassword / auth.orContinueWith / auth.comingSoon
+auth.fields.email / auth.fields.password / auth.fields.username / …
+auth.validation.emailRequired / auth.validation.passwordMin / …
+dashboard.profile.button
+dashboard.parchemin / dashboard.sacoche
+```
+
+**Composants et pages mis à jour :**
+- `pages/index.vue`
+- `pages/auth/login.vue`
+- `pages/auth/register.vue`
+- `pages/auth/forgot-password.vue`
+- `components/dashboard/DbProfileCard.vue`
+- `components/dashboard/DbParchemin.vue`
+- `components/dashboard/DbSacoche.vue`
+
+Tous les textes visibles passent désormais par `const { t } = useI18n()` — plus aucun texte hardcodé dans les templates.
+
+### Décisions techniques
+
+| Choix | Raison |
+|-------|--------|
+| Stratégie `no_prefix` | Les URLs restent propres (`/dashboard` et non `/fr/dashboard`) — convient à une app monolingue par session |
+| Détection navigateur + cookie | L'utilisateur n'a pas à choisir manuellement sa langue, et la préférence est mémorisée entre les sessions |
+| Fallback `en` | Langue internationale par défaut pour tout navigateur non francophone |
+| `::after` pour le cadre vert | Permet de superposer le cadre au-dessus de l'avatar sans position absolute au niveau page ; `pointer-events: none` pour ne pas bloquer les clics sur le contenu |
+| Redémarrage container requis | `@nuxtjs/i18n` génère des types auto-import (`.nuxt/`) — nécessite un `nuxt prepare` via le restart du container |
+
+### TODOs
+
+- [ ] Redémarrer le container web pour régénérer les types auto-import `useI18n`
+- [ ] Construire `DbParchemin` (parchemin Actualités avec asset Figma)
+- [ ] Construire `DbSacoche` (scène héros — landscape + dragon + boutons navigation)
+- [ ] Construire `dm__mid` — roue centrale (tourne au hover/touch, statique sinon)
+- [ ] Construire `dm__bot` — carte de jeu avec scroll horizontal
+- [ ] Implémenter le contenu réel du dashboard desktop + navigation sidebar
+
+---
+
+## 2026-05-06 — Session 8 : Dashboard mobile dm__top — composants finalisés
+
+### Ce qui a été fait
+
+#### Correction du layout `dm__top`
+
+Le layout initial utilisait `flex: 1` sur les trois enfants avec `align-items: stretch` (défaut), ce qui forçait chaque composant à remplir toute la hauteur de la section. La carte de profil avec `aspect-ratio: 143/257` se retrouvait plus courte que la section, laissant le fond apparaître en dessous.
+
+Fix : passage à `align-items: center` + `justify-content: space-evenly` sur `dm__top`, et `flex: 0 0 30%` sur chaque composant. Les trois éléments flottent maintenant naturellement sur le fond tricoté, comme dans la maquette.
+
+Suppression des fonds de debug colorés (rouge/vert/bleu) sur les trois zones.
+
+#### `DbProfileCard` — composition finale
+
+Structure retenue (3 couches z-index) :
+- z-index 1 : avatar (`hero` placeholder → TODO remplacer par avatar utilisateur API)
+- z-index 2 : cadre vert (`encadrement-vert.png`) via `::after` pseudo-element
+- z-index 3 : contenu (bouton "Mon profil" + pseudo utilisateur)
+
+`aspect-ratio: 143/257` restauré avec `flex: 0 0 30%` — la carte conserve ses proportions de maquette et ne s'étire plus.
+
+Font sizes avec `clamp()` pour s'adapter aux différentes largeurs d'écran.
+
+#### `DbParchemin` — composant construit
+
+- Image `parchemin-ferme.png` comme base (parchemin enroulé)
+- Badge "Actualités" centré dessus (position absolute, même style que les boutons PatchButton)
+- `flex: 0 0 28%` — légèrement plus étroit que les deux autres
+
+#### `DbSacoche` — composant construit
+
+Scène héro composée de deux images superposées :
+- `hero-landscape.png` : fond paysage (position absolute, couvre tout)
+- `hero-dragon.png` : personnage dragon au premier plan
+- Bouton "Inventaire" en bas de la carte
+
+Border-radius 12px pour adoucir les angles.
+
+#### i18n — clés mises à jour
+
+- `dashboard.parchemin` → "Actualités" / "News"
+- `dashboard.sacoche` → "Inventaire" / "Inventory"
+
+### Décisions techniques
+
+| Choix | Raison |
+|-------|--------|
+| `flex: 0 0 30%` + `aspect-ratio` sur les cartes | Les composants conservent leurs proportions de maquette et flottent sur le fond sans remplir la section |
+| `align-items: center` sur `dm__top` | Centre verticalement les cartes — le fond tricoté est visible autour, comme dans la maquette |
+| `::after` pour le cadre vert | Permet de superposer le cadre au-dessus de l'avatar sans position absolute au niveau page |
+| `clamp()` pour les font-size | Adapte lisiblement la taille du texte entre les petits (320px) et grands (430px) écrans mobiles |
+| Hero landscape + dragon pour DbSacoche | Assets disponibles correspondant à la scène inventaire/héro de la maquette |
+
+### TODOs
+
+- [ ] Construire `dm__mid` — roue centrale (`turning-wheel.png`, tourne au hover/touch)
+- [ ] Construire `dm__bot` — carte de jeu (`card-map-bg.png`, scroll horizontal)
+- [ ] Implémenter le contenu réel du dashboard desktop + navigation sidebar
+- [ ] Remplacer l'avatar statique par l'avatar dynamique de l'utilisateur (API)
 

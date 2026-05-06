@@ -512,3 +512,44 @@ Double protection dans `pages/dashboard.vue` :
 
 Le dashboard est une page privée et authentifiée — le pré-rendu SSR avec des données utilisateur vides n'apporte aucune valeur (pas de SEO, pas de performance perçue). Désactiver SSR + `<ClientOnly>` est le pattern correct pour toutes les pages nécessitant une session active.
 
+---
+
+## 2026-05-06 — Session 10 : dm__mid, dm__bot, routes et dashboard desktop V2
+
+### Ce qui a été fait
+
+#### Roue (dm__mid)
+- Crop du fichier `turning-wheel.png` via Python/PIL : suppression du vide haut/bas (1536×2752 → 1492×1507px) pour que la zone cliquable corresponde exactement au rond
+- Animation CSS : quart de tour à droite au hover (desktop) et au touchstart (mobile)
+- Lien vers `/next-quest`
+
+#### Sacoche — corrections pointer-events
+- `pointer-events: none` sur `.dm__sacoche` (la div 170vw qui couvrait tout l'écran)
+- `pointer-events: auto` uniquement sur `.dm__sacoche-btn` → les boutons du panel landscape redeviennent cliquables
+
+#### Responsivité du sac (mobile)
+- Passage de `width: 170vw` à `height: 110%; width: auto` + `transform: translate(50%, -50%)` pour que le sac se dimensionne selon la hauteur du container (responsive quel que soit le format)
+
+#### Globe (dm__bot)
+- Nouveau composant `DbGameCards.vue` : scroll horizontal de cartes + globe `card-map-bg.png` qui pivote au scroll (`scrollLeft * -0.12` degrés)
+- Globe cropé à `bottom: -530%` pour n'en voir que la calotte supérieure
+- Cadre `wooly-btn-final.png` sur chaque carte
+
+#### Routes et pages placeholder
+- 4 nouvelles pages créées : `/profil`, `/actualites`, `/game-list`, `/add-game`
+- Boutons du dashboard branchés : ProfileCard → `/profil`, Parchemin → `/actualites`, sacoche → `/game-list` et `/add-game`
+- Remplacement des `<button>` par `<NuxtLink>` avec `text-decoration: none`
+
+#### Dashboard Desktop V2 (Figma page V2, frame MacBook Pro 14")
+- Récupération des assets via MCP Figma : `parchemin-ouvert.png` (scroll ouvert portrait) + `sac-a-dos.png` (sac vert paysage 2616×1426)
+- Layout fidèle au Figma : sac à dos à gauche (déborde), roue centrée, parchemin ouvert à droite avec cards scrollables, card map en bas
+- Composant `DbGreenFrame.vue` : cadre vert tressé en overlay (`::after`, `z-index: 2`) utilisant `encadrement-vert-90.png` (version paysage fournie par Lorelei)
+- `DbProfileCard.vue` : ajout prop `horizontal` pour le mode desktop (avatar rond + username + bouton, encadré par `DbGreenFrame`)
+- Roue desktop : `min(16vw, 240px)` via media query `768px`
+
+### Points ouverts
+- Cards dans le parchemin : ratio à affiner (trop épais pour l'instant, TODO prochaine session)
+- Covers de jeux : placeholders, branchement API IGDB à venir
+- Avatar dynamique depuis API (actuellement image statique)
+- Dashboard desktop : positionnement fin à terminer
+

@@ -14,7 +14,20 @@ withDefaults(defineProps<{
 
 <style scoped>
 .green-frame {
+  --frame-bg: transparent;
   position: relative;
+  overflow: hidden;
+  border-radius: 8% / 10%;
+}
+
+/* Fond inséré à l'intérieur de la zone opaque du cadre (~5.5% transparent tout autour) */
+.green-frame::before {
+  content: '';
+  position: absolute;
+  inset: 6%;
+  background: var(--frame-bg);
+  border-radius: 15%;
+  z-index: 0;
 }
 
 /* Cadre en overlay par-dessus le contenu */

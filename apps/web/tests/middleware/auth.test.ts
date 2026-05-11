@@ -35,6 +35,9 @@ describe('middleware/auth.global', () => {
   })
 
   it('redirige vers /auth/login si route privée et non authentifié', () => {
+    const store = useAuthStore()
+    store.setInitialized()
+
     const result = (authMiddleware as any)({ path: '/dashboard' }, {})
     expect(result).toBe('/auth/login')
   })
@@ -42,6 +45,7 @@ describe('middleware/auth.global', () => {
   it('laisse passer une route privée si authentifié', () => {
     const store = useAuthStore()
     store.setAuth(fakeUser, 'jwt')
+    store.setInitialized()
 
     const result = (authMiddleware as any)({ path: '/dashboard' }, {})
     expect(result).toBeUndefined()

@@ -37,7 +37,7 @@ function onKeydown(e: KeyboardEvent) {
     <img
       src="/images/dashboard/card-map-bg.png"
       class="game-cards__globe"
-      :style="{ transform: `translateX(-50%) rotate(${globeRotation}deg)` }"
+      :style="{ transform: `translateX(-50%) translateY(65%) rotate(${globeRotation}deg)` }"
       alt=""
       aria-hidden="true"
     />
@@ -73,18 +73,19 @@ function onKeydown(e: KeyboardEvent) {
   width: 100%;
   height: 100%;
   position: relative;
-  overflow: hidden;
   display: flex;
   align-items: center;
 }
 
 .game-cards__globe {
   position: absolute;
-  bottom: -530%;
+  bottom: 0;
   left: 50%;
   width: 85vw;
   height: auto;
-  transform: translateX(-50%);
+  /* translateY(%) = % de la hauteur propre de l'image. Le contenu visible du globe
+     commence à y≈132px (display), soit 22% depuis le haut — d'où T < 78% */
+  transform: translateX(-50%) translateY(65%);
   transform-origin: center center;
   pointer-events: none;
   z-index: 0;

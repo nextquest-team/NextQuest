@@ -200,5 +200,8 @@ const sacocheOpen = ref(false)
   justify-content: center;
 }
 
-.dm__bot { flex: 0 0 28%; }
+.dm__bot {
+  flex: 0 0 28%;
+  overflow: hidden;
+}
 </style>

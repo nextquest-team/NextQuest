@@ -26,11 +26,23 @@
       "passwordMismatch": "Les mots de passe ne correspondent pas"
     }
   },
+  "nav": {
+    "label": "Navigation principale",
+    "dashboard": "Accueil",
+    "gameList": "Mes jeux",
+    "actualites": "Actualités",
+    "profil": "Profil",
+    "nextQuest": "Next Quest",
+    "timeline": "Sorties de jeux"
+  },
   "dashboard": {
     "profile": {
       "button": "Mon profil"
     },
-    "parchemin": "Actualités",
+    "parchemin": {
+      "label": "Actualités",
+      "voirTout": "Voir tout"
+    },
     "sacoche": {
       "inventaire": "Inventaire",
       "gameList": "Voir ma liste de jeux",

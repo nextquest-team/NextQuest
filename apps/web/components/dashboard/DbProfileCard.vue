@@ -42,7 +42,7 @@ const { t } = useI18n()
 <style scoped>
 /* ── Mode portrait (mobile) ── */
 .profile-card {
-  flex: 0 0 30%;
+  flex: 0 0 36%;
   aspect-ratio: 143 / 257;
   position: relative;
   overflow: hidden;
@@ -99,17 +99,20 @@ const { t } = useI18n()
   cursor: pointer;
   text-decoration: none;
   font-family: var(--nq-font);
-  font-size: clamp(0.6rem, 1.8vw, 0.85rem);
+  font-size: clamp(0.875rem, 1.8vw, 0.95rem);
   padding: 5px 14px;
   border-radius: 5px;
-  background: #a65d52;
+  background: #7a3e2a;
   color: #edc78e;
   white-space: nowrap;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .profile-card__username {
   font-family: var(--nq-font);
-  font-size: clamp(0.85rem, 2.5vw, 1.1rem);
+  font-size: clamp(0.875rem, 2.5vw, 1.1rem);
   font-weight: bold;
   color: #332b25;
   text-align: center;
@@ -167,12 +170,14 @@ const { t } = useI18n()
   cursor: pointer;
   text-decoration: none;
   font-family: var(--nq-font);
-  font-size: clamp(0.7rem, 1vw, 0.95rem);
+  font-size: clamp(0.875rem, 1vw, 0.95rem);
   padding: 6px 16px;
   border-radius: 5px;
-  background: #a65d52;
+  background: #7a3e2a;
   color: #edc78e;
   white-space: nowrap;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 </style>

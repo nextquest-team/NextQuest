@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Landing réservée aux visiteurs non connectés (le middleware redirige
 // les utilisateurs authentifiés vers /dashboard).
-definePageMeta({ middleware: 'guest' })
+definePageMeta({ middleware: 'guest', layout: 'plain' })
 
 const { t } = useI18n()
 </script>

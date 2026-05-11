@@ -33,6 +33,11 @@ function onKeydown(e: KeyboardEvent) {
 <template>
   <div class="game-cards" role="region" aria-label="Ma liste de jeux">
 
+    <!-- Slot optionnel pour un label/bouton en overlay haut-droit -->
+    <div v-if="$slots.header" class="game-cards__header">
+      <slot name="header" />
+    </div>
+
     <!-- Globe décoratif — caché aux lecteurs d'écran -->
     <img
       src="/images/dashboard/card-map-bg.png"
@@ -75,6 +80,14 @@ function onKeydown(e: KeyboardEvent) {
   position: relative;
   display: flex;
   align-items: center;
+}
+
+.game-cards__header {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
 }
 
 .game-cards__globe {

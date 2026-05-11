@@ -7,6 +7,8 @@ defineEmits<{
   logout: []
 }>()
 
+const { t } = useI18n()
+
 // TODO: remplacer par les jeux de l'utilisateur depuis l'API
 const games = [
   { id: 1, title: 'Hollow Knight' },
@@ -27,6 +29,9 @@ const games = [
       alt=""
       class="dd__bag"
     />
+    <NuxtLink to="/game-list" class="dd__bag-btn">
+      {{ t('dashboard.sacoche.gameList') }}
+    </NuxtLink>
 
     <!-- Profil horizontal + roue : empilés au centre -->
     <div class="dd__center">
@@ -51,11 +56,21 @@ const games = [
           <!-- TODO: image couverture depuis API -->
         </div>
       </div>
+      <NuxtLink to="/actualites" class="dd__parchemin-voir-tout">
+        {{ t('dashboard.parchemin.voirTout') }}
+      </NuxtLink>
     </div>
 
     <!-- Card map + globe — bas -->
     <div class="dd__cardmap">
-      <DashboardDbGameCards />
+      <DashboardDbGameCards>
+        <template #header>
+          <NuxtLink to="/timeline" class="dd__timeline-link">
+            {{ t('nav.timeline') }}
+            <v-icon size="14">mdi-chevron-right</v-icon>
+          </NuxtLink>
+        </template>
+      </DashboardDbGameCards>
     </div>
 
   </div>
@@ -114,8 +129,8 @@ const games = [
 /* Zone scrollable à l'intérieur du parchemin (évite les bords) */
 .dd__parchemin-scroll {
   position: absolute;
-  top: 12%;
-  bottom: 9%;
+  top: 14%;
+  bottom: 13%;
   left: 9%;
   right: 9%;
   overflow-y: auto;
@@ -131,15 +146,69 @@ const games = [
   display: none;
 }
 
-/* Carte jeu avec cadre wooly ── */
+/* Carte actualité / amis — bord fin ── */
 .dd__game-slot {
   flex-shrink: 0;
-  width: 78%;
+  width: 82%;
   margin: 0 auto;
-  aspect-ratio: 3 / 2;
-  background-image: url('/images/buttons/wooly-btn-final.png');
-  background-size: 100% 100%;
-  /* TODO: game cover à l'intérieur */
+  aspect-ratio: 5 / 2;
+  border: 1.5px solid #7a3e2a;
+  border-radius: 6px;
+  background: rgba(245, 237, 223, 0.55);
+}
+
+/* ── Bouton sac à dos : en haut de la zone visible ── */
+.dd__bag-btn {
+  position: absolute;
+  left: 13%;
+  top: 14%;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--nq-font);
+  font-size: clamp(0.875rem, 1vw, 1rem);
+  color: #edc78e;
+  text-decoration: none;
+  background: #7a3e2a;
+  padding: 7px 18px;
+  border-radius: 5px;
+  white-space: nowrap;
+  min-height: 44px;
+}
+
+/* ── Bouton "Voir tout" en bas du parchemin ── */
+.dd__parchemin-voir-tout {
+  position: absolute;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--nq-font);
+  font-size: clamp(0.875rem, 1vw, 1rem);
+  color: #edc78e;
+  text-decoration: none;
+  background: #7a3e2a;
+  padding: 7px 18px;
+  border-radius: 5px;
+  white-space: nowrap;
+  min-height: 44px;
+}
+
+/* ── Bouton Sorties de jeux ── */
+.dd__timeline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--nq-font);
+  font-size: clamp(0.875rem, 1vw, 1rem);
+  color: #edc78e;
+  text-decoration: none;
+  background: #7a3e2a;
+  padding: 7px 18px;
+  border-radius: 5px;
+  border: none;
+  white-space: nowrap;
+  min-height: 44px;
 }
 
 /* ── Card map : bas, centrée ── */

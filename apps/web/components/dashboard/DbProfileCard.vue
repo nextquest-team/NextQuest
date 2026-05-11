@@ -48,6 +48,16 @@ const { t } = useI18n()
   overflow: hidden;
 }
 
+/* Fond crème inséré à l'intérieur de la zone opaque du cadre (~5.5% transparent tout autour) */
+.profile-card::before {
+  content: '';
+  position: absolute;
+  inset: 6%;
+  background: #F5EDDF;
+  border-radius: 15%;
+  z-index: 0;
+}
+
 .profile-card::after {
   content: '';
   position: absolute;
@@ -107,6 +117,7 @@ const { t } = useI18n()
 
 /* ── Mode horizontal (desktop) ── */
 .profile-h {
+  --frame-bg: #F5EDDF;
   display: flex;
   align-items: center;
   gap: 20px;

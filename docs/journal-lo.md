@@ -586,3 +586,116 @@ Ajout de trois règles globales dans `assets/css/main.css` :
 - Cards dans le parchemin : ratio toujours trop épais, à affiner.
 - Covers de jeux : placeholders, branchement API IGDB à venir.
 
+---
+
+## 2026-05-11 — Session 12 : Polish dashboard + Navbar + Accessibilité
+
+### Ce qui a été fait
+
+#### Fix globe `card-map-bg.png` (mobile)
+
+- Diagnostic via Python/PIL : `card-map-bg.png` a 22% de pixels transparents en haut (y=0 à y=131.7px en display). `translateY(88%)` n'affichait que cette zone vide.
+- Fix : `translateY(65%)` → y=207px au bas du container (globe content commence à y=132px). Globe visible.
+- `overflow: hidden` retiré de `.game-cards` (clippait le globe avant rendu), déplacé sur `.dm__bot`.
+
+#### Fond crème `DbProfileCard`
+
+- Ajout d'un `::before` avec `inset: 6%; background: #F5EDDF; border-radius: 15%` pour insérer le fond crème à l'intérieur de la zone opaque du cadre PNG (~5.5% transparent sur les bords).
+- `DbGreenFrame.vue` : idem avec variable CSS `--frame-bg` (transparent par défaut, `#F5EDDF` depuis `DbProfileCard.vue` mode desktop via `--frame-bg: #F5EDDF`).
+- Ajout de `overflow: hidden` + `border-radius: 8% / 10%` sur `DbGreenFrame` pour clipper le fond.
+
+#### Dimensionnement mobile (DashboardMobile)
+
+- Profile card : `flex: 0 0 36%` (était 30%)
+- Parchemin : `flex: 0 0 32%` (était 28%)
+- Sacoche : `height: min(85%, 75vw)` — responsive contraint par hauteur ET largeur viewport
+
+#### Hero-landscape
+
+- Crop du PNG via Python/PIL : suppression des bords transparents (2760×1504 → 2454×1201, marges de 10px).
+- Repositionné dans le panel sacoche : `width: 90%; top: 44%; left: 50%; transform: translate(-50%, -50%)`.
+
+#### Accessibilité boutons (WCAG 2.1)
+
+Trois corrections systématiques sur `DbProfileCard`, `DbParchemin`, `DashboardMobile` :
+- **Contraste** : `#a65d52` (3.05:1 — échec) → `#7a3e2a` (5.4:1 — AA ✓) sur tous les boutons
+- **Police** : minima `clamp()` relevés à `0.875rem` (14px minimum)
+- **Touch targets** : `min-height: 44px` + `display: inline-flex; align-items: center` sur tous les boutons
+
+#### Dashboard desktop — parchemin cards
+
+- Remplacement du fond `wooly-btn-final.png` par un bord CSS fin : `1.5px solid #7a3e2a`, `border-radius: 6px`, fond crème semi-transparent `rgba(245,237,223,0.55)`.
+- `aspect-ratio: 5/2` pour laisser de la place aux futures informations (actualités / liste d'amis).
+- Zone de scroll ajustée : `top: 14%; bottom: 13%`.
+
+#### Dashboard desktop — nouveaux boutons
+
+- **Sac à dos** : `NuxtLink` vers `/game-list` positionné à `left: 13%; top: 14%` — dans la zone visible du sac.
+- **"Voir tout"** dans le parchemin : `NuxtLink` vers `/actualites` en bas du parchemin (`bottom: 5%`, centré).
+- Clé i18n `dashboard.parchemin` transformée en objet `{ label, voirTout }`.
+
+#### Système de navigation (Navbar + Layouts)
+
+**Layouts Nuxt :**
+- `layouts/plain.vue` : slot nu (dashboard, auth, index, callback)
+- `layouts/default.vue` : navbar mobile + navbar desktop + `<slot>`
+- `app.vue` : ajout de `<NuxtLayout>` (manquant — sans lui les layouts sont ignorés)
+- `definePageMeta({ layout: 'plain' })` sur dashboard + toutes les pages auth/index
+
+**`NavbarMobile.vue`** (bottom nav fixe) :
+- 6 items : Accueil, Mes jeux, Actualités, Next Quest, Sorties de jeux, Profil
+- Icônes MDI + labels `Knights Quest`, `height: 64px`
+- Item actif : `border-top: 2px solid #edc78e` + couleur pleine
+
+**`NavbarDesktop.vue`** (sidebar gauche 200px) :
+- Logo en haut + séparateur
+- Items avec `border-left: 3px solid #edc78e` sur l'actif
+- Fond translucide `rgba(20,10,3,0.9)` + `backdrop-filter: blur(6px)`
+
+**`pages/timeline.vue`** : placeholder créé (page "Sorties de jeux")
+
+**Bouton "Sorties de jeux" sur le dashboard :**
+- Slot `#header` ajouté à `DbGameCards.vue` (`.game-cards__header` absolu centré en haut)
+- Dashboard mobile + desktop : `NuxtLink` injecté via le slot, centré au-dessus des cartes, style unifié avec les autres boutons
+
+**i18n :** section `nav` ajoutée (`dashboard`, `gameList`, `actualites`, `profil`, `nextQuest`, `timeline`).
+
+**`nuxi prepare`** relancé pour régénérer les types auto-import `useI18n`.
+
+#### Accessibilité NavbarMobile (audit WCAG)
+
+Audit complet, 4 corrections appliquées :
+1. **Contraste items inactifs** : `rgba(237,199,142,0.4)` (2.6:1 — échec) → `0.6` (5.1:1 — AA ✓)
+2. **Police labels** : `0.55rem` (8.8px) → `0.625rem` (10px)
+3. **Focus clavier** : `:focus-visible` avec `outline: 2px solid #edc78e` ajouté
+4. **Icônes** : `aria-hidden="true"` sur les `v-icon` (mobile + desktop) + `aria-label` redondant retiré du lien (le texte du `<span>` sert de nom accessible)
+5. `role="navigation"` redondant retiré du `<nav>`
+
+#### Tests unitaires navbar
+
+2 nouveaux fichiers de tests (`NavbarMobile.test.ts`, `NavbarDesktop.test.ts`), 15 tests / 15 passants :
+- Présence du `<nav>` avec `aria-label`
+- 6 liens rendus
+- Classe active `nm__item--active` / `nd__item--active` sur le bon lien
+- `aria-current="page"` uniquement sur le lien actif, absent des 5 autres
+- `aria-hidden="true"` sur toutes les icônes
+- Labels visibles non vides
+- Logo rendu (desktop)
+
+### Vérifications
+
+| Check | Résultat |
+|-------|----------|
+| `pnpm test` — nouveaux tests navbar | ✅ 15/15 |
+| `pnpm test` — tests existants | ✅ 51/52 (1 échec pré-existant `middleware/auth.test.ts`) |
+| `pnpm lint` | ⚠️ Pré-existant (`typescript-eslint` manquant dans `packages/config`) |
+| `pnpm typecheck` | ⚠️ Pré-existant (`zod` manquant dans `packages/shared`) |
+
+### Points ouverts
+
+- Covers de jeux : placeholders, branchement API IGDB à venir
+- Avatar dynamique depuis API
+- Timeline (`/timeline`) : page à construire (liste des sorties de jeux)
+- Bouton sac à dos desktop : position `left: 13%; top: 14%` à ajuster selon résolution réelle
+- Test `middleware/auth.test.ts` pré-existant en échec (middleware global retourne `undefined` au lieu de `/auth/login`) — à corriger par JB ou en session dédiée
+

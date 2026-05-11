@@ -65,7 +65,14 @@ const sacocheOpen = ref(false)
     </div>
 
     <div class="dm__bot">
-      <DashboardDbGameCards />
+      <DashboardDbGameCards>
+        <template #header>
+          <NuxtLink to="/timeline" class="dm__timeline-link">
+            {{ t('nav.timeline') }}
+            <v-icon size="14">mdi-chevron-right</v-icon>
+          </NuxtLink>
+        </template>
+      </DashboardDbGameCards>
     </div>
 
   </div>
@@ -102,7 +109,7 @@ const sacocheOpen = ref(false)
   top: 50%;
   /* translate(50%) décale de la moitié de sa propre largeur → crop exact */
   transform: translate(50%, -50%);
-  height: 110%;
+  height: min(85%, 75vw);
   width: auto;
   z-index: 10;
   pointer-events: none; /* laisse passer les clics vers le panel */
@@ -125,12 +132,15 @@ const sacocheOpen = ref(false)
   cursor: pointer;
   pointer-events: auto; /* réactive les clics sur le bouton uniquement */
   font-family: var(--nq-font);
-  font-size: clamp(0.75rem, 2.2vw, 1rem);
+  font-size: clamp(0.875rem, 2.2vw, 1rem);
   padding: 7px 18px;
   border-radius: 5px;
   background: #7a3e2a;
   color: #edc78e;
   white-space: nowrap;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* ── Panel landscape ── */
@@ -147,19 +157,24 @@ const sacocheOpen = ref(false)
 
 .dm__sacoche-panel-bg {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 90%;
+  height: auto;
+  top: 44%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .dm__sacoche-panel-actions {
   position: absolute;
-  inset: 0;
+  width: 90%;
+  top: 44%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10%;
+  gap: 16px;
   padding: 0 18% 0 5%;
 }
 
@@ -168,12 +183,15 @@ const sacocheOpen = ref(false)
   border: none;
   cursor: pointer;
   font-family: var(--nq-font);
-  font-size: clamp(0.7rem, 2vw, 0.95rem);
+  font-size: clamp(0.875rem, 2vw, 0.95rem);
   padding: 8px 16px;
   border-radius: 5px;
-  background: #a65d52;
+  background: #7a3e2a;
   color: #edc78e;
   white-space: nowrap;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* ── Animation : glisse depuis la droite ── */
@@ -190,6 +208,23 @@ const sacocheOpen = ref(false)
 .sacoche-slide-enter-to,
 .sacoche-slide-leave-from {
   transform: translateX(0%);
+}
+
+/* ── Bouton Sorties de jeux ── */
+.dm__timeline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--nq-font);
+  font-size: clamp(0.875rem, 2.2vw, 1rem);
+  color: #edc78e;
+  text-decoration: none;
+  background: #7a3e2a;
+  padding: 7px 18px;
+  border-radius: 5px;
+  border: none;
+  white-space: nowrap;
+  min-height: 44px;
 }
 
 /* ── Zones du bas ── */

@@ -5,7 +5,7 @@
 //   - Form nouveau mot de passe + confirmation → POST /api/auth/reset-password
 // Pour l'instant : page placeholder pour éviter le warning Vue Router.
 
-definePageMeta({ middleware: 'guest' })
+definePageMeta({ middleware: 'guest', layout: 'plain' })
 
 const { t } = useI18n()
 </script>

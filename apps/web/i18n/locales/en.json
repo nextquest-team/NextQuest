@@ -26,11 +26,23 @@
       "passwordMismatch": "Passwords do not match"
     }
   },
+  "nav": {
+    "label": "Main navigation",
+    "dashboard": "Home",
+    "gameList": "My games",
+    "actualites": "News",
+    "profil": "Profile",
+    "nextQuest": "Next Quest",
+    "timeline": "Game releases"
+  },
   "dashboard": {
     "profile": {
       "button": "My profile"
     },
-    "parchemin": "News",
+    "parchemin": {
+      "label": "News",
+      "voirTout": "See all"
+    },
     "sacoche": {
       "inventaire": "Inventory",
       "gameList": "See my game list",

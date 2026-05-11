@@ -4,7 +4,7 @@ import { useDisplay } from 'vuetify'
 // SSR désactivé : page privée, les données utilisateur ne sont disponibles
 // qu'après restauration de session côté client (plugin auth.client.ts).
 // Pré-rendre avec un user null produit un mismatch d'hydratation.
-definePageMeta({ ssr: false })
+definePageMeta({ ssr: false, layout: 'plain' })
 
 const { mobile } = useDisplay()
 const { user, logout } = useAuth()

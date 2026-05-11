@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ middleware: 'guest' })
+definePageMeta({ middleware: 'guest', layout: 'plain' })
 
 const { t } = useI18n()
 const { register, isLoading, error } = useAuth()

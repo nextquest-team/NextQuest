@@ -73,3 +73,7 @@ docs/specs/
 .claude/
 CLAUDE.md
 
+# Docker compose override local par dev/poste (URLs Tailscale, etc.)
+# Chaque dev a sa propre config sans toucher au compose committe
+docker/docker-compose.override.yml
+docker/docker-compose.*.override.yml

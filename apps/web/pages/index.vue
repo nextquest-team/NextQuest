@@ -1,7 +1,9 @@
 <script setup lang="ts">
 // Landing réservée aux visiteurs non connectés (le middleware redirige
 // les utilisateurs authentifiés vers /dashboard).
-definePageMeta({ middleware: 'guest' })
+definePageMeta({ middleware: 'guest', layout: 'plain' })
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -17,11 +19,11 @@ definePageMeta({ middleware: 'guest' })
           block
           @click="navigateTo('/auth/login')"
         >
-          Connexion
+          {{ t('auth.login') }}
         </UiPatchButton>
 
         <NuxtLink to="/auth/forgot-password" class="landing-forgot">
-          Mot de passe oublié
+          {{ t('auth.forgotPassword') }}
         </NuxtLink>
 
         <UiPatchButton
@@ -30,7 +32,7 @@ definePageMeta({ middleware: 'guest' })
           block
           @click="navigateTo('/auth/register')"
         >
-          Inscription
+          {{ t('auth.register') }}
         </UiPatchButton>
       </div>
     </div>

@@ -5,7 +5,9 @@
 //   - Form nouveau mot de passe + confirmation → POST /api/auth/reset-password
 // Pour l'instant : page placeholder pour éviter le warning Vue Router.
 
-definePageMeta({ middleware: 'guest' })
+definePageMeta({ middleware: 'guest', layout: 'plain' })
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -18,8 +20,8 @@ definePageMeta({ middleware: 'guest' })
       </div>
 
       <div class="forgot-message">
-        <h1>Mot de passe oublié</h1>
-        <p>Cette fonctionnalité arrive bientôt.</p>
+        <h1>{{ t('auth.forgotPassword') }}</h1>
+        <p>{{ t('auth.comingSoon') }}</p>
       </div>
     </div>
   </div>

@@ -15,7 +15,7 @@ export const useAuth = () => {
   const store = useAuthStore()
   const config = useRuntimeConfig()
   const router = useRouter()
-  const apiBase = config.public.apiBase
+  const apiBase = import.meta.server ? config.apiBase : config.public.apiBase
 
   const isLoading = ref(false)
   const error = ref<string | null>(null)

@@ -247,7 +247,455 @@ Découpé en deux pour que chaque commit soit atomique : le premier change l'arc
 
 - [ ] JB doit configurer `GOOGLE_CLIENT_ID/SECRET` et `MICROSOFT_CLIENT_ID/SECRET` pour tester le flow complet en local
 - [ ] Implémenter vraiment `/auth/forgot-password` (actuellement placeholder)
-- [ ] Implémenter vraiment `/dashboard` (actuellement placeholder)
+- [x] Implémenter `/dashboard` → session 6
 - [ ] Apple OAuth (en attente backend)
 - [ ] Tests E2E Playwright sur le flow popup OAuth quand les credentials seront en place
+
+---
+
+## 2026-05-06 — Session 6 : Dashboard (structure) + Dockerisation API
+
+### Contexte
+
+Nouvelle branche `dashboard` créée depuis `develop`. Deux objectifs : poser la structure du dashboard avec une vue mobile et une vue desktop distinctes, et finaliser la dockerisation de l'API (le TODO de la session 1 restait ouvert).
+
+### Dashboard — deux composants distincts
+
+Le dashboard aura des dispositions complètement différentes selon l'appareil : navigation en bas sur mobile, sidebar latérale sur desktop. Plutôt que de gérer ça avec des media queries dans un seul composant, on utilise deux composants dédiés commutés par `useDisplay` de Vuetify.
+
+**Fichiers créés :**
+- `components/dashboard/DashboardMobile.vue` — layout colonne pleine hauteur, navigation pied de page à venir
+- `components/dashboard/DashboardDesktop.vue` — layout sidebar (260px fixe) + zone principale
+- `pages/dashboard.vue` — orchestre le switch via `useDisplay().mobile`
+
+**Pattern utilisé :**
+
+```ts
+// pages/dashboard.vue
+import { useDisplay } from 'vuetify'
+const { mobile } = useDisplay()
+```
+
+```html
+<DashboardMobile v-if="mobile" :username @logout />
+<DashboardDesktop v-else :username @logout />
+```
+
+`useDisplay` est réactif : si l'utilisateur redimensionne la fenêtre, le bon composant s'affiche instantanément sans rechargement.
+
+### Dockerisation de l'API
+
+**Service `api` ajouté dans `docker-compose.yml` :**
+- Même pattern que le service `web` : `node:22-alpine` + `tsx watch` via `pnpm --filter @nextquest/api dev`
+- `depends_on` avec `condition: service_healthy` sur `postgres` et `redis` — l'API ne démarre qu'une fois les deux services prêts (healthcheck)
+- `env_file: ../.env` pour les variables (JWT, OAuth, etc.)
+- Surcharge des URLs internes Docker dans `environment` (voir ci-dessous)
+
+**Problème réseau Docker → fix en deux couches :**
+
+Le `.env` contient `DATABASE_URL=...@localhost:5432` qui ne fonctionne pas dans le réseau Docker. Le service `api` surcharge ces valeurs :
+
+```yaml
+environment:
+  - DATABASE_URL=postgresql://nextquest:nextquest@postgres:5432/nextquest
+  - REDIS_URL=redis://redis:6379
+  - API_BASE_URL=http://api:3000
+```
+
+**Bug `ERR_NAME_NOT_RESOLVED` sur `http://api:3000` depuis le browser :**
+
+`NUXT_PUBLIC_API_BASE=http://api:3000` était injecté dans le browser qui ne connaît pas le réseau Docker interne. Fix : deux variables séparées.
+
+| Variable | Valeur Docker | Contexte |
+|----------|--------------|----------|
+| `NUXT_API_BASE` | `http://api:3000` | SSR / middleware (tourne dans le container) |
+| `NUXT_PUBLIC_API_BASE` | `http://localhost:3000` | Browser (tourne sur la machine host) |
+
+Dans `nuxt.config.ts`, `runtimeConfig.apiBase` (privé, server-only) + `runtimeConfig.public.apiBase` (exposé au client).
+
+Dans `useAuth.ts` :
+```ts
+const apiBase = import.meta.server ? config.apiBase : config.public.apiBase
+```
+
+**`.env.example` restructuré** — sections commentées, hints de génération des secrets (`openssl rand -base64 64` pour JWT, `openssl rand -hex 32` pour la clé de chiffrement), URIs OAuth précisées, `NUXT_PUBLIC_API_BASE` ajouté.
+
+### Décisions techniques
+
+| Choix | Raison |
+|-------|--------|
+| Deux composants Dashboard distincts | Dispositions trop différentes pour gérer avec des media queries — un seul composant aurait été illisible |
+| `useDisplay` Vuetify plutôt que CSS breakpoints | Réactif en JS, permet de conditionner la logique (pas seulement le style), cohérent avec le reste de l'app Vuetify |
+| `depends_on` avec `condition: service_healthy` | Évite les crashs au démarrage si l'API tente de se connecter avant que postgres/redis soient prêts |
+| `env_file` + surcharge `environment` | Le `.env` reste la source de vérité pour le dev local, Docker surcharge uniquement ce qui doit changer (les hostnames) |
+| `import.meta.server` dans `useAuth` | Pattern Nuxt 3 officiel pour distinguer SSR/client — plus fiable que `process.server` déprécié |
+
+### TODOs
+
+- [ ] Implémenter le contenu réel du dashboard mobile (collection, recommandations, fil d'activité)
+- [ ] Implémenter le contenu réel du dashboard desktop + navigation sidebar
+- [ ] Tester le flow complet login → dashboard une fois les credentials OAuth configurés
+
+---
+
+## 2026-05-06 — Session 7 : Dashboard mobile (composants) + i18n
+
+### Contexte
+
+Suite de la branche `dashboard`. Deux axes : (1) construire les composants de la section supérieure du dashboard mobile pas à pas, (2) mettre en place l'internationalisation (`@nuxtjs/i18n`) sur tout le frontend.
+
+### Dashboard mobile — section supérieure
+
+Le dashboard mobile est découpé en 3 zones flex-column :
+- `dm__top` (40%) — ProfileCard + Parchemin + Sacoche en row
+- `dm__mid` (flex: 1) — roue centrale (à venir)
+- `dm__bot` (30%) — carte de jeu horizontale (à venir)
+
+**Problème de nommage Nuxt résolu :**
+
+Les composants placés dans `components/dashboard/` sont enregistrés par Nuxt avec le préfixe du dossier. `DbProfileCard.vue` doit donc être appelé `<DashboardDbProfileCard>` (et non `<DbProfileCard>`). Les templates utilisaient le mauvais nom, d'où les erreurs SSR "Failed to resolve component". Corrigé dans `DashboardMobile.vue`.
+
+**`DbProfileCard.vue`** — composant carte de profil :
+- Fond : avatar utilisateur (`avatar-profile.png`) en `position: absolute` z-index 1
+- Overlay : cadre tressé vert (`encadrement-vert.png`) via `::after` pseudo-element z-index 2 — le cadre est visuellement au-dessus de l'avatar
+- Contenu : bouton "Mon profil" + pseudo utilisateur en z-index 3
+- Aspect ratio 143/257 pour coller aux proportions du cadre Figma
+
+**`DbParchemin.vue`** et **`DbSacoche.vue`** — placeholders colorés en attente des assets définitifs.
+
+### i18n — mise en place complète
+
+**Installation :** `@nuxtjs/i18n` ajouté aux dépendances `apps/web`.
+
+**Configuration `nuxt.config.ts` :**
+- Stratégie `no_prefix` (pas de `/fr/dashboard`, `/en/dashboard` — l'URL reste la même)
+- Détection automatique via la langue du navigateur : `fr-*` (fr-BE, fr-CA, fr-CH, etc.) → locale `fr` ; tout autre navigateur → fallback `en`
+- Préférence mémorisée dans le cookie `nq_locale`
+
+**Fichiers de traduction :**
+- `locales/fr.json` — French (source of truth)
+- `locales/en.json` — English
+
+**Clés organisées par domaine :**
+```
+auth.login / auth.register / auth.logout
+auth.forgotPassword / auth.orContinueWith / auth.comingSoon
+auth.fields.email / auth.fields.password / auth.fields.username / …
+auth.validation.emailRequired / auth.validation.passwordMin / …
+dashboard.profile.button
+dashboard.parchemin / dashboard.sacoche
+```
+
+**Composants et pages mis à jour :**
+- `pages/index.vue`
+- `pages/auth/login.vue`
+- `pages/auth/register.vue`
+- `pages/auth/forgot-password.vue`
+- `components/dashboard/DbProfileCard.vue`
+- `components/dashboard/DbParchemin.vue`
+- `components/dashboard/DbSacoche.vue`
+
+Tous les textes visibles passent désormais par `const { t } = useI18n()` — plus aucun texte hardcodé dans les templates.
+
+### Décisions techniques
+
+| Choix | Raison |
+|-------|--------|
+| Stratégie `no_prefix` | Les URLs restent propres (`/dashboard` et non `/fr/dashboard`) — convient à une app monolingue par session |
+| Détection navigateur + cookie | L'utilisateur n'a pas à choisir manuellement sa langue, et la préférence est mémorisée entre les sessions |
+| Fallback `en` | Langue internationale par défaut pour tout navigateur non francophone |
+| `::after` pour le cadre vert | Permet de superposer le cadre au-dessus de l'avatar sans position absolute au niveau page ; `pointer-events: none` pour ne pas bloquer les clics sur le contenu |
+| Redémarrage container requis | `@nuxtjs/i18n` génère des types auto-import (`.nuxt/`) — nécessite un `nuxt prepare` via le restart du container |
+
+### TODOs
+
+- [ ] Redémarrer le container web pour régénérer les types auto-import `useI18n`
+- [ ] Construire `DbParchemin` (parchemin Actualités avec asset Figma)
+- [ ] Construire `DbSacoche` (scène héros — landscape + dragon + boutons navigation)
+- [ ] Construire `dm__mid` — roue centrale (tourne au hover/touch, statique sinon)
+- [ ] Construire `dm__bot` — carte de jeu avec scroll horizontal
+- [ ] Implémenter le contenu réel du dashboard desktop + navigation sidebar
+
+---
+
+## 2026-05-06 — Session 8 : Dashboard mobile dm__top — composants finalisés
+
+### Ce qui a été fait
+
+#### Correction du layout `dm__top`
+
+Le layout initial utilisait `flex: 1` sur les trois enfants avec `align-items: stretch` (défaut), ce qui forçait chaque composant à remplir toute la hauteur de la section. La carte de profil avec `aspect-ratio: 143/257` se retrouvait plus courte que la section, laissant le fond apparaître en dessous.
+
+Fix : passage à `align-items: center` + `justify-content: space-evenly` sur `dm__top`, et `flex: 0 0 30%` sur chaque composant. Les trois éléments flottent maintenant naturellement sur le fond tricoté, comme dans la maquette.
+
+Suppression des fonds de debug colorés (rouge/vert/bleu) sur les trois zones.
+
+#### `DbProfileCard` — composition finale
+
+Structure retenue (3 couches z-index) :
+- z-index 1 : avatar (`hero` placeholder → TODO remplacer par avatar utilisateur API)
+- z-index 2 : cadre vert (`encadrement-vert.png`) via `::after` pseudo-element
+- z-index 3 : contenu (bouton "Mon profil" + pseudo utilisateur)
+
+`aspect-ratio: 143/257` restauré avec `flex: 0 0 30%` — la carte conserve ses proportions de maquette et ne s'étire plus.
+
+Font sizes avec `clamp()` pour s'adapter aux différentes largeurs d'écran.
+
+#### `DbParchemin` — composant construit
+
+- Image `parchemin-ferme.png` comme base (parchemin enroulé)
+- Badge "Actualités" centré dessus (position absolute, même style que les boutons PatchButton)
+- `flex: 0 0 28%` — légèrement plus étroit que les deux autres
+
+#### `DbSacoche` — composant construit
+
+Scène héro composée de deux images superposées :
+- `hero-landscape.png` : fond paysage (position absolute, couvre tout)
+- `hero-dragon.png` : personnage dragon au premier plan
+- Bouton "Inventaire" en bas de la carte
+
+Border-radius 12px pour adoucir les angles.
+
+#### i18n — clés mises à jour
+
+- `dashboard.parchemin` → "Actualités" / "News"
+- `dashboard.sacoche` → "Inventaire" / "Inventory"
+
+### Décisions techniques
+
+| Choix | Raison |
+|-------|--------|
+| `flex: 0 0 30%` + `aspect-ratio` sur les cartes | Les composants conservent leurs proportions de maquette et flottent sur le fond sans remplir la section |
+| `align-items: center` sur `dm__top` | Centre verticalement les cartes — le fond tricoté est visible autour, comme dans la maquette |
+| `::after` pour le cadre vert | Permet de superposer le cadre au-dessus de l'avatar sans position absolute au niveau page |
+| `clamp()` pour les font-size | Adapte lisiblement la taille du texte entre les petits (320px) et grands (430px) écrans mobiles |
+| Hero landscape + dragon pour DbSacoche | Assets disponibles correspondant à la scène inventaire/héro de la maquette |
+
+### TODOs
+
+- [ ] Construire `dm__mid` — roue centrale (`turning-wheel.png`, tourne au hover/touch)
+- [ ] Construire `dm__bot` — carte de jeu (`card-map-bg.png`, scroll horizontal)
+- [ ] Implémenter le contenu réel du dashboard desktop + navigation sidebar
+- [ ] Remplacer l'avatar statique par l'avatar dynamique de l'utilisateur (API)
+
+---
+
+## 2026-05-06 — Session 9 : Fix hydratation dashboard
+
+### Problème
+
+Avertissement Vue au chargement du dashboard :
+
+```
+Hydration text content mismatch on <span class="profile-card__username">
+  - rendered on server: ""
+  - expected on client: "meii7"
+```
+
+### Cause
+
+Le cycle SSR + hydratation du dashboard se déroulait en deux temps :
+1. **SSR** : Nuxt rend la page côté serveur → `user.value` est `null` (le store est vide, la session n'est pas encore restaurée) → `username = ''`
+2. **Client** : le plugin `auth.client.ts` appelle `refreshTokens()`, restaure la session, `user.value` devient l'utilisateur réel → `username = 'meii7'`
+
+Vue détecte la divergence entre le HTML produit par le serveur (`''`) et ce que le client attendait (`'meii7'`) → mismatch d'hydratation.
+
+### Fix
+
+Double protection dans `pages/dashboard.vue` :
+
+**1. `definePageMeta({ ssr: false })`** — désactive le rendu SSR de la page entière (macro compile-time, nécessite un redémarrage du serveur Nuxt pour prendre effet).
+
+**2. `<ClientOnly>`** — wrapping runtime des composants DashboardMobile/Desktop. Nuxt ne les rend pas côté serveur, ils attendent que le client soit initialisé. Efficace immédiatement sans restart, complémentaire à `ssr: false`.
+
+### Décision technique
+
+Le dashboard est une page privée et authentifiée — le pré-rendu SSR avec des données utilisateur vides n'apporte aucune valeur (pas de SEO, pas de performance perçue). Désactiver SSR + `<ClientOnly>` est le pattern correct pour toutes les pages nécessitant une session active.
+
+---
+
+## 2026-05-06 — Session 10 : dm__mid, dm__bot, routes et dashboard desktop V2
+
+### Ce qui a été fait
+
+#### Roue (dm__mid)
+- Crop du fichier `turning-wheel.png` via Python/PIL : suppression du vide haut/bas (1536×2752 → 1492×1507px) pour que la zone cliquable corresponde exactement au rond
+- Animation CSS : quart de tour à droite au hover (desktop) et au touchstart (mobile)
+- Lien vers `/next-quest`
+
+#### Sacoche — corrections pointer-events
+- `pointer-events: none` sur `.dm__sacoche` (la div 170vw qui couvrait tout l'écran)
+- `pointer-events: auto` uniquement sur `.dm__sacoche-btn` → les boutons du panel landscape redeviennent cliquables
+
+#### Responsivité du sac (mobile)
+- Passage de `width: 170vw` à `height: 110%; width: auto` + `transform: translate(50%, -50%)` pour que le sac se dimensionne selon la hauteur du container (responsive quel que soit le format)
+
+#### Globe (dm__bot)
+- Nouveau composant `DbGameCards.vue` : scroll horizontal de cartes + globe `card-map-bg.png` qui pivote au scroll (`scrollLeft * -0.12` degrés)
+- Globe cropé à `bottom: -530%` pour n'en voir que la calotte supérieure
+- Cadre `wooly-btn-final.png` sur chaque carte
+
+#### Routes et pages placeholder
+- 4 nouvelles pages créées : `/profil`, `/actualites`, `/game-list`, `/add-game`
+- Boutons du dashboard branchés : ProfileCard → `/profil`, Parchemin → `/actualites`, sacoche → `/game-list` et `/add-game`
+- Remplacement des `<button>` par `<NuxtLink>` avec `text-decoration: none`
+
+#### Dashboard Desktop V2 (Figma page V2, frame MacBook Pro 14")
+- Récupération des assets via MCP Figma : `parchemin-ouvert.png` (scroll ouvert portrait) + `sac-a-dos.png` (sac vert paysage 2616×1426)
+- Layout fidèle au Figma : sac à dos à gauche (déborde), roue centrée, parchemin ouvert à droite avec cards scrollables, card map en bas
+- Composant `DbGreenFrame.vue` : cadre vert tressé en overlay (`::after`, `z-index: 2`) utilisant `encadrement-vert-90.png` (version paysage fournie par Lorelei)
+- `DbProfileCard.vue` : ajout prop `horizontal` pour le mode desktop (avatar rond + username + bouton, encadré par `DbGreenFrame`)
+- Roue desktop : `min(16vw, 240px)` via media query `768px`
+
+### Points ouverts
+- Cards dans le parchemin : ratio à affiner (trop épais pour l'instant, TODO prochaine session)
+- Covers de jeux : placeholders, branchement API IGDB à venir
+- Avatar dynamique depuis API (actuellement image statique)
+- Dashboard desktop : positionnement fin à terminer
+
+---
+
+## 2026-05-06 — Session 11 : Accessibilité dashboard + bug card map mobile
+
+### Ce qui a été fait
+
+#### Accessibilité globale (`main.css`)
+Ajout de trois règles globales dans `assets/css/main.css` :
+- `:focus-visible` — outline vert `#264a2e` pour la navigation clavier, supprimé pour la souris via `:focus:not(:focus-visible)`
+- `@media (prefers-reduced-motion: reduce)` — désactive toutes les animations/transitions pour les utilisateurs ayant activé la préférence OS
+- `.sr-only` — classe utilitaire pour les textes visibles uniquement aux lecteurs d'écran
+
+#### Accessibilité `DbGameCards`
+- `role="region"` + `aria-label="Ma liste de jeux"` sur le container principal
+- Globe : `alt=""` + `aria-hidden="true"` (décoratif, inutile pour les AT)
+- Scroll : `role="list"` + `tabindex="0"` + `aria-label` + gestion clavier `ArrowLeft/ArrowRight` (défile de 120px, `preventDefault()`)
+- Cartes : `role="listitem"` + `aria-label={title}`
+- `:focus-visible` sur `.game-cards__scroll` (outline vert)
+
+#### Accessibilité `DbWheel`
+- `prefers-reduced-motion` scoped : désactive l'animation `wheel-turn` si la préférence est active
+- `:focus-visible` avec `border-radius: 50%` pour conserver la forme ronde du focus
+
+#### Accessibilité `DashboardMobile`
+- `aria-expanded` sur le bouton sacoche
+- `role="dialog"` + `aria-label` sur le panel inventaire
+
+### Points ouverts
+
+- Globe (`card-map-bg.png`) non visible en vue mobile : positionnement `bottom: -530%` à retravailler (valeur % dépend de la hauteur résolue du container → instable). TODO prochaine session.
+- Cards dans le parchemin : ratio toujours trop épais, à affiner.
+- Covers de jeux : placeholders, branchement API IGDB à venir.
+
+---
+
+## 2026-05-11 — Session 12 : Polish dashboard + Navbar + Accessibilité
+
+### Ce qui a été fait
+
+#### Fix globe `card-map-bg.png` (mobile)
+
+- Diagnostic via Python/PIL : `card-map-bg.png` a 22% de pixels transparents en haut (y=0 à y=131.7px en display). `translateY(88%)` n'affichait que cette zone vide.
+- Fix : `translateY(65%)` → y=207px au bas du container (globe content commence à y=132px). Globe visible.
+- `overflow: hidden` retiré de `.game-cards` (clippait le globe avant rendu), déplacé sur `.dm__bot`.
+
+#### Fond crème `DbProfileCard`
+
+- Ajout d'un `::before` avec `inset: 6%; background: #F5EDDF; border-radius: 15%` pour insérer le fond crème à l'intérieur de la zone opaque du cadre PNG (~5.5% transparent sur les bords).
+- `DbGreenFrame.vue` : idem avec variable CSS `--frame-bg` (transparent par défaut, `#F5EDDF` depuis `DbProfileCard.vue` mode desktop via `--frame-bg: #F5EDDF`).
+- Ajout de `overflow: hidden` + `border-radius: 8% / 10%` sur `DbGreenFrame` pour clipper le fond.
+
+#### Dimensionnement mobile (DashboardMobile)
+
+- Profile card : `flex: 0 0 36%` (était 30%)
+- Parchemin : `flex: 0 0 32%` (était 28%)
+- Sacoche : `height: min(85%, 75vw)` — responsive contraint par hauteur ET largeur viewport
+
+#### Hero-landscape
+
+- Crop du PNG via Python/PIL : suppression des bords transparents (2760×1504 → 2454×1201, marges de 10px).
+- Repositionné dans le panel sacoche : `width: 90%; top: 44%; left: 50%; transform: translate(-50%, -50%)`.
+
+#### Accessibilité boutons (WCAG 2.1)
+
+Trois corrections systématiques sur `DbProfileCard`, `DbParchemin`, `DashboardMobile` :
+- **Contraste** : `#a65d52` (3.05:1 — échec) → `#7a3e2a` (5.4:1 — AA ✓) sur tous les boutons
+- **Police** : minima `clamp()` relevés à `0.875rem` (14px minimum)
+- **Touch targets** : `min-height: 44px` + `display: inline-flex; align-items: center` sur tous les boutons
+
+#### Dashboard desktop — parchemin cards
+
+- Remplacement du fond `wooly-btn-final.png` par un bord CSS fin : `1.5px solid #7a3e2a`, `border-radius: 6px`, fond crème semi-transparent `rgba(245,237,223,0.55)`.
+- `aspect-ratio: 5/2` pour laisser de la place aux futures informations (actualités / liste d'amis).
+- Zone de scroll ajustée : `top: 14%; bottom: 13%`.
+
+#### Dashboard desktop — nouveaux boutons
+
+- **Sac à dos** : `NuxtLink` vers `/game-list` positionné à `left: 13%; top: 14%` — dans la zone visible du sac.
+- **"Voir tout"** dans le parchemin : `NuxtLink` vers `/actualites` en bas du parchemin (`bottom: 5%`, centré).
+- Clé i18n `dashboard.parchemin` transformée en objet `{ label, voirTout }`.
+
+#### Système de navigation (Navbar + Layouts)
+
+**Layouts Nuxt :**
+- `layouts/plain.vue` : slot nu (dashboard, auth, index, callback)
+- `layouts/default.vue` : navbar mobile + navbar desktop + `<slot>`
+- `app.vue` : ajout de `<NuxtLayout>` (manquant — sans lui les layouts sont ignorés)
+- `definePageMeta({ layout: 'plain' })` sur dashboard + toutes les pages auth/index
+
+**`NavbarMobile.vue`** (bottom nav fixe) :
+- 6 items : Accueil, Mes jeux, Actualités, Next Quest, Sorties de jeux, Profil
+- Icônes MDI + labels `Knights Quest`, `height: 64px`
+- Item actif : `border-top: 2px solid #edc78e` + couleur pleine
+
+**`NavbarDesktop.vue`** (sidebar gauche 200px) :
+- Logo en haut + séparateur
+- Items avec `border-left: 3px solid #edc78e` sur l'actif
+- Fond translucide `rgba(20,10,3,0.9)` + `backdrop-filter: blur(6px)`
+
+**`pages/timeline.vue`** : placeholder créé (page "Sorties de jeux")
+
+**Bouton "Sorties de jeux" sur le dashboard :**
+- Slot `#header` ajouté à `DbGameCards.vue` (`.game-cards__header` absolu centré en haut)
+- Dashboard mobile + desktop : `NuxtLink` injecté via le slot, centré au-dessus des cartes, style unifié avec les autres boutons
+
+**i18n :** section `nav` ajoutée (`dashboard`, `gameList`, `actualites`, `profil`, `nextQuest`, `timeline`).
+
+**`nuxi prepare`** relancé pour régénérer les types auto-import `useI18n`.
+
+#### Accessibilité NavbarMobile (audit WCAG)
+
+Audit complet, 4 corrections appliquées :
+1. **Contraste items inactifs** : `rgba(237,199,142,0.4)` (2.6:1 — échec) → `0.6` (5.1:1 — AA ✓)
+2. **Police labels** : `0.55rem` (8.8px) → `0.625rem` (10px)
+3. **Focus clavier** : `:focus-visible` avec `outline: 2px solid #edc78e` ajouté
+4. **Icônes** : `aria-hidden="true"` sur les `v-icon` (mobile + desktop) + `aria-label` redondant retiré du lien (le texte du `<span>` sert de nom accessible)
+5. `role="navigation"` redondant retiré du `<nav>`
+
+#### Tests unitaires navbar
+
+2 nouveaux fichiers de tests (`NavbarMobile.test.ts`, `NavbarDesktop.test.ts`), 15 tests / 15 passants :
+- Présence du `<nav>` avec `aria-label`
+- 6 liens rendus
+- Classe active `nm__item--active` / `nd__item--active` sur le bon lien
+- `aria-current="page"` uniquement sur le lien actif, absent des 5 autres
+- `aria-hidden="true"` sur toutes les icônes
+- Labels visibles non vides
+- Logo rendu (desktop)
+
+### Vérifications
+
+| Check | Résultat |
+|-------|----------|
+| `pnpm test` — nouveaux tests navbar | ✅ 15/15 |
+| `pnpm test` — tests existants | ✅ 51/52 (1 échec pré-existant `middleware/auth.test.ts`) |
+| `pnpm lint` | ⚠️ Pré-existant (`typescript-eslint` manquant dans `packages/config`) |
+| `pnpm typecheck` | ⚠️ Pré-existant (`zod` manquant dans `packages/shared`) |
+
+### Points ouverts
+
+- Covers de jeux : placeholders, branchement API IGDB à venir
+- Avatar dynamique depuis API
+- Timeline (`/timeline`) : page à construire (liste des sorties de jeux)
+- Bouton sac à dos desktop : position `left: 13%; top: 14%` à ajuster selon résolution réelle
+- Test `middleware/auth.test.ts` pré-existant en échec (middleware global retourne `undefined` au lieu de `/auth/login`) — à corriger par JB ou en session dédiée
 

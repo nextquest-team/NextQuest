@@ -4,7 +4,9 @@
 <template>
   <v-app theme="nextquest">
     <div class="app-bg">
-      <NuxtPage />
+      <NuxtLayout>
+        <NuxtPage />
+      </NuxtLayout>
     </div>
   </v-app>
 </template>

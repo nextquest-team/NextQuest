@@ -1,0 +1,55 @@
+{
+  "auth": {
+    "login": "Login",
+    "register": "Sign up",
+    "logout": "Logout",
+    "forgotPassword": "Forgot password",
+    "orContinueWith": "Or continue with",
+    "comingSoon": "This feature is coming soon.",
+    "fields": {
+      "email": "Email address",
+      "emailPlaceholder": "example{'@'}email.com",
+      "password": "Password",
+      "passwordConfirm": "Confirm password",
+      "username": "Username",
+      "usernamePlaceholder": "MyUsername"
+    },
+    "validation": {
+      "emailRequired": "Email is required",
+      "emailInvalid": "Invalid email",
+      "passwordRequired": "Password is required",
+      "passwordMin": "Minimum 8 characters",
+      "usernameRequired": "Username is required",
+      "usernameMin": "Minimum 3 characters",
+      "usernameMax": "Maximum 30 characters",
+      "confirmRequired": "Confirmation is required",
+      "passwordMismatch": "Passwords do not match"
+    }
+  },
+  "nav": {
+    "label": "Main navigation",
+    "dashboard": "Home",
+    "gameList": "My games",
+    "actualites": "News",
+    "profil": "Profile",
+    "nextQuest": "Next Quest",
+    "timeline": "Game releases"
+  },
+  "dashboard": {
+    "profile": {
+      "button": "My profile"
+    },
+    "parchemin": {
+      "label": "News",
+      "voirTout": "See all"
+    },
+    "sacoche": {
+      "inventaire": "Inventory",
+      "gameList": "See my game list",
+      "addGame": "Add a game"
+    },
+    "wheel": {
+      "alt": "Next Quest"
+    }
+  }
+}

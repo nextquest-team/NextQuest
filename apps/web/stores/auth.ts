@@ -5,6 +5,8 @@ export const useAuthStore = defineStore('auth', () => {
   // Access token stocké en mémoire uniquement (jamais en localStorage pour des raisons de sécurité)
   const accessToken = ref<string | null>(null)
   const isAuthenticated = computed(() => !!user.value)
+  // Passe à true une fois que le plugin auth.client a tenté la restauration de session
+  const initialized = ref(false)
 
   function setAuth(newUser: User, token: string) {
     user.value = newUser
@@ -16,5 +18,9 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = null
   }
 
-  return { user, accessToken, isAuthenticated, setAuth, clearAuth }
+  function setInitialized() {
+    initialized.value = true
+  }
+
+  return { user, accessToken, isAuthenticated, initialized, setAuth, clearAuth, setInitialized }
 })

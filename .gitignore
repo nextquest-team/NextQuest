@@ -77,6 +77,3 @@ CLAUDE.md
 # Chaque dev a sa propre config sans toucher au compose committe
 docker/docker-compose.override.yml
 docker/docker-compose.*.override.yml
-
-# Code généré — régénérer via `pnpm codegen`
-packages/shared/src/types/api.ts

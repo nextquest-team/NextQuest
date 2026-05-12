@@ -29,7 +29,8 @@
     ],
     "//overrides": "Forcer les versions patch sur les transitives flaggees par Dependabot. A revoir periodiquement quand les parents (expo, nuxt, drizzle-kit) sont updates.",
     "overrides": {
-      "fast-jwt": ">=6.2.1",
+      "fast-jwt": ">=6.2.4",
+      "fast-uri": ">=3.1.2",
       "@xmldom/xmldom": ">=0.8.13",
       "defu": ">=6.1.5",
       "fastify": ">=5.8.5",

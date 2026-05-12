@@ -1,6 +1,7 @@
 <script setup lang="ts">
-definePageMeta({ middleware: 'guest' })
+definePageMeta({ middleware: 'guest', layout: 'plain' })
 
+const { t } = useI18n()
 const { login, loginWithOAuth, isLoading, error } = useAuth()
 
 const email = ref('')
@@ -8,13 +9,13 @@ const password = ref('')
 const form = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
 const emailRules = [
-  (v: string) => !!v || 'Email requis',
-  (v: string) => /.+@.+\..+/.test(v) || 'Email invalide',
+  (v: string) => !!v || t('auth.validation.emailRequired'),
+  (v: string) => /.+@.+\..+/.test(v) || t('auth.validation.emailInvalid'),
 ]
 
 const passwordRules = [
-  (v: string) => !!v || 'Mot de passe requis',
-  (v: string) => v.length >= 8 || '8 caractères minimum',
+  (v: string) => !!v || t('auth.validation.passwordRequired'),
+  (v: string) => v.length >= 8 || t('auth.validation.passwordMin'),
 ]
 
 async function handleLogin() {
@@ -42,15 +43,15 @@ async function handleLogin() {
         <div class="auth-fields">
           <UiPatchInput
             v-model="email"
-            label="Adresse Mail"
+            :label="t('auth.fields.email')"
             type="email"
-            placeholder="exemple@email.com"
+            :placeholder="t('auth.fields.emailPlaceholder')"
             :rules="emailRules"
           />
 
           <UiPatchInput
             v-model="password"
-            label="Mot de passe"
+            :label="t('auth.fields.password')"
             type="password"
             :rules="passwordRules"
           />
@@ -59,7 +60,7 @@ async function handleLogin() {
         <p v-if="error" class="auth-error">{{ error }}</p>
 
         <NuxtLink to="/auth/forgot-password" class="auth-forgot">
-          Mot de passe oublié
+          {{ t('auth.forgotPassword') }}
         </NuxtLink>
 
         <UiPatchButton
@@ -69,12 +70,11 @@ async function handleLogin() {
           block
           :loading="isLoading"
         >
-          Connexion
+          {{ t('auth.login') }}
         </UiPatchButton>
       </v-form>
 
-      <!-- Séparateur visuel -->
-      <div class="auth-separator"><span>Ou continuez avec</span></div>
+      <div class="auth-separator"><span>{{ t('auth.orContinueWith') }}</span></div>
 
       <!-- Connexions sociales (boutons standards avec logos brand) -->
       <div class="social-stack">

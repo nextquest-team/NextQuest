@@ -33,6 +33,43 @@ html, body {
   background-color: var(--nq-beige);
 }
 
+/* ── Accessibilité globale ── */
+
+/* Focus visible sur tous les éléments interactifs */
+:focus-visible {
+  outline: 3px solid #264a2e;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* Supprime le focus pour la navigation souris */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Respect prefers-reduced-motion — désactive toutes les transitions/animations */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Texte visible uniquement pour les lecteurs d'écran */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /*
  * Bordure laine via border-image 9-slice.
  * Le PNG (600x600) → 90px de bord. Les coins gardent leur netteté,

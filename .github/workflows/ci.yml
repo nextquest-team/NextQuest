@@ -64,6 +64,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # Génère packages/shared/src/types/api.ts (gitignore) avant le typecheck.
+      # Le script instancie Fastify sans démarrer le serveur — pas de connexion DB/Redis.
+      - name: Codegen
+        run: pnpm codegen
+
       - name: Typecheck
         run: pnpm typecheck
 

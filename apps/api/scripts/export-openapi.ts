@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { writeFileSync } from 'node:fs'
 import Fastify from 'fastify'
+import { registerCors } from '../src/plugins/cors.js'
 import { registerSwagger } from '../src/plugins/swagger.js'
 import { registerJwt } from '../src/plugins/jwt.js'
 import { registerCookie } from '../src/plugins/cookie.js'
@@ -18,6 +19,7 @@ const app = Fastify({ logger: false })
 
 async function main() {
   // Même ordre que server.ts — certaines routes appellent app.rateLimit()
+  await registerCors(app)
   await registerSwagger(app)
   await registerJwt(app)
   await registerCookie(app)

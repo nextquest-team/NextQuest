@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "generate:openapi": "tsx scripts/export-openapi.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

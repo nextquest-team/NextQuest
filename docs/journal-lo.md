@@ -699,3 +699,68 @@ Audit complet, 4 corrections appliquées :
 - Bouton sac à dos desktop : position `left: 13%; top: 14%` à ajuster selon résolution réelle
 - Test `middleware/auth.test.ts` pré-existant en échec (middleware global retourne `undefined` au lieu de `/auth/login`) — à corriger par JB ou en session dédiée
 
+## 2026-05-12 — Session 13 : Auto-typage OpenAPI
+
+### Ce qui a été fait
+
+#### Infrastructure codegen
+
+Mise en place d'un pipeline de génération automatique des types TypeScript à partir du schéma OpenAPI de l'API.
+
+**Flux :**
+```
+apps/api/scripts/export-openapi.ts
+  → packages/shared/openapi.json   (spec OpenAPI, committé)
+  → packages/shared/src/types/api.ts  (types TS, gitignore — régénéré via codegen)
+```
+
+**Commande :**
+```bash
+pnpm codegen
+```
+
+**`apps/api/scripts/export-openapi.ts`** :
+- Instancie Fastify sans démarrer le serveur
+- Enregistre les mêmes plugins que `server.ts` (swagger, jwt, cookie, rate-limit)
+- Enregistre toutes les routes (`/api`, `/api/auth`, `/api/auth/oauth`)
+- Appelle `app.ready()` puis `app.swagger()` pour obtenir le JSON OpenAPI
+- Écrit le résultat dans `packages/shared/openapi.json`
+
+**Scripts ajoutés :**
+- `apps/api/package.json` : `"generate:openapi": "tsx scripts/export-openapi.ts"`
+- `packages/shared/package.json` : `"generate:types": "openapi-typescript openapi.json -o src/types/api.ts"`
+- `package.json` (racine) : `"codegen": "pnpm --filter @nextquest/api generate:openapi && pnpm --filter @nextquest/shared generate:types"`
+
+**Dépendance ajoutée :** `openapi-typescript@^7.8.0` dans `packages/shared` devDependencies.
+
+**Export :** `packages/shared/src/index.ts` — ajout de `export type * from "./types/api.js"` pour que `web` et `mobile` puissent importer les types via `@nextquest/shared`.
+
+**`.gitignore`** : `packages/shared/src/types/api.ts` ajouté (code généré, ne doit pas être versionné).
+
+#### État actuel des types générés
+
+Les routes exposent leurs métadonnées (tags, summary, description, params) mais les `requestBody` et `response` sont `never` pour la plupart des endpoints : JB valide les bodies via `zod.parse()` sans les déclarer dans le `schema` Fastify.
+
+La route `/api/health` a un response schema complet (défini explicitement dans `health.routes.ts`).
+La route OAuth `/{provider}` a les path params typés (`"google" | "microsoft"`).
+
+**Prochaine étape côté back :** JB peut utiliser `fastify-type-provider-zod` pour brancher automatiquement les schémas Zod existants sur le JSON Schema Fastify — les types body/response apparaîtront alors dans les types générés sans réécriture.
+
+#### Fix pnpm (bonus)
+
+Détecté lors du codegen : symlinks pnpm cassés vers `fast-jwt@6.2.4` (suite au bump de sécurité #33). Réparé via `pnpm install`.
+
+### Vérifications
+
+| Check | Résultat |
+|-------|----------|
+| `pnpm codegen` | ✅ `openapi.json` + `api.ts` générés |
+| `pnpm --filter @nextquest/shared typecheck` | ✅ 0 erreur |
+
+### Points ouverts
+
+- Covers de jeux : placeholders, branchement API IGDB à venir
+- Avatar dynamique depuis API
+- Timeline (`/timeline`) : page à construire (liste des sorties de jeux)
+- JB : brancher `fastify-type-provider-zod` pour enrichir les types body/response
+

@@ -16,7 +16,8 @@
     "db:generate": "pnpm --filter @nextquest/db db:generate",
     "db:migrate": "pnpm --filter @nextquest/db db:migrate",
     "db:seed": "pnpm --filter @nextquest/db db:seed",
-    "db:studio": "pnpm --filter @nextquest/db db:studio"
+    "db:studio": "pnpm --filter @nextquest/db db:studio",
+    "codegen": "pnpm --filter @nextquest/api generate:openapi && pnpm --filter @nextquest/shared generate:types"
   },
   "devDependencies": {
     "turbo": "^2.9.12"

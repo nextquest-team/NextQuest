@@ -1,0 +1,265 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NextQuest API",
+    "description": "API de gestion de ludotheque videoludique. Authentification via JWT Bearer ou cookie HttpOnly.",
+    "version": "0.1.0"
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access token JWT renvoye par /auth/login, /auth/register ou /auth/refresh."
+      }
+    },
+    "schemas": {}
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Verifier que l'API est en ligne",
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "summary": "Inscription email/mot de passe",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Cree un nouveau compte. Renvoie un access token JWT (15 min) et place le refresh token (30 jours) dans un cookie HttpOnly. Le refresh token est aussi renvoye dans le body pour le mobile.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Connexion email/mot de passe",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Verifie les credentials, cree une session et renvoie access + refresh token. Apres 5 echecs, le compte est verrouille 15 minutes.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "summary": "Renouveler l'access token",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Echange le refresh token (cookie ou body) contre un nouveau access token et un nouveau refresh token. Si un ancien refresh token deja revoque est reutilise, toute la famille est revoquee (detection de vol).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Deconnexion (session courante)",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Revoque le refresh token utilise et supprime le cookie. Les autres sessions restent actives.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/logout-all": {
+      "post": {
+        "summary": "Deconnexion globale (toutes sessions)",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Revoque toutes les sessions de l'utilisateur. Utile en cas de compte compromis.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Profil de l'utilisateur connecte",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Renvoie les infos publiques du user (id, email, username, displayName, avatarUrl, bio, locale, visibility, role, emailVerified, createdAt). A appeler apres OAuth ou apres un refresh de page.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/{provider}": {
+      "get": {
+        "summary": "Demarrer un flow OAuth",
+        "tags": [
+          "OAuth"
+        ],
+        "description": "Renvoie l'URL d'autorisation du provider (google, microsoft) que le front utilise pour rediriger l'utilisateur. Pose un cookie state pour la protection CSRF.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "google",
+                "microsoft"
+              ]
+            },
+            "in": "path",
+            "name": "provider",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/{provider}/callback": {
+      "get": {
+        "summary": "Callback OAuth (appele par le provider)",
+        "tags": [
+          "OAuth"
+        ],
+        "description": "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token. En cas d'erreur, redirige vers le front avec ?error=...",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "provider",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/oauth/{provider}/link": {
+      "post": {
+        "summary": "Lier un provider OAuth au compte courant",
+        "tags": [
+          "OAuth"
+        ],
+        "description": "Demarre un flow OAuth pour ajouter un provider supplementaire au compte connecte (ex: deja inscrit en email/password, on ajoute Google).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "provider",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delier un provider OAuth",
+        "tags": [
+          "OAuth"
+        ],
+        "description": "Supprime la liaison d'un provider OAuth. Refuse si c'est la seule methode de connexion (l'utilisateur n'a ni mot de passe ni autre provider).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "provider",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Etat de l'API"
+    },
+    {
+      "name": "Auth",
+      "description": "Inscription, connexion, sessions et gestion du compte utilisateur"
+    },
+    {
+      "name": "OAuth",
+      "description": "Connexion via Google ou Microsoft, liaison de comptes"
+    }
+  ]
+}

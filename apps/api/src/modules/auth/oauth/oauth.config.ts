@@ -43,7 +43,16 @@ export function getSupportedProviders(): string[] {
 }
 
 export function buildCallbackUrl(provider: string): string {
-  const baseUrl = process.env.API_BASE_URL ?? "http://localhost:3000";
+  // OAUTH_CALLBACK_BASE_URL doit etre l'URL publique de l'API (joignable par le
+  // browser de l'utilisateur), parce que c'est elle qu'on envoie comme redirect_uri
+  // a Google/Microsoft. API_BASE_URL est l'URL interne (utilisee pour les appels
+  // service-to-service en Docker, ex: http://api:3000) -- elle ne peut pas etre
+  // resolue par le browser. En l'absence d'override explicite, on retombe sur
+  // API_BASE_URL puis localhost pour conserver le dev hors Docker sans config.
+  const baseUrl =
+    process.env.OAUTH_CALLBACK_BASE_URL ??
+    process.env.API_BASE_URL ??
+    "http://localhost:3000";
   return `${baseUrl}/api/auth/oauth/${provider}/callback`;
 }
 

@@ -17,6 +17,11 @@ const app = Fastify({
       target: "pino-pretty",
     },
   },
+  // L'API tourne derriere un reverse proxy (Docker bridge en dev, proxy applicatif en prod).
+  // Sans trustProxy, request.ip retourne l'IP du dernier hop (la gateway Docker 172.18.0.1)
+  // au lieu de la vraie IP client portee par X-Forwarded-For. Indispensable pour que
+  // sessions.ip_address et le rate-limiter par IP soient corrects.
+  trustProxy: true,
 });
 
 // Erreurs de validation Zod -> 400 avec details exploitables par le client.

@@ -20,7 +20,7 @@
     "codegen": "pnpm --filter @nextquest/api generate:openapi && pnpm --filter @nextquest/shared generate:types"
   },
   "devDependencies": {
-    "turbo": "^2.9.12"
+    "turbo": "^2.9.14"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -43,7 +43,9 @@
       "postcss": ">=8.5.10",
       "unhead": ">=2.1.13 <3",
       "@unhead/vue": ">=2.1.13 <3",
-      "uuid": ">=14.0.0"
+      "uuid": ">=14.0.0",
+      "ws": ">=8.20.1",
+      "brace-expansion": ">=5.0.6"
     }
   }
 }

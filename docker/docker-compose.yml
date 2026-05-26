@@ -48,6 +48,9 @@ services:
       - DATABASE_URL=postgresql://nextquest:nextquest@postgres:5432/nextquest
       - REDIS_URL=redis://redis:6379
       - API_BASE_URL=http://api:3000
+      # URL publique de l'API utilisée pour le redirect_uri OAuth (doit être
+      # joignable par le browser, contrairement à API_BASE_URL qui est le DNS Docker interne)
+      - OAUTH_CALLBACK_BASE_URL=http://localhost:3000
       - OAUTH_REDIRECT_URL=http://localhost:3001
     depends_on:
       postgres:

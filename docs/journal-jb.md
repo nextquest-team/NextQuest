@@ -77,3 +77,17 @@
 - **`trustProxy` Fastify** : `ip_address` des sessions vaut `172.18.0.1` (gateway Docker) au lieu de la vraie IP client. Activer `trustProxy: true` cote Fastify pour lire `X-Forwarded-For`. Concerne aussi la prod (toujours derriere un reverse proxy).
 - **Double session OAuth** : login Google/MS cree 2 entrees dans `sessions` a 1 seconde d'ecart. Suspicion de double-create dans `apps/api/src/modules/auth/oauth/oauth.routes.ts`. A investiguer.
 - **`API_BASE_URL` dans le compose** : le compose committe definit `API_BASE_URL=http://api:3000` (nom de service Docker interne), mais cette URL est utilisee par `buildCallbackUrl()` pour le `redirect_uri` envoye a Google/MS, qui doit etre joignable par le **browser**. En l'etat le compose ne marche que sur localhost. A corriger cote compose ou cote `buildCallbackUrl` (lire une autre variable).
+
+---
+
+## 21 mai 2026
+
+**Resolution du backlog post-review #31 (PR fix groupee)** -- Les 3 issues #34, #35, #36 fixees dans une seule branche `fix/oauth-sessions-docker` (3 commits separes pour la review).
+
+**#34 trustProxy** -- Ajout de `trustProxy: true` a la config Fastify (`apps/api/src/server.ts`). `request.ip` lit maintenant `X-Forwarded-For` (premier hop) au lieu de l'IP TCP brute. Indispensable pour que `sessions.ip_address` et le rate-limiter par IP soient corrects en prod derriere un reverse proxy.
+
+**#35 Double session OAuth** -- Cause reelle differente de l'hypothese initiale : pas un double `createSession` cote API, mais le plugin `apps/web/plugins/auth.client.ts` qui appelle `refreshTokens()` quand Nuxt boote dans la popup `/auth/callback`. Le cookie refresh vient d'etre pose -> rotation immediate -> 2e ligne. Fix : skip `refreshTokens()` quand `window.location.pathname === '/auth/callback'`, la page gere sa propre session via le token query string.
+
+**#36 OAuth callback URL publique** -- Separation de `API_BASE_URL` (interne, service-to-service en Docker) et `OAUTH_CALLBACK_BASE_URL` (publique, joignable par le browser). `buildCallbackUrl` lit la nouvelle var en priorite avec fallback sur `API_BASE_URL` puis localhost. `docker-compose.yml` et `.env.example` mis a jour. OAuth fonctionne maintenant depuis la stack Docker remote sans override.
+
+**Tests** -- 29/29 API + 52/52 web vert sur la branche. Aucune regression detectee.

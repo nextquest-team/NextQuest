@@ -3,8 +3,11 @@ name: CI
 on:
   pull_request:
     branches: [main, develop]
+  # Pas de re-run sur push develop : la PR teste deja le merge ref, et le merge
+  # commit est identique (squash/merge sans autre PR entrelacee). On garde main
+  # comme filet de securite avant prod.
   push:
-    branches: [main, develop]
+    branches: [main]
 
 # Principe de moindre privilege : le GITHUB_TOKEN n'a besoin que de lire le repo
 # pour checkout. Pas d'ecriture, pas d'autres scopes.

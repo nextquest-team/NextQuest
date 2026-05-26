@@ -8,8 +8,10 @@
 name: CodeQL
 
 on:
+  # Pas de re-run sur push develop : la PR analyse deja le merge ref. On garde
+  # main pour avoir une trace CodeQL signee sur le code de prod.
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main, develop]
   # Analyse complete une fois par semaine, meme sans changement,

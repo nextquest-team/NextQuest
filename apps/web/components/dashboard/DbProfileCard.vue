@@ -162,6 +162,9 @@ const { t } = useI18n()
   font-weight: bold;
   color: #332b25;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .profile-h__btn {

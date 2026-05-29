@@ -22,7 +22,12 @@ async function complete() {
   }
 }
 
+let tourStarted = false
+
 function startTour() {
+  if (tourStarted) return
+  tourStarted = true
+
   const driverObj = driver({
     showProgress: true,
     progressText: '{{current}} / {{total}}',
@@ -35,14 +40,16 @@ function startTour() {
     stageRadius: 10,
     popoverClass: 'nq-popover',
     onDestroyStarted: () => {
+      // complete() est appelé ici — point unique de terminaison quel que soit
+      // le déclencheur (Done, X, ou bouton Skip via driverObj.destroy()).
       complete()
-      driverObj.destroy()
     },
     onPopoverRender: (popover) => {
       const btn = document.createElement('button')
       btn.innerText = t('dashboard.onboarding.skip')
       btn.className = 'nq-skip-btn'
-      btn.onclick = () => { complete(); driverObj.destroy() }
+      // destroy() déclenche onDestroyStarted → complete() — pas d'appel direct ici
+      btn.onclick = () => driverObj.destroy()
       popover.footer.appendChild(btn)
     },
     steps: [

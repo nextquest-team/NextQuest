@@ -104,10 +104,6 @@ const games = [
 .dd__bag {
   grid-area: bag;
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 20%;
   overflow: hidden;
 }
 
@@ -122,7 +118,10 @@ const games = [
 }
 
 .dd__bag-btn {
-  position: relative;
+  position: absolute;
+  top: 30%;           /* % de la hauteur de cellule → vraiment responsive */
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 1;
   display: inline-flex;
   align-items: center;

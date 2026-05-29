@@ -4,10 +4,12 @@ export interface User {
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
-  locale: "fr" | "en";
-  isPublic: boolean;
-  createdAt: Date;
-  updatedAt: Date | null;
+  bio: string | null;
+  locale: string;
+  visibility: "private" | "friends_only" | "public";
+  emailVerified: boolean;
+  onboardingCompleted: boolean;
+  createdAt: string; // ISO 8601
 }
 
 export type GameStatus = "wishlist" | "backlog" | "playing" | "completed" | "abandoned";

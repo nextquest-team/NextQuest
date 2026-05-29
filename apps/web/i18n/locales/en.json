@@ -35,6 +35,30 @@
     "nextQuest": "Next Quest",
     "timeline": "Game releases"
   },
+  "profil": {
+    "title": "My profile",
+    "memberSince": "Member since",
+    "emailVerified": "Email verified",
+    "emailNotVerified": "Email not verified",
+    "bio": "Biography",
+    "noBio": "No biography provided.",
+    "editBio": "Edit biography",
+    "save": "Save",
+    "cancel": "Cancel",
+    "bioSaveError": "Could not save bio, please try again.",
+    "visibility": {
+      "label": "Visibility",
+      "edit": "Edit visibility",
+      "private": "Private",
+      "friends_only": "Friends only",
+      "public": "Public"
+    },
+    "visibilitySaveError": "Could not save visibility, please try again.",
+    "onboarding": {
+      "completed": "Profile complete",
+      "pending": "Profile incomplete"
+    }
+  },
   "dashboard": {
     "profile": {
       "button": "My profile"

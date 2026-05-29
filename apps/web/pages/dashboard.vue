@@ -24,5 +24,6 @@ const username = computed(() => user.value?.displayName ?? user.value?.username 
       :username="username"
       @logout="logout"
     />
+    <DashboardOnboardingOverlay />
   </ClientOnly>
 </template>

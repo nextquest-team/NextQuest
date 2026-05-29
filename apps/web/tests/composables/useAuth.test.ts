@@ -47,9 +47,11 @@ const fakeUser = {
   displayName: null,
   avatarUrl: null,
   locale: 'fr' as const,
-  isPublic: true,
-  createdAt: new Date(),
-  updatedAt: null,
+  bio: null,
+  visibility: 'public' as const,
+  emailVerified: false,
+  onboardingCompleted: false,
+  createdAt: new Date().toISOString(),
 }
 
 describe('useAuth', () => {

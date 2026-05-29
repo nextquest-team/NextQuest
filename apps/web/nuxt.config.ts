@@ -54,6 +54,9 @@ export default defineNuxtConfig({
       i18n: false,
     },
     vuetifyOptions: {
+      display: {
+        mobileBreakpoint: 600,
+      },
       icons: { defaultSet: 'mdi' },
       theme: {
         defaultTheme: 'nextquest',

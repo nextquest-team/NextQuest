@@ -699,6 +699,62 @@ Audit complet, 4 corrections appliquées :
 - Bouton sac à dos desktop : position `left: 13%; top: 14%` à ajuster selon résolution réelle
 - Test `middleware/auth.test.ts` pré-existant en échec (middleware global retourne `undefined` au lieu de `/auth/login`) — à corriger par JB ou en session dédiée
 
+## 2026-05-29 — Session 19 : Tests unitaires — page Profil & OnboardingOverlay
+
+### Résumé exécutif
+
+Ajout de **26 tests unitaires** couvrant la page profil (`pages/profil.vue`) et le composant d'onboarding (`components/dashboard/OnboardingOverlay.vue`). Tous les tests passent, aucune régression sur la suite existante (78 tests en tout).
+
+### Fichiers créés
+
+- `tests/pages/profil.test.ts` — 17 tests
+- `tests/components/OnboardingOverlay.test.ts` — 9 tests
+
+### Ce qui est testé
+
+#### Page Profil (`pages/profil.vue`)
+
+| Scénario | Assertion |
+|---|---|
+| Montage | `fetchProfile` appelé une fois |
+| Identité | `username` affiché si `displayName = null` ; `displayName + @username` sinon |
+| Avatar | URL DiceBear si `avatarUrl = null` ; `avatarUrl` directe sinon |
+| Bio — ouverture | clic bouton → textarea visible |
+| Bio — annulation | clic Annuler → textarea masquée |
+| Bio — compteur | affiche `n/500` |
+| Bio — sauvegarde OK | PATCH `/api/users/me` appelé, éditeur fermé |
+| Bio — erreur API | message d'erreur affiché, éditeur maintenu |
+| Bio — dépassement | bouton Enregistrer désactivé si `bio.length > 500` |
+| Bio — textarea vide | body `{ bio: null }` envoyé |
+| Visibilité — ouverture | 3 options affichées |
+| Visibilité — changement | PATCH avec nouvelle valeur |
+| Visibilité — inchangée | **aucun appel API** si même valeur (public → public) |
+| Déconnexion | `logout()` appelé au clic |
+
+#### OnboardingOverlay (`components/dashboard/OnboardingOverlay.vue`)
+
+| Scénario | Assertion |
+|---|---|
+| `onboardingCompleted = true` | `driver()` non appelé |
+| `user = null` | `driver()` non appelé |
+| `onboardingCompleted = false` | `driver().drive()` appelé |
+| Nombre d'étapes | 5 étapes configurées |
+| Ciblage | les 5 `data-onb-target` corrects dans l'ordre |
+| `onDestroyStarted` | POST `/api/users/me/onboarding/complete` |
+| Mise à jour store | `setAuth({ onboardingCompleted: true })` appelé |
+| Résilience API | `setAuth` appelé même si le POST échoue |
+| Token auth | header `Authorization: Bearer <token>` envoyé |
+
+### Décisions techniques
+
+**Pas de mock `useRuntimeConfig`** : le mock interceptait le démarrage de l'app Nuxt en environnement de test et cassait le plugin router (`baseURL` undefined). La valeur par défaut de `nuxt.config.ts` (`http://localhost:3000`) est suffisante.
+
+**Mock `useAuthStore` (OnboardingOverlay)** : `setActivePinia(createPinia())` ne remplace pas l'instance Pinia injectée par l'app Nuxt de test. Résultat : le store du composant et le store du test étaient deux instances distinctes. Solution : `mockNuxtImport('useAuthStore', ...)` donne un objet plain commun aux deux.
+
+**`afterEach(() => wrapper?.unmount())`** : le `watch(show, ..., { immediate: true })` du composant précédent réagissait à la mutation de `mockUserRef` dans le test suivant, déclenchant `startTour()` une fois de trop. Résoudre en démontant explicitement le composant après chaque test.
+
+---
+
 ## 2026-05-29 — Session 18 : Dashboard desktop grid + polish onboarding
 
 ### Dashboard desktop — refonte en CSS Grid

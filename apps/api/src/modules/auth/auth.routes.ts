@@ -207,7 +207,7 @@ export async function authRoutes(app: FastifyInstance) {
         tags: ["Auth"],
         summary: "Profil de l'utilisateur connecte",
         description:
-          "Renvoie les infos publiques du user (id, email, username, displayName, avatarUrl, bio, locale, visibility, role, emailVerified, createdAt). A appeler apres OAuth ou apres un refresh de page.",
+          "Renvoie les infos publiques du user (id, email, username, displayName, avatarUrl, bio, locale, visibility, emailVerified, onboardingCompleted, createdAt). A appeler apres OAuth ou apres un refresh de page.",
         security: [{ bearerAuth: [] }],
       },
     },

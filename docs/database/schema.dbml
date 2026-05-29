@@ -195,6 +195,7 @@ Table users {
   role user_role_enum [default: 'user']
   email_verified boolean [default: false]
   email_verified_at timestamptz
+  onboarding_completed boolean [default: false, not null, note: 'Flag pilote par le tour guide front Vue. Mis a true via POST /api/users/me/onboarding/complete une fois le tour termine. Tous les nouveaux users sont a false. Le back ne connait pas les etapes UX du tour, juste cet etat binaire.']
   failed_login_attempts int [default: 0, note: 'CHECK (>= 0). Reset a 0 apres login reussi']
   locked_until timestamptz [note: 'Verrouillage apres 5 tentatives echouees']
   deleted_at timestamptz [note: 'Soft delete RGPD. Anonymiser : email, username, display_name, bio, avatar_url']

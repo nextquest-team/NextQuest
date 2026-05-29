@@ -63,6 +63,20 @@
 
 ---
 
+## 5 mai 2026
+
+**Onboarding profil + flag** -- Nouveau module `apps/api/src/modules/users/` avec `GET /api/users/me`, `PATCH /api/users/me`, `POST /api/users/me/onboarding/complete`. Colonne `onboarding_completed` ajoutee a `users` (boolean, default false). Le tour guide front pilote par Lorelei mettra le flag a true a sa fin. Le back ne connait pas les etapes UX du tour, juste cet etat binaire.
+
+**DTO public centralise** -- `toUserDTO()` dans `users.dto.ts` est la source unique de verite pour le format user expose au client. `/auth/me` refactore pour l utiliser. Garantit que `passwordHash`, `failedLoginAttempts`, `lockedUntil`, `deletedAt`, `role`, `emailVerifiedAt` ne fuitent jamais via une route. Le `role` reste accessible cote client via le claim JWT.
+
+**RGPD cascade documente** -- Regle ajoutee a `CLAUDE.md` : toute FK vers `users.id` = `ON DELETE CASCADE` par defaut, avec exceptions pour audit (SET NULL) et messages recus (soft delete + anonymisation sender). Audit complet du schema a faire lors de la spec dediee `DELETE /api/users/me`.
+
+**Avatar upload reporte** -- Pour le MVP, `avatarUrl` est juste une URL string (max 2048). L upload custom (storage + multipart + redimensionnement) est reporte a la spec profil/settings post-MVP.
+
+**Fix env vitest** -- `apps/api/vitest.config.ts` charge maintenant le `.env` racine et hookTimeout passe a 30s (les DELETE de cleanup sur Postgres en reseau Tailscale depassent le default 10s). Sans ca les tests d integration BDD echouaient en local. CI non impactee (vars injectees via secrets workflow).
+
+---
+
 ## 12 mai 2026
 
 **Review PR #31 (dashboard Lorelei) en stack Docker remote** -- Pour reproduire fidelement l'env de Lorelei et avoir un setup proche de la prod, deploiement de la stack complete (`api` + `web` en plus de `pg` + `redis`) sur le PC distant via Docker compose. Test end-to-end depuis le Mac : register email/password, OAuth Google, OAuth Microsoft, redirect dashboard, middleware auth privee. BDD verifiee post-test : `users`, `auth_providers` et `sessions` correctement remplis, `password_hash` null pour OAuth, refresh tokens en SHA-256 (64 chars), expires_at +30j.

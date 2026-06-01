@@ -105,3 +105,17 @@
 **#36 OAuth callback URL publique** -- Separation de `API_BASE_URL` (interne, service-to-service en Docker) et `OAUTH_CALLBACK_BASE_URL` (publique, joignable par le browser). `buildCallbackUrl` lit la nouvelle var en priorite avec fallback sur `API_BASE_URL` puis localhost. `docker-compose.yml` et `.env.example` mis a jour. OAuth fonctionne maintenant depuis la stack Docker remote sans override.
 
 **Tests** -- 29/29 API + 52/52 web vert sur la branche. Aucune regression detectee.
+
+---
+
+## 1er juin 2026
+
+**Module Steam (platforms/steam)** -- "Sign in through Steam" en OpenID 2.0 (Steam ne propose pas d'OAuth) + import de la bibliotheque. Validation de l'assertion par "direct verification" : on renvoie l'assertion a Steam (check_authentication) qui repond is_valid, aucun calcul de signature cote serveur, surface d'erreur minimale.
+
+**Une seule cle serveur** -- `STEAM_API_KEY` unique pour tous les users, le SteamID64 de chacun passe en parametre. L'identite de l'user est portee a travers la redirection Steam par un state JWT court (10 min, scope dedie) pour ne pas dependre d'une session pendant le retour top-level.
+
+**Import idempotent et performant** -- Upsert groupe en 2 requetes (games + user_games) au lieu de 2 par jeu, dans une transaction tout-ou-rien. Une grosse bibliotheque tient largement sous la contrainte 3s (mesure : 13 jeux importes en 70 ms). Un reimport met a jour les heures jouees sans creer de doublon.
+
+**Robustesse** -- Le client distingue "profil prive" (liste vide -> avertissement) de "Steam en panne" (HTTP non-200 -> 502 cote API), pour ne pas afficher un faux "profil prive" quand c'est l'API qui flanche.
+
+**Tests** -- 31 tests : unitaires (client + OpenID) et integration (service + routes sur vraie BDD). Valide end-to-end contre l'API Steam reelle : profil, bibliotheque et temps de jeu remontent et sont bien persistes.

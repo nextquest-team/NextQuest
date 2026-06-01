@@ -6,7 +6,7 @@ import {
   games,
   userGames,
 } from "@nextquest/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { SteamOwnedGame } from "./steam.client.js";
 
 export interface SteamConnection {
@@ -121,6 +121,10 @@ export async function unlinkSteamAccount(userId: string): Promise<boolean> {
 // Upsert de la bibliotheque dans games (par steam_appid) + user_games (par
 // user/game/platform). Idempotent : un reimport met a jour les heures jouees.
 // Renvoie le nombre de jeux traites.
+//
+// Tout passe en deux requetes groupees (et non 2 par jeu) : une grosse biblio
+// Steam (plusieurs centaines de jeux) tient ainsi largement sous la contrainte
+// de 3s, la ou des allers-retours en boucle l'auraient fait exploser.
 export async function importSteamLibrary(
   userId: string,
   ownedGames: SteamOwnedGame[],
@@ -130,37 +134,63 @@ export async function importSteamLibrary(
   const serviceId = await getServiceId("steam");
   const platformId = await getPlatformId("pc");
 
-  let count = 0;
-  for (const g of ownedGames) {
-    const [game] = await db
+  // Un meme appid deux fois dans un INSERT ... ON CONFLICT leve une erreur
+  // Postgres ("cannot affect row a second time"). Steam ne devrait pas renvoyer
+  // de doublon, mais on dedoublonne par securite (le dernier l'emporte).
+  const uniqueByAppid = new Map<number, SteamOwnedGame>();
+  for (const g of ownedGames) uniqueByAppid.set(g.appid, g);
+  const items = [...uniqueByAppid.values()];
+
+  // Transaction : un import est tout-ou-rien, jamais a moitie ecrit.
+  return db.transaction(async (tx) => {
+    // 1) Upsert groupe des jeux. RETURNING renvoie aussi les lignes mises a
+    // jour (ON CONFLICT DO UPDATE), donc on recupere l'id de chaque appid.
+    const gameRows = await tx
       .insert(games)
-      .values({
-        steamAppid: g.appid,
-        title: g.name,
-        slug: `${slugify(g.name)}-${g.appid}`,
-      })
+      .values(
+        items.map((g) => ({
+          steamAppid: g.appid,
+          title: g.name,
+          slug: `${slugify(g.name)}-${g.appid}`,
+        })),
+      )
       .onConflictDoUpdate({
         target: games.steamAppid,
-        set: { title: g.name, updatedAt: new Date() },
+        set: {
+          title: sql.raw(`excluded.${games.title.name}`),
+          updatedAt: new Date(),
+        },
       })
-      .returning({ id: games.id });
+      .returning({ id: games.id, steamAppid: games.steamAppid });
 
-    await db
+    const idByAppid = new Map<number, string>();
+    for (const row of gameRows) {
+      if (row.steamAppid !== null) idByAppid.set(row.steamAppid, row.id);
+    }
+
+    // 2) Upsert groupe des user_games. Le temps de jeu est repris de la valeur
+    // proposee (excluded) en cas de reimport.
+    await tx
       .insert(userGames)
-      .values({
-        userId,
-        gameId: game.id,
-        serviceId,
-        platformId,
-        playtimeMinutes: g.playtimeMinutes,
-      })
+      .values(
+        items.map((g) => ({
+          userId,
+          gameId: idByAppid.get(g.appid)!,
+          serviceId,
+          platformId,
+          playtimeMinutes: g.playtimeMinutes,
+        })),
+      )
       .onConflictDoUpdate({
         target: [userGames.userId, userGames.gameId, userGames.platformId],
-        set: { playtimeMinutes: g.playtimeMinutes, updatedAt: new Date() },
+        set: {
+          playtimeMinutes: sql.raw(
+            `excluded.${userGames.playtimeMinutes.name}`,
+          ),
+          updatedAt: new Date(),
+        },
       });
 
-    count++;
-  }
-
-  return count;
+    return items.length;
+  });
 }

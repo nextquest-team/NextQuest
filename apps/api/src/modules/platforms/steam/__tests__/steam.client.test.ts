@@ -1,10 +1,22 @@
 import { describe, it, expect, vi } from "vitest";
 import { getOwnedGames, getPlayerSummary } from "../steam.client.js";
 
+// Helpers de reponse fetch mockee (200 par defaut, ou statut d'erreur).
+const okResponse = (body: unknown) => ({
+  ok: true,
+  status: 200,
+  json: async () => body,
+});
+const errorResponse = (status: number) => ({
+  ok: false,
+  status,
+  json: async () => ({}),
+});
+
 describe("getOwnedGames", () => {
   it("mappe les jeux Steam (appid, nom, playtime en minutes)", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({
         response: {
           game_count: 2,
           games: [
@@ -13,7 +25,7 @@ describe("getOwnedGames", () => {
           ],
         },
       }),
-    });
+    );
 
     const games = await getOwnedGames("76561198000000000", "KEY", fetchMock);
 
@@ -24,9 +36,9 @@ describe("getOwnedGames", () => {
   });
 
   it("construit l'URL avec la cle, le steamid et les params include", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ response: { games: [] } }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(okResponse({ response: { games: [] } }));
 
     await getOwnedGames("76561198000000000", "SECRET_KEY", fetchMock);
 
@@ -39,20 +51,28 @@ describe("getOwnedGames", () => {
   });
 
   it("renvoie un tableau vide quand le profil est prive (pas de games)", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ response: {} }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(okResponse({ response: {} }));
 
     expect(
       await getOwnedGames("76561198000000000", "KEY", fetchMock),
     ).toEqual([]);
   });
+
+  it("leve une erreur si Steam repond un statut non-200", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errorResponse(500));
+
+    await expect(
+      getOwnedGames("76561198000000000", "KEY", fetchMock),
+    ).rejects.toThrow(/500/);
+  });
 });
 
 describe("getPlayerSummary", () => {
   it("renvoie le pseudo et l'avatar du joueur", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({
         response: {
           players: [
             {
@@ -63,7 +83,7 @@ describe("getPlayerSummary", () => {
           ],
         },
       }),
-    });
+    );
 
     expect(
       await getPlayerSummary("76561198000000000", "KEY", fetchMock),
@@ -74,9 +94,17 @@ describe("getPlayerSummary", () => {
   });
 
   it("renvoie null quand aucun joueur n'est trouve", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ response: { players: [] } }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(okResponse({ response: { players: [] } }));
+
+    expect(
+      await getPlayerSummary("76561198000000000", "KEY", fetchMock),
+    ).toBeNull();
+  });
+
+  it("renvoie null (sans lever) si Steam repond un statut non-200", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(errorResponse(503));
 
     expect(
       await getPlayerSummary("76561198000000000", "KEY", fetchMock),

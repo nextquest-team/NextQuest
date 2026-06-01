@@ -243,4 +243,19 @@ describe("POST /api/platforms/steam/import", () => {
     expect(body.imported).toBe(0);
     expect(body.warning).toBeTruthy();
   });
+
+  it("renvoie 502 si l'API Steam echoue", async () => {
+    const app = await buildApp();
+    const { userId, token } = await createUserAndToken(app);
+    await linkSteamAccount(userId, "76561198000000000", "Gaben");
+    mockedGetOwnedGames.mockRejectedValue(new Error("HTTP 500"));
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/platforms/steam/import",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(502);
+  });
 });

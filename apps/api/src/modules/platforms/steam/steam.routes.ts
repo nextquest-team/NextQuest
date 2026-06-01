@@ -145,10 +145,17 @@ export async function steamRoutes(app: FastifyInstance) {
         return reply.code(409).send({ error: "Aucun compte Steam lie" });
       }
 
-      const ownedGames = await getOwnedGames(
-        conn.steamId,
-        process.env.STEAM_API_KEY ?? "",
-      );
+      let ownedGames;
+      try {
+        ownedGames = await getOwnedGames(
+          conn.steamId,
+          process.env.STEAM_API_KEY ?? "",
+        );
+      } catch {
+        return reply.code(502).send({
+          error: "Steam est temporairement indisponible. Reessaie plus tard.",
+        });
+      }
 
       if (ownedGames.length === 0) {
         return reply.send({

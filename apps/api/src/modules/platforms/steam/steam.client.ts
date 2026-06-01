@@ -3,7 +3,9 @@
 
 const STEAM_API_BASE = "https://api.steampowered.com";
 
-type JsonFetchLike = (url: string) => Promise<{ json(): Promise<unknown> }>;
+type JsonFetchLike = (
+  url: string,
+) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
 export interface SteamOwnedGame {
   appid: number;
@@ -30,6 +32,11 @@ export async function getOwnedGames(
   url.searchParams.set("format", "json");
 
   const res = await fetchImpl(url.toString());
+  // Sur erreur Steam (429, 500, cle invalide...) on leve : sans ca, un tableau
+  // vide serait interprete a tort comme "profil prive" cote appelant.
+  if (!res.ok) {
+    throw new Error(`Steam GetOwnedGames a repondu HTTP ${res.status}`);
+  }
   const data = (await res.json()) as {
     response?: {
       games?: Array<{ appid: number; name: string; playtime_forever: number }>;
@@ -54,6 +61,9 @@ export async function getPlayerSummary(
   url.searchParams.set("steamids", steamId);
 
   const res = await fetchImpl(url.toString());
+  // Le pseudo/avatar est cosmetique : si Steam repond mal, on n'echoue pas la
+  // liaison du compte pour autant, on renvoie juste null.
+  if (!res.ok) return null;
   const data = (await res.json()) as {
     response?: { players?: Array<{ personaname: string; avatarfull?: string }> };
   };

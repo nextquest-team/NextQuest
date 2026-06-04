@@ -4,7 +4,12 @@
 // on renvoie l'assertion a Steam qui repond is_valid:true/false. Pas de calcul
 // de signature de notre cote, donc surface d'erreur minimale.
 
-const STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login";
+// Surchargeable via .env (mock en test d'integration), defaut = URL officielle.
+const STEAM_OPENID_ENDPOINT =
+  process.env.STEAM_OPENID_ENDPOINT ?? "https://steamcommunity.com/openid/login";
+
+// Identifiants du protocole OpenID 2.0 (jamais appeles comme URLs) :
+// definis par la spec, ils ne doivent jamais changer. Restent en dur.
 const OPENID_NS = "http://specs.openid.net/auth/2.0";
 const IDENTIFIER_SELECT = "http://specs.openid.net/auth/2.0/identifier_select";
 

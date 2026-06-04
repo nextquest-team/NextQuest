@@ -1,7 +1,9 @@
 // Wrapper minimal sur la Steam Web API. Une seule cle serveur (STEAM_API_KEY)
 // sert pour tous les utilisateurs : on passe leur SteamID64 en parametre.
 
-const STEAM_API_BASE = "https://api.steampowered.com";
+// Surchargeable via .env (mock en test d'integration), defaut = URL officielle.
+const STEAM_API_BASE =
+  process.env.STEAM_API_BASE ?? "https://api.steampowered.com";
 
 type JsonFetchLike = (
   url: string,

@@ -20,7 +20,7 @@
     "codegen": "pnpm --filter @nextquest/api generate:openapi && pnpm --filter @nextquest/shared generate:types"
   },
   "devDependencies": {
-    "turbo": "^2.9.14"
+    "turbo": "^2.9.16"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

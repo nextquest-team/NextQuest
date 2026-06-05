@@ -119,3 +119,10 @@
 **Robustesse** -- Le client distingue "profil prive" (liste vide -> avertissement) de "Steam en panne" (HTTP non-200 -> 502 cote API), pour ne pas afficher un faux "profil prive" quand c'est l'API qui flanche.
 
 **Tests** -- 31 tests : unitaires (client + OpenID) et integration (service + routes sur vraie BDD). Valide end-to-end contre l'API Steam reelle : profil, bibliotheque et temps de jeu remontent et sont bien persistes.
+## 29 mai 2026
+
+**Roadmap MVP + milestone GitHub** -- Création du plan MVP partagé avec Loreleï : doc canonical `docs/roadmap-mvp.md` + milestone GitHub #1 (échéance 26 juin 2026). 6 lots de #53 à #58 (lier Steam, import biblio, IGDB, biblio+fiche, statuts, reco IA), chaque issue avec la part back et front.
+
+**Archi reco décidée** -- Backbone algorithmique, pas LLM pilote : profil de goût (vecteur pondéré par heures jouées x statut) + scoring additif sur candidats IGDB réels. Qwen3 14B local (RTX 5070) en re-ranker/explicateur ancré sur la liste fournie = zéro hallucination, coût zéro, argument RGPD. Embeddings reportés post-MVP mais scoring conçu modulaire pour les brancher sans dette.
+
+**Sources de données** -- IGDB primaire (choisi pour `similar_games`, taxonomie structurée, mapping appid Steam). Signal qualité reco = IGDB `rating` (note joueurs) uniquement, pas la presse, avec seuil de votes. Metacritic écarté (pas d'API publique pour le score joueurs), RAWG en complément post-MVP. Succès Steam sortis du MVP.

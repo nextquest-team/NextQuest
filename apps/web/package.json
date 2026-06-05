@@ -16,13 +16,13 @@
   "dependencies": {
     "@mdi/font": "^7.4.47",
     "@nextquest/shared": "workspace:*",
-    "@nuxtjs/i18n": "^10.3.0",
+    "@nuxtjs/i18n": "^10.4.0",
     "@pinia/nuxt": "^0.11.3",
     "nuxt": "^3.21.6",
     "pinia": "^3.0.4",
-    "vue": "^3.5.34",
+    "vue": "^3.5.35",
     "vue-router": "^4.5.0",
-    "vuetify": "^4.0.7",
+    "vuetify": "^4.1.0",
     "vuetify-nuxt-module": "^0.19.5"
   },
   "devDependencies": {
@@ -31,8 +31,8 @@
     "@nuxtjs/tailwindcss": "^6.13.2",
     "@pinia/testing": "^1.0.3",
     "@vue/test-utils": "^2.4.9",
-    "eslint": "^10.3.0",
+    "eslint": "^10.4.1",
     "happy-dom": "^20.9.0",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.8"
   }
 }

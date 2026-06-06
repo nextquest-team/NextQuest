@@ -294,6 +294,7 @@ Table games {
   id uuid [pk]
   igdb_id int
   rawg_id int
+  steam_appid int [note: 'App ID du store Steam. Cle de dedoublonnage des jeux importes depuis Steam. Nullable : renseigne uniquement pour les jeux issus de Steam (un index unique PostgreSQL tolere plusieurs NULL, donc les jeux non-Steam ne se genent pas)']
   title varchar(255) [not null, note: 'Index GIN pg_trgm pour recherche floue (zelad -> zelda)']
   slug varchar(255) [not null, note: 'Genere depuis le titre. Deduplique : the-legend-of-zelda, the-legend-of-zelda-2. Unicite via index']
   description text
@@ -314,6 +315,7 @@ Table games {
   indexes {
     (igdb_id) [note: 'Dedoublonnage par ID IGDB']
     (rawg_id) [note: 'Dedoublonnage par ID RAWG']
+    (steam_appid) [unique, note: 'Dedoublonnage des imports Steam : une seule ligne catalogue par app Steam. Cible du ON CONFLICT a l import']
     (slug) [unique, note: 'URLs SEO-friendly /games/:slug']
   }
 }

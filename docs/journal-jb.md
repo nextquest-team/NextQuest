@@ -108,6 +108,17 @@
 
 ---
 
+## 1er juin 2026
+
+**Module Steam (platforms/steam)** -- "Sign in through Steam" en OpenID 2.0 (Steam ne propose pas d'OAuth) + import de la bibliotheque. Validation de l'assertion par "direct verification" : on renvoie l'assertion a Steam (check_authentication) qui repond is_valid, aucun calcul de signature cote serveur, surface d'erreur minimale.
+
+**Une seule cle serveur** -- `STEAM_API_KEY` unique pour tous les users, le SteamID64 de chacun passe en parametre. L'identite de l'user est portee a travers la redirection Steam par un state JWT court (10 min, scope dedie) pour ne pas dependre d'une session pendant le retour top-level.
+
+**Import idempotent et performant** -- Upsert groupe en 2 requetes (games + user_games) au lieu de 2 par jeu, dans une transaction tout-ou-rien. Une grosse bibliotheque tient largement sous la contrainte 3s (mesure : 13 jeux importes en 70 ms). Un reimport met a jour les heures jouees sans creer de doublon.
+
+**Robustesse** -- Le client distingue "profil prive" (liste vide -> avertissement) de "Steam en panne" (HTTP non-200 -> 502 cote API), pour ne pas afficher un faux "profil prive" quand c'est l'API qui flanche.
+
+**Tests** -- 31 tests : unitaires (client + OpenID) et integration (service + routes sur vraie BDD). Valide end-to-end contre l'API Steam reelle : profil, bibliotheque et temps de jeu remontent et sont bien persistes.
 ## 29 mai 2026
 
 **Roadmap MVP + milestone GitHub** -- Création du plan MVP partagé avec Loreleï : doc canonical `docs/roadmap-mvp.md` + milestone GitHub #1 (échéance 26 juin 2026). 6 lots de #53 à #58 (lier Steam, import biblio, IGDB, biblio+fiche, statuts, reco IA), chaque issue avec la part back et front.

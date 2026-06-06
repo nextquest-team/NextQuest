@@ -26,6 +26,9 @@ export const games = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     igdbId: integer("igdb_id"),
     rawgId: integer("rawg_id"),
+    // Identifiant Steam (appid). Sert a dedupliquer les imports et a raccorder
+    // le jeu a IGDB plus tard via external_games. Unique : un appid = un jeu.
+    steamAppid: integer("steam_appid"),
     title: varchar("title", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull(),
     description: text("description"),
@@ -55,6 +58,7 @@ export const games = pgTable(
     index("games_igdb_id_idx").on(t.igdbId),
     index("games_rawg_id_idx").on(t.rawgId),
     unique("games_slug_unique").on(t.slug),
+    unique("games_steam_appid_unique").on(t.steamAppid),
   ],
 );
 

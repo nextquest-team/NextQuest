@@ -179,7 +179,9 @@ describe('OnboardingOverlay', () => {
     )
   })
 
-  it('appelle setAuth même si l\'appel API échoue (idempotent)', async () => {
+  it('ne met pas à jour le store si l\'appel API échoue', async () => {
+    // Comportement attendu : si le POST échoue, on ne marque PAS l'onboarding
+    // comme terminé en local — le tour réapparaîtra au prochain rechargement
     $fetchMock.mockRejectedValue(new Error('network'))
     mockUserRef.value = { ...fakeUser }
     wrapper = mount(OnboardingOverlay)
@@ -188,10 +190,44 @@ describe('OnboardingOverlay', () => {
     await capturedConfig?.onDestroyStarted()
     await flushPromises()
 
-    expect(setAuthMock).toHaveBeenCalledWith(
-      expect.objectContaining({ onboardingCompleted: true }),
-      expect.any(String),
-    )
+    expect(setAuthMock).not.toHaveBeenCalled()
+  })
+
+  it('Skip ne déclenche pas complete() directement — un seul POST via onDestroyStarted', async () => {
+    mockUserRef.value = { ...fakeUser }
+    wrapper = mount(OnboardingOverlay)
+    await flushPromises()
+
+    // Récupère le bouton Skip injecté par onPopoverRender
+    const fakeFooter = { appendChild: vi.fn() }
+    capturedConfig?.onPopoverRender({ footer: fakeFooter })
+    const skipBtn = fakeFooter.appendChild.mock.calls[0][0] as HTMLButtonElement
+
+    // Clic Skip : ne doit PAS appeler $fetch directement
+    skipBtn.onclick?.(new MouseEvent('click'))
+    await flushPromises()
+    expect($fetchMock).not.toHaveBeenCalled()
+
+    // complete() ne passe que par onDestroyStarted → un seul POST au total
+    await capturedConfig?.onDestroyStarted()
+    await flushPromises()
+    expect($fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it('la garde tourStarted empêche un double démarrage du tour', async () => {
+    mockUserRef.value = { ...fakeUser, onboardingCompleted: false }
+    wrapper = mount(OnboardingOverlay)
+    await flushPromises()
+    expect(driverFactoryMock).toHaveBeenCalledOnce()
+
+    // Simule show : true → false → true (ex. store mis à jour puis réinitialisé)
+    mockUserRef.value = { ...fakeUser, onboardingCompleted: true }
+    await flushPromises()
+    mockUserRef.value = { ...fakeUser, onboardingCompleted: false }
+    await flushPromises()
+
+    // La garde bloque le second démarrage
+    expect(driverFactoryMock).toHaveBeenCalledOnce()
   })
 
   it('envoie le token d\'autorisation dans le header', async () => {

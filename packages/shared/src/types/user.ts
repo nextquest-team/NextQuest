@@ -1,3 +1,5 @@
+export type Locale = "fr" | "en";
+
 export interface User {
   id: string;
   email: string;
@@ -5,7 +7,7 @@ export interface User {
   displayName: string | null;
   avatarUrl: string | null;
   bio: string | null;
-  locale: string;
+  locale: Locale;
   visibility: "private" | "friends_only" | "public";
   emailVerified: boolean;
   onboardingCompleted: boolean;

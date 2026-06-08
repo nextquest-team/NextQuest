@@ -29,6 +29,7 @@ const fakeUser = {
 // ──────────────────────────────────────────────────────────
 mockNuxtImport('useI18n', () => () => ({
   t: (key: string) => key.split('.').pop() ?? key,
+  locale: { value: 'fr' },
 }))
 
 // mockUser est un ref Vue : auto-unwrapped dans les templates.
@@ -165,6 +166,20 @@ describe('ProfilPage', () => {
       expect(wrapper.find('.profil__action-btn--save').attributes('disabled')).toBeDefined()
     })
 
+    it('accepte une bio de exactement 500 caractères et envoie le PATCH', async () => {
+      $fetchMock.mockResolvedValue({ bio: 'a'.repeat(500) })
+      const wrapper = mount(ProfilPage, { global: { stubs } })
+      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
+      await wrapper.find('textarea.profil__bio-textarea').setValue('a'.repeat(500))
+
+      // Bouton actif à la borne exacte
+      expect(wrapper.find('.profil__action-btn--save').attributes('disabled')).toBeUndefined()
+
+      await wrapper.find('.profil__action-btn--save').trigger('click')
+      await flushPromises()
+      expect($fetchMock).toHaveBeenCalled()
+    })
+
     it('envoie null si la textarea est vide', async () => {
       $fetchMock.mockResolvedValue({ bio: null })
       const wrapper = mount(ProfilPage, { global: { stubs } })
@@ -211,6 +226,17 @@ describe('ProfilPage', () => {
       await flushPromises()
 
       expect($fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('affiche une erreur si PATCH visibilité échoue', async () => {
+      $fetchMock.mockRejectedValue(new Error('network'))
+      const wrapper = mount(ProfilPage, { global: { stubs } })
+      await wrapper.find('.profil__info-row--visibility .profil__edit-btn').trigger('click')
+      // index 0 = 'private' (différent de 'public') → déclenche l'appel API
+      await wrapper.findAll('.profil__visibility-opt')[0].trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('.profil__bio-error').exists()).toBe(true)
     })
 
     it('ferme le sélecteur sans appel API quand on clique sur la valeur identique', async () => {

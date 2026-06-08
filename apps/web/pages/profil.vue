@@ -3,7 +3,7 @@ import { $fetch } from 'ofetch'
 
 definePageMeta({ ssr: false })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { user, logout, fetchProfile } = useAuth()
 const store = useAuthStore()
 const config = useRuntimeConfig()
@@ -41,7 +41,7 @@ const displayName = computed(() => user.value?.displayName ?? user.value?.userna
 
 const memberSince = computed(() => {
   if (!user.value?.createdAt) return ''
-  return new Date(user.value.createdAt).toLocaleDateString('fr-FR', {
+  return new Date(user.value.createdAt).toLocaleDateString(locale.value, {
     year: 'numeric',
     month: 'long',
   })

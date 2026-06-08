@@ -16,19 +16,20 @@ async function complete() {
       credentials: 'include',
       headers: { Authorization: `Bearer ${store.accessToken}` },
     })
-  } catch { /* idempotent */ }
-  if (store.user) {
-    store.setAuth({ ...store.user, onboardingCompleted: true }, store.accessToken!)
-  }
+    if (store.user) {
+      store.setAuth({ ...store.user, onboardingCompleted: true }, store.accessToken!)
+    }
+  } catch { /* idempotent — on ne marque pas localement si l'API a échoué */ }
 }
 
 let tourStarted = false
+let driverObj: ReturnType<typeof driver> | null = null
 
 function startTour() {
   if (tourStarted) return
   tourStarted = true
 
-  const driverObj = driver({
+  driverObj = driver({
     showProgress: true,
     progressText: '{{current}} / {{total}}',
     nextBtnText: t('dashboard.onboarding.next'),
@@ -56,7 +57,7 @@ function startTour() {
       {
         element: '[data-onb-target="wheel"]',
         popover: {
-          title: `🧭 ${t('dashboard.onboarding.title1')}`,
+          title: t('dashboard.onboarding.title1'),
           description: t('dashboard.onboarding.step1'),
           side: 'top',
           align: 'center',
@@ -65,7 +66,7 @@ function startTour() {
       {
         element: '[data-onb-target="bag"]',
         popover: {
-          title: `🎒 ${t('dashboard.onboarding.title2')}`,
+          title: t('dashboard.onboarding.title2'),
           description: t('dashboard.onboarding.step2'),
           side: 'left',
           align: 'start',
@@ -74,7 +75,7 @@ function startTour() {
       {
         element: '[data-onb-target="profile"]',
         popover: {
-          title: `📜 ${t('dashboard.onboarding.title3')}`,
+          title: t('dashboard.onboarding.title3'),
           description: t('dashboard.onboarding.step3'),
           side: 'bottom',
           align: 'start',
@@ -83,7 +84,7 @@ function startTour() {
       {
         element: '[data-onb-target="parchemin"]',
         popover: {
-          title: `📰 ${t('dashboard.onboarding.title4')}`,
+          title: t('dashboard.onboarding.title4'),
           description: t('dashboard.onboarding.step4'),
           side: 'left',
           align: 'center',
@@ -92,7 +93,7 @@ function startTour() {
       {
         element: '[data-onb-target="timeline"]',
         popover: {
-          title: `🗺️ ${t('dashboard.onboarding.title5')}`,
+          title: t('dashboard.onboarding.title5'),
           description: t('dashboard.onboarding.step5'),
           side: 'top',
           align: 'center',
@@ -102,6 +103,10 @@ function startTour() {
   })
   driverObj.drive()
 }
+
+onBeforeUnmount(() => {
+  driverObj?.destroy()
+})
 
 const show = computed(() => user.value?.onboardingCompleted === false)
 

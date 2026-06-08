@@ -29,7 +29,7 @@ function startTour() {
   if (tourStarted) return
   tourStarted = true
 
-  driverObj = driver({
+  const obj = driver({
     showProgress: true,
     progressText: '{{current}} / {{total}}',
     nextBtnText: t('dashboard.onboarding.next'),
@@ -50,7 +50,7 @@ function startTour() {
       btn.innerText = t('dashboard.onboarding.skip')
       btn.className = 'nq-skip-btn'
       // destroy() déclenche onDestroyStarted → complete() — pas d'appel direct ici
-      btn.onclick = () => driverObj.destroy()
+      btn.onclick = () => obj.destroy()
       popover.footer.appendChild(btn)
     },
     steps: [
@@ -101,7 +101,8 @@ function startTour() {
       },
     ],
   })
-  driverObj!.drive()
+  driverObj = obj
+  obj.drive()
 }
 
 onBeforeUnmount(() => {

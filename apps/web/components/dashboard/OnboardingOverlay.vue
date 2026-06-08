@@ -101,7 +101,7 @@ function startTour() {
       },
     ],
   })
-  driverObj.drive()
+  driverObj!.drive()
 }
 
 onBeforeUnmount(() => {

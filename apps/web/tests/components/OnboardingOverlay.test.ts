@@ -204,7 +204,7 @@ describe('OnboardingOverlay', () => {
     const skipBtn = fakeFooter.appendChild.mock.calls[0][0] as HTMLButtonElement
 
     // Clic Skip : ne doit PAS appeler $fetch directement
-    skipBtn.onclick?.(new MouseEvent('click'))
+    skipBtn.onclick?.(new PointerEvent('click'))
     await flushPromises()
     expect($fetchMock).not.toHaveBeenCalled()
 

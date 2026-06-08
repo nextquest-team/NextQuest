@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
-import { driver } from 'driver.js'
-import 'driver.js/dist/driver.css'
+import type { driver as DriverFn } from 'driver.js'
 
 const { t } = useI18n()
 const { user } = useAuth()
@@ -23,11 +22,16 @@ async function complete() {
 }
 
 let tourStarted = false
-let driverObj: ReturnType<typeof driver> | null = null
+let driverObj: ReturnType<typeof DriverFn> | null = null
 
-function startTour() {
+async function startTour() {
   if (tourStarted) return
   tourStarted = true
+
+  // Import dynamique : driver.js n'est jamais chargé côté serveur (SSR),
+  // ce qui évite le crash "currentRenderingInstance is null" au rendu SSR.
+  const { driver } = await import('driver.js')
+  await import('driver.js/dist/driver.css')
 
   const obj = driver({
     showProgress: true,

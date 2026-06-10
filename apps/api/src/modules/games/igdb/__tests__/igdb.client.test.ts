@@ -33,8 +33,8 @@ describe("findGameIdsBySteamAppids", () => {
     const init = fetchMock.mock.calls[0][1];
     expect(init.headers["Client-ID"]).toBe("CID");
     expect(init.headers["Authorization"]).toBe("Bearer TOKEN");
-    // Le corps est une requete Apicalypse qui filtre sur la categorie Steam et les uid demandes
-    expect(init.body).toContain("category = 1");
+    // Le corps est une requete Apicalypse qui filtre sur la source Steam et les uid demandes
+    expect(init.body).toContain("external_game_source = 1");
     expect(init.body).toMatch(/uid = \("570","730"\)/);
   });
 

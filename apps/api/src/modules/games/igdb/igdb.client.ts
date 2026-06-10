@@ -4,9 +4,10 @@
 
 const IGDB_API_BASE = process.env.IGDB_API_BASE ?? "https://api.igdb.com/v4";
 
-// Code Steam dans external_games.category. A confirmer en validation manuelle ;
-// IGDB migre progressivement vers external_game_source (Steam = 1 egalement).
-export const STEAM_EXTERNAL_CATEGORY = 1;
+// Source Steam dans external_games. IGDB a remplace l'ancien champ `category` par
+// `external_game_source` (l'ancien ne figure plus dans la reponse). Valeur confirmee
+// empiriquement : Steam = 1 (ex. appid 1145360 -> jeu IGDB 113112).
+export const STEAM_EXTERNAL_SOURCE = 1;
 
 type JsonFetchLike = (
   url: string,
@@ -73,7 +74,7 @@ export async function findGameIdsBySteamAppids(
   if (appids.length === 0) return result;
 
   const uidList = appids.map((a) => `"${a}"`).join(",");
-  const body = `fields game,uid; where category = ${STEAM_EXTERNAL_CATEGORY} & uid = (${uidList}); limit 500;`;
+  const body = `fields game,uid; where external_game_source = ${STEAM_EXTERNAL_SOURCE} & uid = (${uidList}); limit 500;`;
 
   const rows = (await igdbPost("external_games", body, token, clientId, fetchImpl)) as Array<{
     game?: number;

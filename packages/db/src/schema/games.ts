@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   integer,
+  real,
   boolean,
   timestamp,
   date,
@@ -41,6 +42,10 @@ export const games = pgTable(
     developer: varchar("developer", { length: 255 }),
     publisher: varchar("publisher", { length: 255 }),
     avgPlaytime: integer("avg_playtime"),
+    // Note joueurs IGDB (0-100, decimale) et nombre de votes. Signal qualite
+    // exploite par la reco (#58) avec un seuil de votes minimum.
+    igdbRating: real("igdb_rating"),
+    igdbRatingCount: integer("igdb_rating_count"),
     // Les jeux custom sont ceux ajoutes manuellement par un user (pas dans IGDB/RAWG)
     isCustom: boolean("is_custom").notNull().default(false),
     createdBy: uuid("created_by").references(() => users.id, {
@@ -126,5 +131,23 @@ export const gameUpdates = pgTable(
       t.processed,
       t.detectedAt,
     ),
+  ],
+);
+
+// Jeux similaires suggeres par IGDB. On stocke l'id IGDB brut (et non une FK vers
+// games.id) car la plupart des jeux similaires ne sont pas encore dans notre
+// catalogue : on n'a que les bibliotheques des users. La reco (#58) resout et
+// hydrate ces candidats au moment voulu.
+export const gameSimilar = pgTable(
+  "game_similar",
+  {
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    similarIgdbId: integer("similar_igdb_id").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.gameId, t.similarIgdbId] }),
+    index("game_similar_similar_igdb_id_idx").on(t.similarIgdbId),
   ],
 );

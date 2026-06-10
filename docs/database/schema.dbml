@@ -174,8 +174,13 @@ Table tags {
   id uuid [pk]
   name varchar(100) [not null]
   slug varchar(100) [unique, not null]
-  category varchar(50) [note: 'mood, difficulty, feature']
+  category varchar(50) [note: 'mood, difficulty, feature, theme']
+  igdb_id int [note: 'ID IGDB pour les tags importes (themes au MVP). Permet dedupliquage par (category, igdb_id) pour eviter collisions slug avec futurs imports keywords IGDB (#72)']
   created_at timestamptz [default: `now()`]
+
+  indexes {
+    (category, igdb_id) [unique, note: 'Dedup des tags IGDB']
+  }
 }
 
 // ============================================
@@ -305,6 +310,8 @@ Table games {
   developer varchar(255)
   publisher varchar(255)
   avg_playtime int [note: 'En minutes. CHECK (>= 0)']
+  igdb_rating real [note: 'Note joueurs IGDB (0-100, decimale). Signal qualite exploite par la reco (#58)']
+  igdb_rating_count int [note: 'Nombre de votes IGDB. Seuil minimum pour la reco (#58) : eviter de recommander sur note en base faible']
   is_custom boolean [default: false]
   created_by uuid [ref: > users.id, note: 'Createur du jeu custom. Seul created_by peut modifier un jeu is_custom=true']
   visibility visibility_enum [default: 'private', note: 'Visibilite des jeux custom uniquement']
@@ -363,6 +370,18 @@ Table game_updates {
     (game_id, detected_at) [note: 'Historique des MAJ d un jeu']
     (processed, detected_at) [note: 'File de traitement des MAJ non traitees']
   }
+}
+
+Table game_similar {
+  game_id uuid [ref: > games.id, not null]
+  similar_igdb_id int [not null]
+
+  indexes {
+    (game_id, similar_igdb_id) [pk]
+    (similar_igdb_id) [note: 'Index sur les candidats similaires IGDB']
+  }
+
+  Note: 'Jeux similaires suggeres par IGDB, stockes en id IGDB brut (pas de FK vers games.id) car la plupart des candidats ne sont pas encore dans notre catalogue : on n"a que les bibliotheques des users. La reco (#58) resout et hydrate ces candidats au moment voulu. ON DELETE CASCADE sur game_id : supprimer un jeu purge ses liens similaires.'
 }
 
 // ============================================

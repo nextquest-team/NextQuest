@@ -29,14 +29,19 @@ monde — c'est le cache.
    sont rattrapés à la passe suivante. Upgrade vers une vraie queue (BullMQ/Redis)
    suivi en post-MVP (issue #68).
 
-6. **Pas de rôle admin au MVP, donc endpoint scopé au user.** On a
-   l'authentification (sessions/JWT) mais pas l'autorisation fine (aucune notion
-   d'admin). Le déclenchement manuel est donc `POST /api/users/me/library/enrich` :
-   il n'enrichit que les jeux de la collection de l'appelant. Tout user authentifié
-   peut l'appeler sans risque (il ne déclenche du travail que sur ses propres
-   données, rien de plus que re-importer), et la pass reste idempotente + throttlée.
-   L'endpoint global « enrichir tout le catalogue » et le système de rôles admin sont
-   suivis en post-MVP (issue #69).
+6. **Rôle admin pris en charge dès #55.** Le schéma a déjà la colonne `users.role`
+   (`userRoleEnum ['user','admin']`, défaut `user`) et le JWT d'accès porte déjà
+   `role` dans son payload (signé `{ sub, role }` dans auth/oauth). On ajoute donc :
+   - un middleware `requireAdmin` (après `requireAuth` : vérifie
+     `request.user.role === 'admin'`, sinon 403, sans lookup BDD) ;
+   - un endpoint **admin global** `POST /api/admin/games/enrich` qui enrichit /
+     re-synchronise tout le catalogue (jeux `igdb_id IS NULL` ou périmés), pour
+     l'exploitation.
+   On garde en plus un endpoint **self-service** `POST /api/users/me/library/enrich`
+   (tout user authentifié, scopé à sa propre bibliothèque) pour rafraîchir ses
+   métadonnées sans risque. Les deux réutilisent le même service `enrichGames`
+   (variante scopée par `userId` vs variante globale). La pass reste idempotente +
+   throttlée.
 
 2. **Catalogue partagé = cache.** La pass ne sélectionne que les jeux jamais
    hydratés (`igdb_id IS NULL`) ou périmés (`last_synced_at` ancien). Si user A a
@@ -98,7 +103,7 @@ apps/api/src/modules/games/igdb/
 ├── igdb.auth.ts      # token Twitch, cache Redis, refresh paresseux
 ├── igdb.client.ts    # requêtes Apicalypse, fonctions pures, fetchImpl injectable
 ├── igdb.service.ts   # orchestration : sélection → mapping → fetch → upsert
-├── igdb.routes.ts    # POST /api/users/me/library/enrich (manuel, scopé user)
+├── igdb.routes.ts    # POST /api/users/me/library/enrich + /api/admin/games/enrich
 └── __tests__/        # unitaires (auth, client, mapping) + intégration (service/routes)
 ```
 
@@ -129,15 +134,18 @@ Fonctions pures, chacune fait UN appel et renvoie des données typées (Zod en s
      partagé : enrichir un jeu profite à tous les users qui le possèdent.
 - Renvoie un résumé (`{ scanned, mapped, enriched, notFound, failed }`) pour le log et
   la réponse de l'endpoint.
-- Le scope par user est volontaire au MVP (pas d'opération globale sans rôle admin).
-  Une variante globale `enrichGames()` sans `userId` viendra avec les rôles admin
-  (post-MVP, issue #69).
+- `enrichGames()` sans `userId` = **variante globale** (tout le catalogue, jeux
+  `igdb_id IS NULL` ou périmés), utilisée par l'endpoint admin.
 
-### `igdb.routes.ts`
-- `POST /api/users/me/library/enrich` : déclenche une pass manuelle **sur la
-  bibliothèque de l'appelant**. Auth requise (middleware existant), throttlé. Renvoie
-  le résumé. Pas de rôle admin nécessaire car l'opération est bornée aux données du
-  user.
+### `igdb.routes.ts` + guard admin
+- `POST /api/users/me/library/enrich` : pass manuelle **scopée à la bibliothèque de
+  l'appelant**. `requireAuth`, throttlé. Renvoie le résumé. Tout user authentifié,
+  pas de rôle admin requis (opération bornée à ses données).
+- `POST /api/admin/games/enrich` : pass **globale** sur tout le catalogue.
+  `requireAuth` + `requireAdmin`, throttlé. Réservé à l'exploitation.
+- `requireAdmin` : guard partagé dans `apps/api/src/lib/guards.ts`. S'exécute après
+  `requireAuth`, lit `request.user.role` (déjà dans le JWT) et renvoie 403 si
+  ≠ `'admin'`. Réutilisable par la future modération.
 - Le hook fire-and-forget après import Steam appelle directement
   `enrichGames({ userId })` côté service, sans passer par la route HTTP.
 
@@ -216,7 +224,9 @@ TWITCH_TOKEN_URL=https://id.twitch.tv/oauth2/token
 Les raccourcis assumés pour tenir le MVP, tracés en issues GitHub pour l'appli finale :
 
 - **#68** — Remplacer le fire-and-forget par une vraie queue de jobs (BullMQ/Redis).
-- **#69** — Système de rôles admin (autorisation) + endpoint d'enrichissement global.
+- ~~#69 — Rôles admin + endpoint d'enrichissement global~~ : **fait dans #55** (la
+  colonne `users.role` et le claim JWT existaient déjà ; on ajoute `requireAdmin` +
+  l'endpoint admin global). Issue fermée.
 - **#70** — Re-sync planifié des métadonnées IGDB (scheduler).
 - **#71** — Détection de changements IGDB → `game_updates` + notifications.
 - **#72** — Enrichir le catalogue avec keywords IGDB + `player_perspectives`.

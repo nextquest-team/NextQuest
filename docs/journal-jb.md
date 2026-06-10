@@ -137,4 +137,6 @@
 
 **Rôle admin** -- La colonne `users.role` et le claim JWT existaient déjà : ajout du garde `requireAdmin` + endpoint admin global d'enrichissement. Issue #69 close.
 
-**Tests** -- 121 tests verts (auth/client/service/routes IGDB + Redis + guards + Steam). À valider manuellement avec de vraies clés Twitch : le code Steam dans `external_games` (catégorie 1 par défaut, à confirmer empiriquement).
+**Tests** -- 121 tests (auth/client/service/routes IGDB + Redis + guards + Steam), unitaires et intégration.
+
+**Validation E2E réelle** -- Testé bout en bout contre les vraies API : token Twitch, match Steam->IGDB, métadonnées, puis flux complet (vraie bibliothèque Steam -> import -> enrichissement, 12/13 jeux matchés, le 13e étant un "playtest" absent d'IGDB). **Bug révélé que seul le réel pouvait montrer** : IGDB a retiré le champ `category` d'`external_games` au profit d'`external_game_source` (Steam = 1) ; le filtre a été corrigé. Les tests mockés étaient verts mais la requête réelle renvoyait zéro.

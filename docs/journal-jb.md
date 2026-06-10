@@ -126,3 +126,15 @@
 **Archi reco décidée** -- Backbone algorithmique, pas LLM pilote : profil de goût (vecteur pondéré par heures jouées x statut) + scoring additif sur candidats IGDB réels. Qwen3 14B local (RTX 5070) en re-ranker/explicateur ancré sur la liste fournie = zéro hallucination, coût zéro, argument RGPD. Embeddings reportés post-MVP mais scoring conçu modulaire pour les brancher sans dette.
 
 **Sources de données** -- IGDB primaire (choisi pour `similar_games`, taxonomie structurée, mapping appid Steam). Signal qualité reco = IGDB `rating` (note joueurs) uniquement, pas la presse, avec seuil de votes. Metacritic écarté (pas d'API publique pour le score joueurs), RAWG en complément post-MVP. Succès Steam sortis du MVP.
+
+---
+
+## 10 juin 2026
+
+**Module IGDB (lot #55)** -- Enrichissement du catalogue `games` avec les métadonnées IGDB (résumé, jaquette, genres, thèmes, note joueurs, jeux similaires). Auth via Twitch (token mis en cache Redis), mapping appid Steam -> id IGDB via `external_games`, upsert transactionnel. La table `games` étant un catalogue global partagé, un jeu enrichi une fois l'est pour tous : c'est le cache.
+
+**Enrichissement découplé** -- Lancé en fire-and-forget après l'import Steam (l'import reste sous 3s, les métadonnées arrivent juste après) + endpoint manuel scopé à la biblio du user. Pass idempotente : un échec est rattrapé au prochain déclenchement. File de jobs reportée post-MVP (#68).
+
+**Rôle admin** -- La colonne `users.role` et le claim JWT existaient déjà : ajout du garde `requireAdmin` + endpoint admin global d'enrichissement. Issue #69 close.
+
+**Tests** -- 121 tests verts (auth/client/service/routes IGDB + Redis + guards + Steam). À valider manuellement avec de vraies clés Twitch : le code Steam dans `external_games` (catégorie 1 par défaut, à confirmer empiriquement).

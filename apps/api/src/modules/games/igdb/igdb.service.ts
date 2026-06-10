@@ -23,6 +23,8 @@ import { redis } from "../../../lib/redis.js";
 // est rescanne explicitement.
 const STALE_DAYS = 30;
 const BATCH = 500;
+// Pause entre deux lots pour rester sous la limite IGDB de 4 req/s.
+const SLEEP_MS_BETWEEN_BATCHES = 250;
 
 export interface EnrichSummary {
   scanned: number;
@@ -42,15 +44,20 @@ export interface IgdbDeps {
 
 export function defaultDeps(): IgdbDeps {
   return {
-    getToken: () =>
-      getTwitchToken(
+    getToken: () => {
+      // Pont de typage : l'interface ioredis est large ; cette forme reduite suffit
+      // au cache du token et reste testable. Utilise seulement en prod (les tests
+      // injectent un mock via deps).
+      const redisStore = redis as unknown as {
+        get(k: string): Promise<string | null>;
+        set(k: string, v: string, m: "EX", t: number): Promise<unknown>;
+      };
+      return getTwitchToken(
         process.env.TWITCH_CLIENT_ID ?? "",
         process.env.TWITCH_CLIENT_SECRET ?? "",
-        redis as unknown as {
-          get(k: string): Promise<string | null>;
-          set(k: string, v: string, m: "EX", t: number): Promise<unknown>;
-        },
-      ),
+        redisStore,
+      );
+    },
     findGameIdsBySteamAppids: (appids, token, clientId) =>
       findGameIdsBySteamAppids(appids, token, clientId),
     fetchGamesByIds: (ids, token, clientId) => fetchGamesByIds(ids, token, clientId),
@@ -174,7 +181,7 @@ export async function enrichGames(
   for (const part of chunk(needMapping.map((c) => c.steamAppid as number), BATCH)) {
     const m = await deps.findGameIdsBySteamAppids(part, token, clientId);
     for (const [k, v] of m) appidToIgdb.set(k, v);
-    await deps.sleep(250);
+    await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
   }
 
   // Resoudre l'igdbId final de chaque candidat (existant ou nouvellement mappe).
@@ -187,8 +194,9 @@ export async function enrichGames(
   summary.mapped = resolved.length;
 
   // Jeux non resolus : introuvables sur IGDB -> marquer last_synced_at.
+  const resolvedIds = new Set(resolved.map((r) => r.gameId));
   const unresolvedIds = candidates
-    .filter((c) => !resolved.some((r) => r.gameId === c.id))
+    .filter((c) => !resolvedIds.has(c.id))
     .map((c) => c.id);
   summary.notFound = unresolvedIds.length;
   if (unresolvedIds.length > 0) {
@@ -220,7 +228,7 @@ export async function enrichGames(
         summary.enriched += 1;
       }
     }
-    await deps.sleep(250);
+    await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
   }
 
   return summary;

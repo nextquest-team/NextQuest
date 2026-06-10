@@ -20,9 +20,23 @@ monde — c'est le cache.
 
 1. **Déclenchement découplé de l'import.** L'enrichissement n'est pas dans la
    transaction d'import Steam (qui doit rester < 3s). Il tourne en pass séparée,
-   lancée en fire-and-forget après un import (`void enrichGames(...)`) et
-   ré-exécutable manuellement via un endpoint admin. Pas de file de jobs au MVP
-   (pas d'infra queue, YAGNI).
+   lancée en fire-and-forget après un import (`void enrichGames({ userId })`) et
+   ré-exécutable manuellement via un endpoint **scopé à la bibliothèque du user
+   appelant** (pas d'opération globale au MVP, cf. décision 6). Pas de file de jobs
+   au MVP (pas d'infra queue, YAGNI). Le fire-and-forget tient parce que l'API est un
+   process long-running (container Docker), pas du serverless. La pass étant
+   idempotente, un crash en cours est sans conséquence : les jeux `igdb_id IS NULL`
+   sont rattrapés à la passe suivante. Upgrade vers une vraie queue (BullMQ/Redis)
+   suivi en post-MVP (issue #68).
+
+6. **Pas de rôle admin au MVP, donc endpoint scopé au user.** On a
+   l'authentification (sessions/JWT) mais pas l'autorisation fine (aucune notion
+   d'admin). Le déclenchement manuel est donc `POST /api/users/me/library/enrich` :
+   il n'enrichit que les jeux de la collection de l'appelant. Tout user authentifié
+   peut l'appeler sans risque (il ne déclenche du travail que sur ses propres
+   données, rien de plus que re-importer), et la pass reste idempotente + throttlée.
+   L'endpoint global « enrichir tout le catalogue » et le système de rôles admin sont
+   suivis en post-MVP (issue #69).
 
 2. **Catalogue partagé = cache.** La pass ne sélectionne que les jeux jamais
    hydratés (`igdb_id IS NULL`) ou périmés (`last_synced_at` ancien). Si user A a
@@ -84,7 +98,7 @@ apps/api/src/modules/games/igdb/
 ├── igdb.auth.ts      # token Twitch, cache Redis, refresh paresseux
 ├── igdb.client.ts    # requêtes Apicalypse, fonctions pures, fetchImpl injectable
 ├── igdb.service.ts   # orchestration : sélection → mapping → fetch → upsert
-├── igdb.routes.ts    # POST /api/games/enrich (admin/manuel)
+├── igdb.routes.ts    # POST /api/users/me/library/enrich (manuel, scopé user)
 └── __tests__/        # unitaires (auth, client, mapping) + intégration (service/routes)
 ```
 
@@ -105,20 +119,27 @@ Fonctions pures, chacune fait UN appel et renvoie des données typées (Zod en s
   résultat, pas une erreur) vs « IGDB en panne » (HTTP non-200 → on lève).
 
 ### `igdb.service.ts`
-- `enrichGames(options?)` : orchestration de la pass.
-  1. `SELECT` des jeux à enrichir : `igdb_id IS NULL OR last_synced_at < now() - N`.
+- `enrichGames({ userId })` : orchestration de la pass, **scopée à un user**.
+  1. `SELECT` des jeux à enrichir parmi la bibliothèque du user (`user_games` →
+     `games`) : `igdb_id IS NULL OR last_synced_at < now() - N`.
   2. Mapping appid → igdbId via le client pour ceux qui ont un `steam_appid` sans
      `igdb_id`.
   3. Fetch des métadonnées en batch.
-  4. Upsert transactionnel (voir flux ci-dessous).
+  4. Upsert transactionnel (voir flux ci-dessous). L'upsert reste global au catalogue
+     partagé : enrichir un jeu profite à tous les users qui le possèdent.
 - Renvoie un résumé (`{ scanned, mapped, enriched, notFound, failed }`) pour le log et
   la réponse de l'endpoint.
+- Le scope par user est volontaire au MVP (pas d'opération globale sans rôle admin).
+  Une variante globale `enrichGames()` sans `userId` viendra avec les rôles admin
+  (post-MVP, issue #69).
 
 ### `igdb.routes.ts`
-- `POST /api/games/enrich` : déclenche une pass manuelle. Protégé (réservé à un usage
-  admin/dev au MVP). Renvoie le résumé.
-- Le hook fire-and-forget après import Steam appelle directement `enrichGames()` côté
-  service, sans passer par la route HTTP.
+- `POST /api/users/me/library/enrich` : déclenche une pass manuelle **sur la
+  bibliothèque de l'appelant**. Auth requise (middleware existant), throttlé. Renvoie
+  le résumé. Pas de rôle admin nécessaire car l'opération est bornée aux données du
+  user.
+- Le hook fire-and-forget après import Steam appelle directement
+  `enrichGames({ userId })` côté service, sans passer par la route HTTP.
 
 ## Flux d'enrichissement
 
@@ -190,14 +211,19 @@ TWITCH_TOKEN_URL=https://id.twitch.tv/oauth2/token
 - Validation end-to-end manuelle contre l'API IGDB réelle sur quelques appids connus
   (dont la confirmation du code Steam de `external_games`).
 
-## Hors scope #55 (post-MVP)
+## Hors scope #55 — suivi post-MVP (issues)
 
-- Keywords IGDB (volumineux, bruités), `player_perspectives`, RAWG, embeddings
-  sémantiques.
-- Peuplement de `game_updates` (détection de changements pour notifications) — les
-  notifs ne sont pas dans le MVP.
-- File de jobs / scheduler dédié pour l'enrichissement (fire-and-forget + endpoint
-  manuel suffisent au MVP).
+Les raccourcis assumés pour tenir le MVP, tracés en issues GitHub pour l'appli finale :
+
+- **#68** — Remplacer le fire-and-forget par une vraie queue de jobs (BullMQ/Redis).
+- **#69** — Système de rôles admin (autorisation) + endpoint d'enrichissement global.
+- **#70** — Re-sync planifié des métadonnées IGDB (scheduler).
+- **#71** — Détection de changements IGDB → `game_updates` + notifications.
+- **#72** — Enrichir le catalogue avec keywords IGDB + `player_perspectives`.
+
+Déjà documentés dans la roadmap (`docs/roadmap-mvp.md`, section « Hors MVP »), non
+re-créés en issues ici : RAWG en complément, embeddings sémantiques (pgvector) comme
+2e signal de scoring reco.
 
 ## Risques
 

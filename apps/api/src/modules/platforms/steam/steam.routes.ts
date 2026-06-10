@@ -7,6 +7,7 @@ import {
   getSteamConnection,
   importSteamLibrary,
 } from "./steam.service.js";
+import { enrichGames } from "../../games/igdb/igdb.service.js";
 
 // URL publique de l'API (joignable par le browser) pour realm + return_to OpenID.
 const CALLBACK_BASE =
@@ -166,6 +167,14 @@ export async function steamRoutes(app: FastifyInstance) {
       }
 
       const imported = await importSteamLibrary(userId, ownedGames);
+
+      // Enrichissement IGDB en fire-and-forget : on ne bloque pas la reponse (l'user
+      // voit sa biblio tout de suite, les metadonnees arrivent apres). La pass est
+      // idempotente, un echec est rattrape au prochain import/declenchement manuel.
+      void enrichGames({ userId }).catch((err) => {
+        request.log.error({ err }, "Enrichissement IGDB post-import echoue");
+      });
+
       return reply.send({ imported });
     },
   );

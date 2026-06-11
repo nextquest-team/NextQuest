@@ -126,3 +126,13 @@
 **Archi reco décidée** -- Backbone algorithmique, pas LLM pilote : profil de goût (vecteur pondéré par heures jouées x statut) + scoring additif sur candidats IGDB réels. Qwen3 14B local (RTX 5070) en re-ranker/explicateur ancré sur la liste fournie = zéro hallucination, coût zéro, argument RGPD. Embeddings reportés post-MVP mais scoring conçu modulaire pour les brancher sans dette.
 
 **Sources de données** -- IGDB primaire (choisi pour `similar_games`, taxonomie structurée, mapping appid Steam). Signal qualité reco = IGDB `rating` (note joueurs) uniquement, pas la presse, avec seuil de votes. Metacritic écarté (pas d'API publique pour le score joueurs), RAWG en complément post-MVP. Succès Steam sortis du MVP.
+
+---
+
+## 11 juin 2026
+
+**Module collection (statut jeu, lot #57)** -- Route `PATCH /api/collection/:userGameId/status` pour passer un jeu entre les 4 statuts MVP (à faire / en cours / terminé / abandonné). Chaque changement est historisé dans `user_game_status_history`. `started_at`/`completed_at` sont posés automatiquement à la première transition (vers en cours / terminé) et jamais réécrits ensuite.
+
+**Statut auto à l'import Steam** -- Pour réduire la friction, l'import classe désormais chaque jeu d'office : "en cours" si déjà joué (temps de jeu > 0), sinon "à faire". L'user n'ajuste que les exceptions (terminés / abandonnés). Un réimport ne réécrit jamais un statut ajusté manuellement.
+
+**Tests** -- 12 tests d'intégration (service + route + import) sur vraie BDD, suite API complète au vert (113 tests). Validé E2E en réel : route de statut sur serveur live (auth, validation, ownership, transitions, historique persisté) + import réel contre l'API Steam (13 jeux, classés `playing`/`backlog` sans erreur de classification).

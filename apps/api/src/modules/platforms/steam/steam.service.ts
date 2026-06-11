@@ -183,7 +183,9 @@ export async function importSteamLibrary(
           // "en cours", un jeu jamais lance reste "a faire". L'user n'ajuste que
           // les exceptions (termines / abandonnes). Steam n'expose pas de date
           // de premiere partie, donc pas de started_at ici.
-          status: g.playtimeMinutes > 0 ? "playing" : "backlog",
+          status: (g.playtimeMinutes > 0 ? "playing" : "backlog") as
+            | "playing"
+            | "backlog",
         })),
       )
       .onConflictDoUpdate({

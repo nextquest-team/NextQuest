@@ -37,7 +37,12 @@
                     "timestamp": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "status",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -52,6 +57,50 @@
           "Auth"
         ],
         "description": "Cree un nouveau compte. Renvoie un access token JWT (15 min) et place le refresh token (30 jours) dans un cookie HttpOnly. Le refresh token est aussi renvoye dans le body pour le mobile.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 30
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "maxLength": 50
+                  },
+                  "locale": {
+                    "default": "fr",
+                    "type": "string",
+                    "enum": [
+                      "fr",
+                      "en"
+                    ]
+                  }
+                },
+                "required": [
+                  "email",
+                  "username",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Default Response"
@@ -66,6 +115,31 @@
           "Auth"
         ],
         "description": "Verifie les credentials, cree une session et renvoie access + refresh token. Apres 5 echecs, le compte est verrouille 15 minutes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Default Response"
@@ -126,7 +200,7 @@
         "tags": [
           "Auth"
         ],
-        "description": "Renvoie les infos publiques du user (id, email, username, displayName, avatarUrl, bio, locale, visibility, role, emailVerified, createdAt). A appeler apres OAuth ou apres un refresh de page.",
+        "description": "Renvoie les infos publiques du user (id, email, username, displayName, avatarUrl, bio, locale, visibility, emailVerified, onboardingCompleted, createdAt). A appeler apres OAuth ou apres un refresh de page.",
         "security": [
           {
             "bearerAuth": []
@@ -177,7 +251,11 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "google",
+                "microsoft"
+              ]
             },
             "in": "path",
             "name": "provider",
@@ -198,19 +276,23 @@
           "OAuth"
         ],
         "description": "Demarre un flow OAuth pour ajouter un provider supplementaire au compte connecte (ex: deja inscrit en email/password, on ajoute Google).",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "google",
+                "microsoft"
+              ]
             },
             "in": "path",
             "name": "provider",
             "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -225,19 +307,23 @@
           "OAuth"
         ],
         "description": "Supprime la liaison d'un provider OAuth. Refuse si c'est la seule methode de connexion (l'utilisateur n'a ni mot de passe ni autre provider).",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "google",
+                "microsoft"
+              ]
             },
             "in": "path",
             "name": "provider",
             "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
           }
         ],
         "responses": {

@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { writeFileSync } from 'node:fs'
 import Fastify from 'fastify'
+import { validatorCompiler, serializerCompiler } from 'fastify-type-provider-zod'
 import { registerCors } from '../src/plugins/cors.js'
 import { registerSwagger } from '../src/plugins/swagger.js'
 import { registerJwt } from '../src/plugins/jwt.js'
@@ -16,6 +17,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 config({ path: resolve(__dirname, '../../../.env') })
 
 const app = Fastify({ logger: false })
+
+// Mêmes compilers que server.ts : sans eux, les schémas Zod des routes ne sont
+// ni validés ni sérialisés correctement (la génération du spec échoue).
+app.setValidatorCompiler(validatorCompiler)
+app.setSerializerCompiler(serializerCompiler)
 
 async function main() {
   // Même ordre que server.ts — certaines routes appellent app.rateLimit()

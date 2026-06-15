@@ -1,9 +1,23 @@
-import { db, userGames, userGameStatusHistory } from "@nextquest/db";
-import { and, eq, sql } from "drizzle-orm";
+import {
+  db,
+  userGames,
+  userGameStatusHistory,
+  games,
+  genres,
+  tags,
+  gameGenres,
+  gameTags,
+} from "@nextquest/db";
+import { and, eq, sql, inArray, desc, count } from "drizzle-orm";
 import type { GameStatus } from "./collection.schemas.js";
 import {
   toUserGameStatusDTO,
+  toCollectionItemDTO,
   type UserGameStatusDTO,
+  type CollectionItemDTO,
+  type GenreRef,
+  type TagRef,
+  type CollectionRow,
 } from "./collection.dto.js";
 
 // Champs de statut selectionnes / retournes, factorises pour rester coherents
@@ -63,4 +77,116 @@ export async function updateGameStatus(
 
     return toUserGameStatusDTO(updated);
   });
+}
+
+// Champs item factorises, partages entre la lecture liste, le detail et le
+// rechargement apres mutation. Coherent avec le type CollectionRow du DTO.
+const ITEM_FIELDS = {
+  userGameId: userGames.id,
+  status: userGames.status,
+  playtimeMinutes: userGames.playtimeMinutes,
+  rating: userGames.rating,
+  review: userGames.review,
+  isHidden: userGames.isHidden,
+  startedAt: userGames.startedAt,
+  completedAt: userGames.completedAt,
+  addedAt: userGames.createdAt,
+  gameId: games.id,
+  title: games.title,
+  slug: games.slug,
+  coverUrl: games.coverUrl,
+  backgroundUrl: games.backgroundUrl,
+  releaseDate: games.releaseDate,
+  developer: games.developer,
+  publisher: games.publisher,
+  igdbRating: games.igdbRating,
+  igdbId: games.igdbId,
+} as const;
+
+// Genres groupes par game_id (une requete IN, assemblage en memoire). Evite N+1.
+async function genresByGame(
+  gameIds: string[],
+): Promise<Map<string, GenreRef[]>> {
+  const map = new Map<string, GenreRef[]>();
+  if (gameIds.length === 0) return map;
+  const rows = await db
+    .select({
+      gameId: gameGenres.gameId,
+      id: genres.id,
+      name: genres.name,
+      slug: genres.slug,
+    })
+    .from(gameGenres)
+    .innerJoin(genres, eq(gameGenres.genreId, genres.id))
+    .where(inArray(gameGenres.gameId, gameIds));
+  for (const r of rows) {
+    const list = map.get(r.gameId) ?? [];
+    list.push({ id: r.id, name: r.name, slug: r.slug });
+    map.set(r.gameId, list);
+  }
+  return map;
+}
+
+// Tags (themes IGDB) groupes par game_id, meme principe.
+async function tagsByGame(gameIds: string[]): Promise<Map<string, TagRef[]>> {
+  const map = new Map<string, TagRef[]>();
+  if (gameIds.length === 0) return map;
+  const rows = await db
+    .select({
+      gameId: gameTags.gameId,
+      id: tags.id,
+      name: tags.name,
+      slug: tags.slug,
+    })
+    .from(gameTags)
+    .innerJoin(tags, eq(gameTags.tagId, tags.id))
+    .where(inArray(gameTags.gameId, gameIds));
+  for (const r of rows) {
+    const list = map.get(r.gameId) ?? [];
+    list.push({ id: r.id, name: r.name, slug: r.slug });
+    map.set(r.gameId, list);
+  }
+  return map;
+}
+
+// Liste paginee de la collection d'un user, genres/tags inline.
+export async function listCollection(params: {
+  userId: string;
+  status?: GameStatus;
+  limit: number;
+  offset: number;
+  includeHidden: boolean;
+}): Promise<{ items: CollectionItemDTO[]; total: number }> {
+  const { userId, status, limit, offset, includeHidden } = params;
+  const conds = [eq(userGames.userId, userId)];
+  if (status) conds.push(eq(userGames.status, status));
+  if (!includeHidden) conds.push(eq(userGames.isHidden, false));
+  const where = and(...conds);
+
+  // total robuste (independant de l'offset, contrairement a count(*) OVER()).
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(userGames)
+    .where(where);
+  if (total === 0) return { items: [], total: 0 };
+
+  const rows = await db
+    .select(ITEM_FIELDS)
+    .from(userGames)
+    .innerJoin(games, eq(userGames.gameId, games.id))
+    .where(where)
+    .orderBy(desc(userGames.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const ids = rows.map((r) => r.gameId);
+  const [g, t] = await Promise.all([genresByGame(ids), tagsByGame(ids)]);
+  const items = rows.map((r) =>
+    toCollectionItemDTO(
+      r as CollectionRow,
+      g.get(r.gameId) ?? [],
+      t.get(r.gameId) ?? [],
+    ),
+  );
+  return { items, total };
 }

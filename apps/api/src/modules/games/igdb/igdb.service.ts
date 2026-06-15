@@ -72,11 +72,19 @@ function chunk<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
-// Selectionne les jeux a enrichir : jamais hydrates (igdb_id null) ou perimes.
+// Selectionne les jeux a enrichir : jamais hydrates (igdb_id null), jamais
+// synchronises (last_synced_at null) ou perimes. Le cas last_synced_at null est
+// explicite car en SQL `null < staleCutoff` vaut NULL (donc non selectionne par
+// le seul lt) : un jeu avec un igdb_id mais jamais synchronise resterait sinon
+// invisible pour l'enrichissement.
 // Scopé a la biblio d'un user si userId fourni, sinon global (catalogue complet).
 async function selectCandidates(userId?: string) {
   const staleCutoff = new Date(Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000);
-  const freshness = or(isNull(games.igdbId), lt(games.lastSyncedAt, staleCutoff));
+  const freshness = or(
+    isNull(games.igdbId),
+    isNull(games.lastSyncedAt),
+    lt(games.lastSyncedAt, staleCutoff),
+  );
 
   if (userId) {
     const rows = await db

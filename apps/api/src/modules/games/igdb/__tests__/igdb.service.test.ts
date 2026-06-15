@@ -146,4 +146,24 @@ describe("enrichGames (scopé user)", () => {
     expect(summary.scanned).toBe(0);
     expect(client.fetchGamesByIds).not.toHaveBeenCalled();
   });
+
+  it("sélectionne un jeu avec igdb_id mais jamais synchronisé (last_synced_at null)", async () => {
+    const userId = await createUser();
+    // igdb_id deja pose mais last_synced_at null : peut arriver via un flux qui
+    // renseigne l'igdb_id sans enrichir. En SQL `null < staleCutoff` vaut NULL,
+    // donc sans le isNull(last_synced_at) ce jeu ne serait jamais candidat.
+    const [g] = await db
+      .insert(games)
+      .values({ steamAppid: 3498, title: "GTA V", slug: "gta-v-3498", igdbId: 1020 })
+      .returning({ id: games.id });
+    await db.insert(userGames).values({ userId, gameId: g.id });
+    const client = makeClient({}, { 1020: sampleIgdbGame() });
+
+    const summary = await enrichGames({ userId }, "CID", client);
+
+    expect(summary.scanned).toBe(1);
+    expect(summary.enriched).toBe(1);
+    const [after] = await db.select().from(games).where(eq(games.id, g.id));
+    expect(after.lastSyncedAt).not.toBeNull();
+  });
 });

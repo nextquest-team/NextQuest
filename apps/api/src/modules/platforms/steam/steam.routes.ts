@@ -8,19 +8,13 @@ import {
   importSteamLibrary,
 } from "./steam.service.js";
 import { enrichGames } from "../../games/igdb/igdb.service.js";
+import { requireAuth, userIdOf } from "../../../lib/guards.js";
 
 // URL publique de l'API (joignable par le browser) pour realm + return_to OpenID.
 const CALLBACK_BASE =
   process.env.OAUTH_CALLBACK_BASE_URL ?? "http://localhost:3000";
 const FRONTEND_URL = process.env.OAUTH_REDIRECT_URL ?? "http://localhost:3001";
 const STATE_SCOPE = "steam_link";
-
-const requireAuth = async (req: { jwtVerify(): Promise<unknown> }) =>
-  req.jwtVerify();
-
-function userIdOf(request: { user: unknown }): string {
-  return (request.user as { sub: string }).sub;
-}
 
 export async function steamRoutes(app: FastifyInstance) {
   // Demarrage du linking : l'user est deja authentifie. Son identite est portee

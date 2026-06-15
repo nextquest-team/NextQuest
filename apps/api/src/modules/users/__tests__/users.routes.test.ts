@@ -1,35 +1,19 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Fastify from "fastify";
-import { ZodError } from "zod";
 import { eq } from "drizzle-orm";
+import { validatorCompiler } from "fastify-type-provider-zod";
 import { db, users, sessions, authProviders } from "@nextquest/db";
 import { registerJwt } from "../../../plugins/jwt.js";
-import { registerCookie } from "../../../plugins/cookie.js";
-import { registerRateLimit } from "../../../plugins/rate-limit.js";
+import { registerErrorHandler } from "../../../lib/error-handler.js";
+import { registerSwagger } from "../../../plugins/swagger.js";
 import { usersRoutes } from "../users.routes.js";
 
 async function buildApp() {
   const app = Fastify();
-
-  app.setErrorHandler((error: Error & { statusCode?: number }, _req, reply) => {
-    if (error instanceof ZodError) {
-      return reply.code(400).send({
-        error: "Validation Error",
-        details: error.issues.map((i) => ({
-          field: i.path.join("."),
-          message: i.message,
-        })),
-      });
-    }
-    app.log.error(error);
-    return reply.code(error.statusCode ?? 500).send({
-      error: error.message || "Internal Server Error",
-    });
-  });
-
+  app.setValidatorCompiler(validatorCompiler);
+  registerErrorHandler(app);
+  await registerSwagger(app);
   await registerJwt(app);
-  await registerCookie(app);
-  await registerRateLimit(app);
   await app.register(usersRoutes, { prefix: "/api" });
   await app.ready();
   return app;

@@ -281,3 +281,18 @@ export async function updateCollectionItem(
 
   return fetchItem(userId, userGameId);
 }
+
+// Hard delete : retire le jeu de la collection. Les FK user_game_status_history /
+// user_game_tags / external_achievements -> user_games sont ON DELETE CASCADE,
+// l'historique et les tags du jeu partent automatiquement. Le catalogue `games`
+// partage n'est pas touche. Renvoie false si rien n'a ete supprime (non possede).
+export async function deleteCollectionItem(
+  userId: string,
+  userGameId: string,
+): Promise<boolean> {
+  const deleted = await db
+    .delete(userGames)
+    .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
+    .returning({ id: userGames.id });
+  return deleted.length > 0;
+}

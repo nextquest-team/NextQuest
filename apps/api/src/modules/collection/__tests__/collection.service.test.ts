@@ -17,6 +17,7 @@ import {
   listCollection,
   getCollectionItem,
   updateCollectionItem,
+  deleteCollectionItem,
 } from "../collection.service.js";
 import type { GameStatus } from "../collection.schemas.js";
 
@@ -266,5 +267,37 @@ describe("updateCollectionItem", () => {
       { rating: 5 },
     );
     expect(dto).toBeNull();
+  });
+});
+
+describe("deleteCollectionItem", () => {
+  it("supprime la ligne et purge l'historique en cascade", async () => {
+    const { userId, ug1 } = await seedCollection();
+    await updateGameStatus(userId, ug1, "completed"); // cree une ligne d'historique
+    const ok = await deleteCollectionItem(userId, ug1);
+    expect(ok).toBe(true);
+    const remaining = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.id, ug1));
+    expect(remaining).toHaveLength(0);
+    const hist = await db
+      .select()
+      .from(userGameStatusHistory)
+      .where(eq(userGameStatusHistory.userGameId, ug1));
+    expect(hist).toHaveLength(0); // cascade
+  });
+  it("renvoie false si non possede (et ne supprime rien)", async () => {
+    const { ug1 } = await seedCollection();
+    const ok = await deleteCollectionItem(
+      "00000000-0000-0000-0000-000000000000",
+      ug1,
+    );
+    expect(ok).toBe(false);
+    const remaining = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.id, ug1));
+    expect(remaining).toHaveLength(1);
   });
 });

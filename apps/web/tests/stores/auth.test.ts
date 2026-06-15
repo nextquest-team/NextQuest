@@ -22,10 +22,12 @@ describe('useAuthStore', () => {
       username: 'lo',
       displayName: null,
       avatarUrl: null,
+      bio: null,
       locale: 'fr' as const,
-      isPublic: true,
-      createdAt: new Date(),
-      updatedAt: null,
+      visibility: 'public' as const,
+      emailVerified: false,
+      onboardingCompleted: false,
+      createdAt: new Date().toISOString(),
     }
 
     store.setAuth(fakeUser, 'jwt-token-abc')
@@ -44,10 +46,12 @@ describe('useAuthStore', () => {
         username: 'lo',
         displayName: null,
         avatarUrl: null,
-        locale: 'fr',
-        isPublic: true,
-        createdAt: new Date(),
-        updatedAt: null,
+        bio: null,
+        locale: 'fr' as const,
+        visibility: 'public' as const,
+        emailVerified: false,
+        onboardingCompleted: false,
+        createdAt: new Date().toISOString(),
       },
       'jwt-token-abc',
     )

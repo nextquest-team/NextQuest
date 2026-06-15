@@ -93,6 +93,22 @@ export const useAuth = () => {
     }
   }
 
+  // Récupère le profil complet depuis /api/users/me et met à jour le store
+  async function fetchProfile(): Promise<User | null> {
+    try {
+      const accessToken = store.accessToken
+      if (!accessToken) return null
+      const user = await $fetch<User>(`${apiBase}/api/users/me`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      store.setAuth(user, accessToken)
+      return user
+    } catch {
+      return null
+    }
+  }
+
   // Récupère le profil du user connecté via le JWT (utilisé après OAuth)
   async function fetchMe(token?: string): Promise<User | null> {
     try {
@@ -187,6 +203,7 @@ export const useAuth = () => {
     logout,
     refreshTokens,
     fetchMe,
+    fetchProfile,
     loginWithOAuth,
   }
 }

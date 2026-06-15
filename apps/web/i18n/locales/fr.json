@@ -35,7 +35,48 @@
     "nextQuest": "Next Quest",
     "timeline": "Sorties de jeux"
   },
+  "profil": {
+    "title": "Mon profil",
+    "memberSince": "Membre depuis",
+    "emailVerified": "Email vérifié",
+    "emailNotVerified": "Email non vérifié",
+    "bio": "Biographie",
+    "noBio": "Aucune biographie renseignée.",
+    "editBio": "Modifier la biographie",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "bioSaveError": "Impossible de sauvegarder la bio, réessaie.",
+    "visibility": {
+      "label": "Visibilité",
+      "edit": "Modifier la visibilité",
+      "private": "Privé",
+      "friends_only": "Amis uniquement",
+      "public": "Public"
+    },
+    "visibilitySaveError": "Impossible de sauvegarder la visibilité, réessaie.",
+    "onboarding": {
+      "completed": "Profil complété",
+      "pending": "Profil incomplet"
+    }
+  },
   "dashboard": {
+    "onboarding": {
+      "ariaLabel": "Tour de présentation",
+      "step": "Étape",
+      "next": "Suivant →",
+      "finish": "Terminer",
+      "skip": "Passer l'intro",
+      "title1": "🧭 La boussole magique",
+      "title2": "🎒 Ton sac d'aventurier",
+      "title3": "📜 Ton profil de héros",
+      "title4": "📰 Le parchemin des nouvelles",
+      "title5": "🗺️ L'horizon des sorties",
+      "step1": "La boussole magique analyse tes goûts et te suggère ta prochaine aventure vidéoludique. Tourne-la pour découvrir ta Next Quest !",
+      "step2": "Déploie ton sac pour organiser ta bibliothèque de jeux. Ajoute, consulte et gère tes aventures en un clin d'œil.",
+      "step3": "Garde un œil sur tes exploits et personnalise ton profil de héros. Ta légende commence ici !",
+      "step4": "Consulte les actualités de tes amis aventuriers : leurs découvertes, leurs exploits et les jeux qu'ils ont ajoutés à leur collection.",
+      "step5": "Fais défiler l'horizon pour découvrir les prochaines sorties de jeux et ne rate aucune nouvelle aventure."
+    },
     "profile": {
       "button": "Mon profil"
     },

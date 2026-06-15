@@ -42,7 +42,7 @@ function onKeydown(e: KeyboardEvent) {
     <img
       src="/images/dashboard/card-map-bg.png"
       class="game-cards__globe"
-      :style="{ transform: `translateX(-50%) translateY(65%) rotate(${globeRotation}deg)` }"
+      :style="{ transform: `translateX(-50%) translateY(70%) rotate(${globeRotation}deg)` }"
       alt=""
       aria-hidden="true"
     />

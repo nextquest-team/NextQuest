@@ -109,4 +109,44 @@ describe("PATCH /api/collection/:userGameId/status", () => {
     expect(body.status).toBe("playing");
     expect(body.startedAt).not.toBeNull();
   });
+
+  it("renvoie 400 sur un body vide", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/collection/${userGameId}/status`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("renvoie 400 sur un userGameId non-uuid", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/collection/not-a-uuid/status`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { status: "playing" },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("renvoie 200 (no-op) si le statut est inchange", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame("playing");
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/collection/${userGameId}/status`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { status: "playing" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).status).toBe("playing");
+  });
 });

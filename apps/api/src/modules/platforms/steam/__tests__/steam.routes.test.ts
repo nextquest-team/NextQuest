@@ -1,4 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+
+// On mocke le reseau Steam et IGDB ; la BDD et les services restent reels (integration).
+vi.mock("../steam.openid.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../steam.openid.js")>();
+  return { ...actual, verifySteamAssertion: vi.fn() };
+});
+vi.mock("../steam.client.js", () => ({
+  getOwnedGames: vi.fn(),
+  getPlayerSummary: vi.fn(),
+}));
+vi.mock("../../../games/igdb/igdb.service.js", () => ({
+  enrichGames: vi.fn().mockResolvedValue({ scanned: 0, mapped: 0, enriched: 0, notFound: 0, failed: 0 }),
+}));
+
 import Fastify from "fastify";
 import { ZodError } from "zod";
 import { db, users, connectedServices, userGames, games } from "@nextquest/db";
@@ -9,21 +24,12 @@ import { steamRoutes } from "../steam.routes.js";
 import { verifySteamAssertion } from "../steam.openid.js";
 import { getOwnedGames, getPlayerSummary } from "../steam.client.js";
 import { linkSteamAccount } from "../steam.service.js";
-
-// On mocke le reseau Steam ; la BDD et le service restent reels (integration).
-vi.mock("../steam.openid.js", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../steam.openid.js")>();
-  return { ...actual, verifySteamAssertion: vi.fn() };
-});
-vi.mock("../steam.client.js", () => ({
-  getOwnedGames: vi.fn(),
-  getPlayerSummary: vi.fn(),
-}));
+import * as igdbService from "../../../games/igdb/igdb.service.js";
 
 const mockedVerify = vi.mocked(verifySteamAssertion);
 const mockedGetOwnedGames = vi.mocked(getOwnedGames);
 const mockedGetPlayerSummary = vi.mocked(getPlayerSummary);
+const mockedEnrichGames = vi.mocked(igdbService.enrichGames);
 
 async function buildApp() {
   const app = Fastify();
@@ -257,5 +263,23 @@ describe("POST /api/platforms/steam/import", () => {
     });
 
     expect(res.statusCode).toBe(502);
+  });
+
+  it("declenche l'enrichissement IGDB en fire-and-forget apres import", async () => {
+    const app = await buildApp();
+    const { userId, token } = await createUserAndToken(app);
+    await linkSteamAccount(userId, "76561198000000000", "Gaben");
+    mockedGetOwnedGames.mockResolvedValue([
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200 },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/platforms/steam/import",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockedEnrichGames).toHaveBeenCalledWith({ userId });
   });
 });

@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   primaryKey,
+  unique,
 } from "drizzle-orm/pg-core";
 
 // Plateforme = le hardware (PS5, Switch, PC...) -- c'est ou on joue
@@ -55,12 +56,20 @@ export const genres = pgTable("genres", {
     .defaultNow(),
 });
 
-export const tags = pgTable("tags", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: varchar("name", { length: 100 }).notNull(),
-  slug: varchar("slug", { length: 100 }).notNull().unique(),
-  category: varchar("category", { length: 50 }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const tags = pgTable(
+  "tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 100 }).notNull(),
+    slug: varchar("slug", { length: 100 }).notNull().unique(),
+    category: varchar("category", { length: 50 }),
+    // Renseigne pour les tags issus d'IGDB (themes au MVP). Permet de dedupliquer
+    // par (category, igdb_id) plutot que par slug : evite une collision de slug si
+    // on importe plus tard les keywords IGDB (cf. #72).
+    igdbId: integer("igdb_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique("tags_category_igdb_id_unique").on(t.category, t.igdbId)],
+);

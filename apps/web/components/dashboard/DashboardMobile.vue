@@ -18,8 +18,8 @@ const sacocheOpen = ref(false)
     <div class="dm__top">
 
       <!-- Profil + Parchemin en flex -->
-      <DashboardDbProfileCard :username="username" />
-      <DashboardDbParchemin />
+      <DashboardDbProfileCard :username="username" data-onb-target="profile" />
+      <DashboardDbParchemin data-onb-target="parchemin" />
 
       <!-- Sac : demi-crop sur le bord droit, toujours au-dessus du panel -->
       <div class="dm__sacoche">
@@ -28,9 +28,10 @@ const sacocheOpen = ref(false)
           alt=""
           class="dm__sacoche-img"
         />
-        <!-- Bouton dans la zone visible (moitié gauche du sac = moitié droite de l'écran) -->
+        <!-- Le bouton est dans la zone visible → sert de cible précise pour l'onboarding -->
         <button
           class="dm__sacoche-btn"
+          data-onb-target="bag"
           :aria-expanded="sacocheOpen"
           :aria-label="t('dashboard.sacoche.inventaire')"
           @click="sacocheOpen = !sacocheOpen"
@@ -60,11 +61,11 @@ const sacocheOpen = ref(false)
 
     </div>
 
-    <div class="dm__mid">
+    <div class="dm__mid" data-onb-target="wheel">
       <DashboardDbWheel />
     </div>
 
-    <div class="dm__bot">
+    <div class="dm__bot" data-onb-target="timeline">
       <DashboardDbGameCards>
         <template #header>
           <NuxtLink to="/timeline" class="dm__timeline-link">
@@ -84,9 +85,7 @@ const sacocheOpen = ref(false)
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  background-image: url('/images/backgrounds/fond.png');
-  background-size: cover;
-  background-position: center top;
+  background: transparent;
   overflow: hidden;
 }
 

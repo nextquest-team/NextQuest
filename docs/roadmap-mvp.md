@@ -18,15 +18,17 @@ Ordre d'implémentation (dépendances en cascade). Back = Jean-Baptiste, Front =
 - [x] **Auth** (email + OAuth Google/Microsoft, sessions) - JB
 - [x] **Profil + onboarding** ([PR #51](https://github.com/nextquest-team/NextQuest/pull/51)) - JB
 
+### En cours (back livré, front à faire)
+
+- [ ] **1. Lier compte Steam** ([#53](https://github.com/nextquest-team/NextQuest/issues/53), back via [PR #61](https://github.com/nextquest-team/NextQuest/pull/61))
+  - [x] Back : flux OpenID Steam, stockage SteamID dans `connected_services` - JB
+  - [ ] Front : bouton Connecter Steam + état connecté/déconnecté - Loreleï
+
+- [ ] **2. Import bibliothèque Steam (jeux + heures)** ([#54](https://github.com/nextquest-team/NextQuest/issues/54), back via [PR #61](https://github.com/nextquest-team/NextQuest/pull/61)) - dépend de 1
+  - [x] Back : GetOwnedGames -> upsert `games` / `user_games` avec heures jouées - JB
+  - [ ] Front : feedback d'import - Loreleï
+
 ### À faire
-
-- [ ] **1. Lier compte Steam** ([#53](https://github.com/nextquest-team/NextQuest/issues/53))
-  - Back : flux OpenID Steam, stockage SteamID dans `connected_services`
-  - Front : bouton Connecter Steam + état connecté/déconnecté
-
-- [ ] **2. Import bibliothèque Steam (jeux + heures)** ([#54](https://github.com/nextquest-team/NextQuest/issues/54)) - dépend de 1
-  - Back : GetOwnedGames -> upsert `games` / `user_games` avec heures jouées
-  - Front : feedback d'import
 
 - [ ] **3. Intégration IGDB (métadonnées + note joueurs)** ([#55](https://github.com/nextquest-team/NextQuest/issues/55))
   - Back : client IGDB (auth Twitch), mapping appid Steam, enrichissement `games` (genres, thèmes, tags, jaquette, `similar_games`), note joueurs `rating` uniquement

@@ -123,8 +123,8 @@ const { t } = useI18n()
   --frame-bg: #F5EDDF;
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 20px 32px;
+  gap: 10px;
+  padding: 35px 45px;
 }
 
 .profile-h__avatar-wrap {
@@ -162,6 +162,9 @@ const { t } = useI18n()
   font-weight: bold;
   color: #332b25;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .profile-h__btn {
@@ -178,6 +181,7 @@ const { t } = useI18n()
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 44px;
 }
 </style>

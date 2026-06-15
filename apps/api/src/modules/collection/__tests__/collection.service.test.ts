@@ -18,6 +18,7 @@ import {
   getCollectionItem,
   updateCollectionItem,
   deleteCollectionItem,
+  addGameToCollection,
 } from "../collection.service.js";
 import type { GameStatus } from "../collection.schemas.js";
 
@@ -299,5 +300,30 @@ describe("deleteCollectionItem", () => {
       .from(userGames)
       .where(eq(userGames.id, ug1));
     expect(remaining).toHaveLength(1);
+  });
+});
+
+describe("addGameToCollection", () => {
+  it("ajoute un jeu existant et renvoie l'item (status backlog)", async () => {
+    const { userId } = await seedCollection();
+    const [g3] = await db
+      .insert(games)
+      .values({ title: "Dead Cells", slug: "dc-1" })
+      .returning({ id: games.id });
+    const res = await addGameToCollection(userId, { gameId: g3.id });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.item.status).toBe("backlog");
+  });
+  it("renvoie game_not_found si le jeu n'existe pas", async () => {
+    const { userId } = await seedCollection();
+    const res = await addGameToCollection(userId, {
+      gameId: "00000000-0000-0000-0000-000000000000",
+    });
+    expect(res).toEqual({ ok: false, reason: "game_not_found" });
+  });
+  it("renvoie conflict si deja present (meme platformId null)", async () => {
+    const { userId, gameId2 } = await seedCollection(); // gameId2 deja ajoute, platformId null
+    const res = await addGameToCollection(userId, { gameId: gameId2 });
+    expect(res).toEqual({ ok: false, reason: "conflict" });
   });
 });

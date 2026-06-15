@@ -9,8 +9,12 @@ import {
   gameTags,
   gameSimilar,
 } from "@nextquest/db";
-import { and, eq, sql, inArray, desc, count } from "drizzle-orm";
-import type { GameStatus, UpdateUserGameInput } from "./collection.schemas.js";
+import { and, eq, sql, inArray, desc, count, isNull } from "drizzle-orm";
+import type {
+  GameStatus,
+  UpdateUserGameInput,
+  AddGameInput,
+} from "./collection.schemas.js";
 import {
   toUserGameStatusDTO,
   toCollectionItemDTO,
@@ -295,4 +299,56 @@ export async function deleteCollectionItem(
     .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
     .returning({ id: userGames.id });
   return deleted.length > 0;
+}
+
+export type AddGameResult =
+  | { ok: true; item: CollectionItemDTO }
+  | { ok: false; reason: "game_not_found" | "conflict" };
+
+// Ajoute un jeu EXISTANT du catalogue a la collection (status backlog).
+// serviceId = null : ajout manuel, pas de service connecte.
+export async function addGameToCollection(
+  userId: string,
+  input: AddGameInput,
+): Promise<AddGameResult> {
+  const [g] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.id, input.gameId))
+    .limit(1);
+  if (!g) return { ok: false, reason: "game_not_found" };
+
+  // La contrainte unique (userId, gameId, platformId) ne couvre pas le cas
+  // platformId NULL (Postgres traite les NULL comme distincts) : on dedoublonne
+  // explicitement, en gerant le NULL a part.
+  const platformCond = input.platformId
+    ? eq(userGames.platformId, input.platformId)
+    : isNull(userGames.platformId);
+  const [existing] = await db
+    .select({ id: userGames.id })
+    .from(userGames)
+    .where(
+      and(
+        eq(userGames.userId, userId),
+        eq(userGames.gameId, input.gameId),
+        platformCond,
+      ),
+    )
+    .limit(1);
+  if (existing) return { ok: false, reason: "conflict" };
+
+  const [created] = await db
+    .insert(userGames)
+    .values({
+      userId,
+      gameId: input.gameId,
+      platformId: input.platformId ?? null,
+      serviceId: null,
+      status: "backlog",
+    })
+    .returning({ id: userGames.id });
+
+  // fetchItem ne peut pas renvoyer null ici : on vient d'inserer la ligne.
+  const item = await fetchItem(userId, created.id);
+  return { ok: true, item: item as CollectionItemDTO };
 }

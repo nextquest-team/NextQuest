@@ -59,6 +59,57 @@
       "pending": "Profile incomplete"
     }
   },
+  "gameList": {
+    "title": "My game list",
+    "addGame": "Add a game",
+    "linkSteam": "Link Steam",
+    "steamLinked": "Steam linked",
+    "steamLinkedSuccess": "Steam account linked successfully!",
+    "importSteam": "Import my library",
+    "importing": "Importing…",
+    "importSuccess": "games imported!",
+    "importError": "Import failed. Please try again.",
+    "enrichIgdb": "Enrich via IGDB",
+    "enriching": "Enriching…",
+    "empty": "Your list is empty",
+    "emptyHint": "Add your first games by linking your Steam account or searching for a title.",
+    "delete": "Remove from my list",
+    "deleteConfirm": "Remove this game from your list?",
+    "status": {
+      "label": "Game status",
+      "backlog": "To play",
+      "playing": "Playing",
+      "completed": "Completed",
+      "abandoned": "Abandoned"
+    },
+    "addModal": {
+      "title": "Add a game",
+      "searchPlaceholder": "Search for a game…",
+      "noResults": "No results",
+      "add": "Add",
+      "comingSoon": "IGDB search is coming soon — this feature will be available once the API is ready."
+    }
+  },
+  "gameDetail": {
+    "back": "Back",
+    "notFound": "Game not found",
+    "notFoundHint": "This game doesn't exist in your list.",
+    "status": "Status",
+    "summary": "Summary",
+    "releaseDate": "Release date",
+    "developer": "Developer",
+    "publisher": "Publisher",
+    "genres": "Genres",
+    "platforms": "Platforms",
+    "igdbRating": "IGDB rating",
+    "playtime": "Playtime",
+    "playtimeValue": "{h}h{m}",
+    "playtimeNone": "Not recorded",
+    "removeGame": "Remove from my list",
+    "removeConfirm": "Remove this game from your list?",
+    "noSummary": "No summary available.",
+    "comingSoon": "IGDB data will be available once the API is connected."
+  },
   "dashboard": {
     "onboarding": {
       "ariaLabel": "Onboarding tour",

@@ -79,7 +79,7 @@ export async function steamRoutes(app: FastifyInstance) {
       );
       await linkSteamAccount(userId, steamId, summary?.personaName ?? null);
 
-      return reply.redirect(`${FRONTEND_URL}/settings?steam=linked`);
+      return reply.redirect(`${FRONTEND_URL}/game-list?steam=linked`);
     },
   );
 

@@ -147,3 +147,13 @@
 **Tests** -- 121 tests (auth/client/service/routes IGDB + Redis + guards + Steam), unitaires et intégration.
 
 **Validation E2E réelle** -- Testé bout en bout contre les vraies API : token Twitch, match Steam->IGDB, métadonnées, puis flux complet (vraie bibliothèque Steam -> import -> enrichissement, 12/13 jeux matchés, le 13e étant un "playtest" absent d'IGDB). **Bug révélé que seul le réel pouvait montrer** : IGDB a retiré le champ `category` d'`external_games` au profit d'`external_game_source` (Steam = 1) ; le filtre a été corrigé. Les tests mockés étaient verts mais la requête réelle renvoyait zéro.
+
+---
+
+## 15 juin 2026
+
+**OpenAPI via Zod (source unique, #75)** -- Adoption de `fastify-type-provider-zod` : le schéma Zod d'une route sert désormais à la fois à valider la requête (runtime), typer le handler et générer la doc OpenAPI sur `/docs`. Avant, la validation se faisait par `.parse()` dans le handler et aucun corps de requête n'était documenté (Swagger aveugle). Le schéma Zod devient la source unique, et la doc ne peut plus se périmer. Routes migrées : collection, users (profil), oauth (param provider), auth (register/login). L'error handler de validation est mutualisé dans `lib/error-handler.ts` au lieu de 6 copies.
+
+**Deux bugs que seuls le réel et la CI ont montrés** -- Les tests unitaires (apps Fastify isolées, sans toutes les routes) étaient verts mais ne bootaient jamais l'app entière. (1) En testant `/docs` en réel : la route `health` gardait un response schema en JSON Schema brut, rejeté par le transform OpenAPI -> génération de la doc impossible ; passée en Zod. (2) En CI : le script de génération du spec (`export-openapi.ts`) bootait sans les compilers Zod -> sérialisation cassée sur `/health`. Les deux corrigés, avec un test de régression sur la génération du spec.
+
+**Tests & validation** -- Suite API complète au vert (142 tests) + test vérifiant que l'OpenAPI documente bien le body d'une route. Validé E2E sur le serveur live : Swagger `/docs` rendu, bodies présents (l'enum de statut dérivé du schéma Zod apparaît), et un body invalide renvoie bien un 400 avec le détail des champs en erreur.

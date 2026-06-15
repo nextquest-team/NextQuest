@@ -16,6 +16,7 @@ import {
   updateGameStatus,
   listCollection,
   getCollectionItem,
+  updateCollectionItem,
 } from "../collection.service.js";
 import type { GameStatus } from "../collection.schemas.js";
 
@@ -234,6 +235,35 @@ describe("getCollectionItem", () => {
     const dto = await getCollectionItem(
       "00000000-0000-0000-0000-000000000000",
       ug1,
+    );
+    expect(dto).toBeNull();
+  });
+});
+
+describe("updateCollectionItem", () => {
+  it("met a jour note/avis/playtime/isHidden et renvoie l'item", async () => {
+    const { userId, ug1 } = await seedCollection();
+    const dto = await updateCollectionItem(userId, ug1, {
+      rating: 9,
+      review: "genial",
+      isHidden: true,
+    });
+    expect(dto?.rating).toBe(9);
+    expect(dto?.review).toBe("genial");
+    expect(dto?.isHidden).toBe(true);
+  });
+  it("efface la note avec null", async () => {
+    const { userId, ug1 } = await seedCollection();
+    await updateCollectionItem(userId, ug1, { rating: 5 });
+    const dto = await updateCollectionItem(userId, ug1, { rating: null });
+    expect(dto?.rating).toBeNull();
+  });
+  it("renvoie null si non possede", async () => {
+    const { ug1 } = await seedCollection();
+    const dto = await updateCollectionItem(
+      "00000000-0000-0000-0000-000000000000",
+      ug1,
+      { rating: 5 },
     );
     expect(dto).toBeNull();
   });

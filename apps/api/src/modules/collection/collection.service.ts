@@ -10,7 +10,7 @@ import {
   gameSimilar,
 } from "@nextquest/db";
 import { and, eq, sql, inArray, desc, count } from "drizzle-orm";
-import type { GameStatus } from "./collection.schemas.js";
+import type { GameStatus, UpdateUserGameInput } from "./collection.schemas.js";
 import {
   toUserGameStatusDTO,
   toCollectionItemDTO,
@@ -231,4 +231,53 @@ export async function getCollectionItem(
     t.get(row.gameId) ?? [],
     similar,
   );
+}
+
+// Recharge un item complet (sans le detail) apres mutation.
+// null si introuvable / non possede.
+async function fetchItem(
+  userId: string,
+  userGameId: string,
+): Promise<CollectionItemDTO | null> {
+  const [row] = await db
+    .select(ITEM_FIELDS)
+    .from(userGames)
+    .innerJoin(games, eq(userGames.gameId, games.id))
+    .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
+    .limit(1);
+  if (!row) return null;
+  const [g, t] = await Promise.all([
+    genresByGame([row.gameId]),
+    tagsByGame([row.gameId]),
+  ]);
+  return toCollectionItemDTO(
+    row as CollectionRow,
+    g.get(row.gameId) ?? [],
+    t.get(row.gameId) ?? [],
+  );
+}
+
+// Edite les champs hors statut. On n'ecrit que les champs explicitement fournis
+// (null = effacer la valeur, undefined = ne pas toucher au champ).
+// Renvoie null si le jeu n'appartient pas au user.
+export async function updateCollectionItem(
+  userId: string,
+  userGameId: string,
+  input: UpdateUserGameInput,
+): Promise<CollectionItemDTO | null> {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.rating !== undefined) set.rating = input.rating;
+  if (input.review !== undefined) set.review = input.review;
+  if (input.playtimeMinutes !== undefined)
+    set.playtimeMinutes = input.playtimeMinutes;
+  if (input.isHidden !== undefined) set.isHidden = input.isHidden;
+
+  const [updated] = await db
+    .update(userGames)
+    .set(set)
+    .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
+    .returning({ id: userGames.id });
+  if (!updated) return null;
+
+  return fetchItem(userId, userGameId);
 }

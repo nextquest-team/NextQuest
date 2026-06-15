@@ -7,16 +7,20 @@ import {
   tags,
   gameGenres,
   gameTags,
+  gameSimilar,
 } from "@nextquest/db";
 import { and, eq, sql, inArray, desc, count } from "drizzle-orm";
 import type { GameStatus } from "./collection.schemas.js";
 import {
   toUserGameStatusDTO,
   toCollectionItemDTO,
+  toCollectionDetailDTO,
   type UserGameStatusDTO,
   type CollectionItemDTO,
+  type CollectionDetailDTO,
   type GenreRef,
   type TagRef,
+  type SimilarGameRef,
   type CollectionRow,
 } from "./collection.dto.js";
 
@@ -189,4 +193,42 @@ export async function listCollection(params: {
     ),
   );
   return { items, total };
+}
+
+// Detail d'un jeu de la collection : metadonnees completes + jeux similaires.
+// Renvoie null si le jeu n'existe pas ou n'appartient pas au user (-> 404 route).
+export async function getCollectionItem(
+  userId: string,
+  userGameId: string,
+): Promise<CollectionDetailDTO | null> {
+  const [row] = await db
+    .select({ ...ITEM_FIELDS, description: games.description })
+    .from(userGames)
+    .innerJoin(games, eq(userGames.gameId, games.id))
+    .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
+    .limit(1);
+  if (!row) return null;
+
+  const [g, t] = await Promise.all([
+    genresByGame([row.gameId]),
+    tagsByGame([row.gameId]),
+  ]);
+
+  // Similaires : game_similar pointe vers des igdb_id ; on ne resout que ceux
+  // qu'on possede deja dans `games` (jointure games.igdbId = similarIgdbId).
+  let similar: SimilarGameRef[] = [];
+  if (row.igdbId !== null) {
+    similar = await db
+      .select({ id: games.id, title: games.title, coverUrl: games.coverUrl })
+      .from(gameSimilar)
+      .innerJoin(games, eq(games.igdbId, gameSimilar.similarIgdbId))
+      .where(eq(gameSimilar.gameId, row.gameId));
+  }
+
+  return toCollectionDetailDTO(
+    row as CollectionRow,
+    g.get(row.gameId) ?? [],
+    t.get(row.gameId) ?? [],
+    similar,
+  );
 }

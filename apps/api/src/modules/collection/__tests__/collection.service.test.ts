@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 import {
   updateGameStatus,
   listCollection,
+  getCollectionItem,
 } from "../collection.service.js";
 import type { GameStatus } from "../collection.schemas.js";
 
@@ -207,5 +208,33 @@ describe("listCollection", () => {
     });
     expect(res.total).toBe(0);
     expect(res.items).toEqual([]);
+  });
+});
+
+describe("getCollectionItem", () => {
+  it("renvoie le detail avec description, genres, tags et jeux similaires", async () => {
+    const { userId, gameId1, ug1 } = await seedCollection();
+    // un jeu similaire qu'on possede dans le catalogue (igdbId=42), relie a g1.
+    await db
+      .insert(games)
+      .values({ title: "Ori", slug: "ori-1", igdbId: 42 });
+    await db
+      .update(games)
+      .set({ description: "metroidvania" })
+      .where(eq(games.id, gameId1));
+    await db.insert(gameSimilar).values({ gameId: gameId1, similarIgdbId: 42 });
+
+    const dto = await getCollectionItem(userId, ug1);
+    expect(dto?.description).toBe("metroidvania");
+    expect(dto?.similarGames.map((s) => s.title)).toContain("Ori");
+    expect(dto?.genres.map((x) => x.name)).toContain("Platform");
+  });
+  it("renvoie null si le jeu n'appartient pas au user", async () => {
+    const { ug1 } = await seedCollection();
+    const dto = await getCollectionItem(
+      "00000000-0000-0000-0000-000000000000",
+      ug1,
+    );
+    expect(dto).toBeNull();
   });
 });

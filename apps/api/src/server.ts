@@ -2,6 +2,7 @@ import { config } from "dotenv";
 config({ path: "../../.env" });
 import Fastify from "fastify";
 import { ZodError } from "zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerCors } from "./plugins/cors.js";
 import { registerSwagger } from "./plugins/swagger.js";
 import { registerJwt } from "./plugins/jwt.js";
@@ -27,6 +28,9 @@ const app = Fastify({
   // sessions.ip_address et le rate-limiter par IP soient corrects.
   trustProxy: true,
 });
+
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
 
 // Erreurs de validation Zod -> 400 avec details exploitables par le client.
 // `error` est typee unknown depuis Fastify 5.8.5, on raffine avec le shape

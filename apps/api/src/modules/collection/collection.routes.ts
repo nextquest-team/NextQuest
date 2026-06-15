@@ -4,16 +4,7 @@ import {
   userGameParamsSchema,
 } from "./collection.schemas.js";
 import { updateGameStatus } from "./collection.service.js";
-
-// Helpers locaux, alignes sur le pattern des autres modules (steam.routes.ts).
-// Les guards partages requireAuth/requireAdmin n'arrivent dans develop qu'avec
-// la PR IGDB #73 ; on s'aligne dessus en post-merge.
-const requireAuth = async (req: { jwtVerify(): Promise<unknown> }) =>
-  req.jwtVerify();
-
-function userIdOf(request: { user: unknown }): string {
-  return (request.user as { sub: string }).sub;
-}
+import { requireAuth, userIdOf } from "../../lib/guards.js";
 
 export async function collectionRoutes(app: FastifyInstance) {
   app.patch(

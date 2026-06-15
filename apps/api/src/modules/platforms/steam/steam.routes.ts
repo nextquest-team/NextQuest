@@ -7,19 +7,14 @@ import {
   getSteamConnection,
   importSteamLibrary,
 } from "./steam.service.js";
+import { enrichGames } from "../../games/igdb/igdb.service.js";
+import { requireAuth, userIdOf } from "../../../lib/guards.js";
 
 // URL publique de l'API (joignable par le browser) pour realm + return_to OpenID.
 const CALLBACK_BASE =
   process.env.OAUTH_CALLBACK_BASE_URL ?? "http://localhost:3000";
 const FRONTEND_URL = process.env.OAUTH_REDIRECT_URL ?? "http://localhost:3001";
 const STATE_SCOPE = "steam_link";
-
-const requireAuth = async (req: { jwtVerify(): Promise<unknown> }) =>
-  req.jwtVerify();
-
-function userIdOf(request: { user: unknown }): string {
-  return (request.user as { sub: string }).sub;
-}
 
 export async function steamRoutes(app: FastifyInstance) {
   // Demarrage du linking : l'user est deja authentifie. Son identite est portee
@@ -166,6 +161,14 @@ export async function steamRoutes(app: FastifyInstance) {
       }
 
       const imported = await importSteamLibrary(userId, ownedGames);
+
+      // Enrichissement IGDB en fire-and-forget : on ne bloque pas la reponse (l'user
+      // voit sa biblio tout de suite, les metadonnees arrivent apres). La pass est
+      // idempotente, un echec est rattrape au prochain import/declenchement manuel.
+      void enrichGames({ userId }).catch((err) => {
+        request.log.error({ err }, "Enrichissement IGDB post-import echoue");
+      });
+
       return reply.send({ imported });
     },
   );

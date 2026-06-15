@@ -136,3 +136,14 @@
 **Statut auto à l'import Steam** -- Pour réduire la friction, l'import classe désormais chaque jeu d'office : "en cours" si déjà joué (temps de jeu > 0), sinon "à faire". L'user n'ajuste que les exceptions (terminés / abandonnés). Un réimport ne réécrit jamais un statut ajusté manuellement.
 
 **Tests** -- 12 tests d'intégration (service + route + import) sur vraie BDD, suite API complète au vert (113 tests). Validé E2E en réel : route de statut sur serveur live (auth, validation, ownership, transitions, historique persisté) + import réel contre l'API Steam (13 jeux, classés `playing`/`backlog` sans erreur de classification).
+## 10 juin 2026
+
+**Module IGDB (lot #55)** -- Enrichissement du catalogue `games` avec les métadonnées IGDB (résumé, jaquette, genres, thèmes, note joueurs, jeux similaires). Auth via Twitch (token mis en cache Redis), mapping appid Steam -> id IGDB via `external_games`, upsert transactionnel. La table `games` étant un catalogue global partagé, un jeu enrichi une fois l'est pour tous : c'est le cache.
+
+**Enrichissement découplé** -- Lancé en fire-and-forget après l'import Steam (l'import reste sous 3s, les métadonnées arrivent juste après) + endpoint manuel scopé à la biblio du user. Pass idempotente : un échec est rattrapé au prochain déclenchement. File de jobs reportée post-MVP (#68).
+
+**Rôle admin** -- La colonne `users.role` et le claim JWT existaient déjà : ajout du garde `requireAdmin` + endpoint admin global d'enrichissement. Issue #69 close.
+
+**Tests** -- 121 tests (auth/client/service/routes IGDB + Redis + guards + Steam), unitaires et intégration.
+
+**Validation E2E réelle** -- Testé bout en bout contre les vraies API : token Twitch, match Steam->IGDB, métadonnées, puis flux complet (vraie bibliothèque Steam -> import -> enrichissement, 12/13 jeux matchés, le 13e étant un "playtest" absent d'IGDB). **Bug révélé que seul le réel pouvait montrer** : IGDB a retiré le champ `category` d'`external_games` au profit d'`external_game_source` (Steam = 1) ; le filtre a été corrigé. Les tests mockés étaient verts mais la requête réelle renvoyait zéro.

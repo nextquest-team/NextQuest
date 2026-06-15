@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import {
   updateGameStatusSchema,
   userGameParamsSchema,
@@ -7,7 +8,8 @@ import { updateGameStatus } from "./collection.service.js";
 import { requireAuth, userIdOf } from "../../lib/guards.js";
 
 export async function collectionRoutes(app: FastifyInstance) {
-  app.patch(
+  const r = app.withTypeProvider<ZodTypeProvider>();
+  r.patch(
     "/collection/:userGameId/status",
     {
       onRequest: [requireAuth],
@@ -15,12 +17,14 @@ export async function collectionRoutes(app: FastifyInstance) {
         tags: ["Collection"],
         summary: "Changer le statut d'un jeu de la collection",
         security: [{ bearerAuth: [] }],
+        params: userGameParamsSchema,
+        body: updateGameStatusSchema,
       },
     },
     async (request, reply) => {
       const userId = userIdOf(request);
-      const { userGameId } = userGameParamsSchema.parse(request.params);
-      const { status } = updateGameStatusSchema.parse(request.body);
+      const { userGameId } = request.params;
+      const { status } = request.body;
 
       const result = await updateGameStatus(userId, userGameId, status);
       if (!result) {

@@ -1,23 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Fastify from "fastify";
-import { ZodError } from "zod";
 import { db, users, games, userGames } from "@nextquest/db";
+import { validatorCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../plugins/jwt.js";
+import { registerErrorHandler } from "../../../lib/error-handler.js";
+import { registerSwagger } from "../../../plugins/swagger.js";
 import { collectionRoutes } from "../collection.routes.js";
 import type { GameStatus } from "../collection.schemas.js";
 
 async function buildApp() {
   const app = Fastify();
-  app.setErrorHandler(
-    (error: Error & { statusCode?: number }, _request, reply) => {
-      if (error instanceof ZodError) {
-        return reply.code(400).send({ error: "Validation Error" });
-      }
-      return reply
-        .code(error.statusCode ?? 500)
-        .send({ error: error.message || "Internal Server Error" });
-    },
-  );
+  app.setValidatorCompiler(validatorCompiler);
+  registerErrorHandler(app);
+  await registerSwagger(app);
   await registerJwt(app);
   await app.register(collectionRoutes, { prefix: "/api" });
   await app.ready();
@@ -148,5 +143,15 @@ describe("PATCH /api/collection/:userGameId/status", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).status).toBe("playing");
+  });
+
+  it("documente le body de la route dans l'OpenAPI", async () => {
+    const app = await buildApp();
+    const spec = app.swagger() as {
+      paths: Record<string, Record<string, { requestBody?: unknown }>>;
+    };
+    const op = spec.paths["/api/collection/{userGameId}/status"].patch;
+    expect(op.requestBody).toBeDefined();
+    expect(JSON.stringify(op.requestBody)).toContain("playing");
   });
 });

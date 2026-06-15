@@ -1,13 +1,17 @@
+export type Locale = "fr" | "en";
+
 export interface User {
   id: string;
   email: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
-  locale: "fr" | "en";
-  isPublic: boolean;
-  createdAt: Date;
-  updatedAt: Date | null;
+  bio: string | null;
+  locale: Locale;
+  visibility: "private" | "friends_only" | "public";
+  emailVerified: boolean;
+  onboardingCompleted: boolean;
+  createdAt: string; // ISO 8601
 }
 
 export type GameStatus = "wishlist" | "backlog" | "playing" | "completed" | "abandoned";

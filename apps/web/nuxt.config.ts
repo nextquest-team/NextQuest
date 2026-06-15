@@ -47,7 +47,17 @@ export default defineNuxtConfig({
   },
 
   vuetify: {
+    moduleOptions: {
+      // Empêche vuetify-nuxt-module de brancher @nuxtjs/i18n comme adaptateur
+      // Vuetify — sinon Vuetify cherche ses clés internes ($vuetify.*) dans
+      // nos fichiers fr.json/en.json où elles n'existent pas.
+      // @ts-expect-error — propriété runtime valide, absente des types MOptions
+      i18n: false,
+    },
     vuetifyOptions: {
+      display: {
+        mobileBreakpoint: 600,
+      },
       icons: { defaultSet: 'mdi' },
       theme: {
         defaultTheme: 'nextquest',

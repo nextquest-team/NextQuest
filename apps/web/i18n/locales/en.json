@@ -35,7 +35,48 @@
     "nextQuest": "Next Quest",
     "timeline": "Game releases"
   },
+  "profil": {
+    "title": "My profile",
+    "memberSince": "Member since",
+    "emailVerified": "Email verified",
+    "emailNotVerified": "Email not verified",
+    "bio": "Biography",
+    "noBio": "No biography provided.",
+    "editBio": "Edit biography",
+    "save": "Save",
+    "cancel": "Cancel",
+    "bioSaveError": "Could not save bio, please try again.",
+    "visibility": {
+      "label": "Visibility",
+      "edit": "Edit visibility",
+      "private": "Private",
+      "friends_only": "Friends only",
+      "public": "Public"
+    },
+    "visibilitySaveError": "Could not save visibility, please try again.",
+    "onboarding": {
+      "completed": "Profile complete",
+      "pending": "Profile incomplete"
+    }
+  },
   "dashboard": {
+    "onboarding": {
+      "ariaLabel": "Onboarding tour",
+      "step": "Step",
+      "next": "Next →",
+      "finish": "Finish",
+      "skip": "Skip intro",
+      "title1": "🧭 The magic compass",
+      "title2": "🎒 Your adventurer's bag",
+      "title3": "📜 Your hero profile",
+      "title4": "📰 The news scroll",
+      "title5": "🗺️ The release horizon",
+      "step1": "The magic compass analyses your tastes and suggests your next gaming adventure. Spin it to discover your Next Quest!",
+      "step2": "Open your bag to organise your game library. Add, browse and manage your adventures in a flash.",
+      "step3": "Keep track of your achievements and customise your hero profile. Your legend starts here!",
+      "step4": "Check your adventurer friends' news: their discoveries, achievements and the games they've added to their collection.",
+      "step5": "Scroll through the horizon to discover upcoming game releases and never miss a new adventure."
+    },
     "profile": {
       "button": "My profile"
     },

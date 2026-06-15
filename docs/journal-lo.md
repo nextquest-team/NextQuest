@@ -699,6 +699,218 @@ Audit complet, 4 corrections appliquées :
 - Bouton sac à dos desktop : position `left: 13%; top: 14%` à ajuster selon résolution réelle
 - Test `middleware/auth.test.ts` pré-existant en échec (middleware global retourne `undefined` au lieu de `/auth/login`) — à corriger par JB ou en session dédiée
 
+## 2026-05-29 — Session 19 : Tests unitaires — page Profil & OnboardingOverlay
+
+### Résumé exécutif
+
+Ajout de **26 tests unitaires** couvrant la page profil (`pages/profil.vue`) et le composant d'onboarding (`components/dashboard/OnboardingOverlay.vue`). Tous les tests passent, aucune régression sur la suite existante (78 tests en tout).
+
+### Fichiers créés
+
+- `tests/pages/profil.test.ts` — 17 tests
+- `tests/components/OnboardingOverlay.test.ts` — 9 tests
+
+### Ce qui est testé
+
+#### Page Profil (`pages/profil.vue`)
+
+| Scénario | Assertion |
+|---|---|
+| Montage | `fetchProfile` appelé une fois |
+| Identité | `username` affiché si `displayName = null` ; `displayName + @username` sinon |
+| Avatar | URL DiceBear si `avatarUrl = null` ; `avatarUrl` directe sinon |
+| Bio — ouverture | clic bouton → textarea visible |
+| Bio — annulation | clic Annuler → textarea masquée |
+| Bio — compteur | affiche `n/500` |
+| Bio — sauvegarde OK | PATCH `/api/users/me` appelé, éditeur fermé |
+| Bio — erreur API | message d'erreur affiché, éditeur maintenu |
+| Bio — dépassement | bouton Enregistrer désactivé si `bio.length > 500` |
+| Bio — textarea vide | body `{ bio: null }` envoyé |
+| Visibilité — ouverture | 3 options affichées |
+| Visibilité — changement | PATCH avec nouvelle valeur |
+| Visibilité — inchangée | **aucun appel API** si même valeur (public → public) |
+| Déconnexion | `logout()` appelé au clic |
+
+#### OnboardingOverlay (`components/dashboard/OnboardingOverlay.vue`)
+
+| Scénario | Assertion |
+|---|---|
+| `onboardingCompleted = true` | `driver()` non appelé |
+| `user = null` | `driver()` non appelé |
+| `onboardingCompleted = false` | `driver().drive()` appelé |
+| Nombre d'étapes | 5 étapes configurées |
+| Ciblage | les 5 `data-onb-target` corrects dans l'ordre |
+| `onDestroyStarted` | POST `/api/users/me/onboarding/complete` |
+| Mise à jour store | `setAuth({ onboardingCompleted: true })` appelé |
+| Résilience API | `setAuth` appelé même si le POST échoue |
+| Token auth | header `Authorization: Bearer <token>` envoyé |
+
+### Décisions techniques
+
+**Pas de mock `useRuntimeConfig`** : le mock interceptait le démarrage de l'app Nuxt en environnement de test et cassait le plugin router (`baseURL` undefined). La valeur par défaut de `nuxt.config.ts` (`http://localhost:3000`) est suffisante.
+
+**Mock `useAuthStore` (OnboardingOverlay)** : `setActivePinia(createPinia())` ne remplace pas l'instance Pinia injectée par l'app Nuxt de test. Résultat : le store du composant et le store du test étaient deux instances distinctes. Solution : `mockNuxtImport('useAuthStore', ...)` donne un objet plain commun aux deux.
+
+**`afterEach(() => wrapper?.unmount())`** : le `watch(show, ..., { immediate: true })` du composant précédent réagissait à la mutation de `mockUserRef` dans le test suivant, déclenchant `startTour()` une fois de trop. Résoudre en démontant explicitement le composant après chaque test.
+
+---
+
+## 2026-05-29 — Session 18 : Dashboard desktop grid + polish onboarding
+
+### Dashboard desktop — refonte en CSS Grid
+
+**Problème** : `DashboardDesktop.vue` utilisait du `position: absolute` pour chaque zone (sac, centre, parchemin, cardmap), avec des `left/top` en pourcentage du viewport. Fragile : tout se recalcule différemment selon la taille de fenêtre, et les éléments se marchaient dessus.
+
+**Solution** : CSS Grid avec `grid-template-areas` — structure fidèle au wireframe :
+
+```
+| sac       | profil/boussole | parchemin |
+| sortie de jeux (pleine largeur)           |
+```
+
+```css
+grid-template-columns: repeat(3, 1fr);
+grid-template-rows: 66% 34%;
+grid-template-areas:
+  "bag    center   parchemin"
+  "cardmap cardmap cardmap";
+```
+
+Chaque zone est maintenant une cellule de grille avec son propre `display: flex` interne. Le `position: absolute` ne subsiste que pour l'image du sac (décorative, dépasse légèrement), et pour les contenus du parchemin (scroll interne).
+
+### Image sac-a-dos.png — recadrage
+
+Diagnostic via Python/PIL : l'image avait **30.8% de transparent de chaque côté** — le sac n'occupait que le tiers central (zone opaque : x=806→1809). Rognée de 2616×1426 → **1013×1284** px. Le `object-fit: contain` l'affiche désormais proprement sans marges parasites.
+
+### Onboarding — étape parchemin ajoutée
+
+Ajout d'une 5e étape pour le parchemin (actualités des amis) :
+- `data-onb-target="parchemin"` sur `.dd__parchemin` (desktop) et `<DashboardDbParchemin>` (mobile)
+- Clés i18n : `title4` = "Le parchemin des nouvelles", `step4` = description actualités amis
+- Étape timeline décalée en `title5`/`step5`
+
+### Onboarding — fix ciblage profil
+
+`data-onb-target="profile"` était sur `.dd__center` (contenait profil + boussole → spotlight trop grand). Déplacé sur `<DashboardDbProfileCard>` directement dans les deux layouts.
+
+### Onboarding — fix zone sac mobile
+
+`.dm__sacoche` a `transform: translate(50%, -50%)` → Driver.js prenait le `getBoundingClientRect()` de l'élément entier, incluant la moitié off-screen. Fix : `data-onb-target="bag"` déplacé sur le **bouton** `.dm__sacoche-btn`, toujours dans la partie visible et de taille précise.
+
+---
+
+## 2026-05-29 — Session 17 : Onboarding overlay (Driver.js)
+
+### Contexte
+
+Suite directe de la session 16. L'overlay d'onboarding est implémenté avec **Driver.js** (librairie dédiée aux tours guidés) plutôt qu'un composant Vue custom, après avoir d'abord essayé l'approche manuelle (4 panneaux CSS + anneau lumineux).
+
+### Pourquoi Driver.js
+
+| Approche custom | Driver.js |
+|----------------|-----------|
+| ~200 lignes de CSS + JS pour recréer le spotlight | ~90 lignes (config + styles) |
+| `getBoundingClientRect` + 4 panneaux fixes | Spotlight natif |
+| Scroll manuel si l'élément est hors écran | Scroll automatique |
+| Flèche de tooltip à positionner soi-même | Flèche auto pointant vers la cible |
+
+Installation : `pnpm add driver.js --filter web`
+
+### Composant `DashboardOnboardingOverlay.vue`
+
+- S'affiche uniquement si `user.onboardingCompleted === false`
+- Démarre automatiquement au `watch(show, …, { immediate: true })` via `nextTick(startTour)`
+- **4 étapes** avec ciblage `[data-onb-target="wheel|bag|profile|timeline"]`
+- **`onDestroyStarted`** : appelé à la fermeture (croix ou fin) → `POST /api/users/me/onboarding/complete` + `store.setAuth({ ...user, onboardingCompleted: true })` pour masquer immédiatement sans attendre le rechargement
+- **`onPopoverRender`** : injection d'un bouton "Passer l'intro" dans chaque footer de popover (Driver.js n'en fournit pas nativement)
+- Couleur overlay : `rgba(153, 144, 144, 0.64)` — fidèle au Figma
+
+### Styling NQ via `popoverClass: 'nq-popover'`
+
+- Gradient radial doré `rgba(202,164,109) → rgba(158,106,30)` — identique au Figma
+- Bordure verte `#5B6A5B` (4px)
+- Police `Knights Quest` sur tous les textes et boutons
+- Boutons Suivant / Terminer : fond `#56311B`, couleur `#edc78e`
+
+### Ciblage des éléments
+
+Attributs `data-onb-target` ajoutés dans les composants dashboard :
+
+| Étape | Cible | Composant |
+|-------|-------|-----------|
+| 1 — Boussole | `data-onb-target="wheel"` | `.dm__mid` (mobile) / `<div>` wrapper `<DashboardDbWheel>` (desktop) |
+| 2 — Sac | `data-onb-target="bag"` | `.dm__sacoche` (mobile) / `.dd__bag-zone` wrapper (desktop) |
+| 3 — Profil | `data-onb-target="profile"` | `.dm__top` (mobile) / `.dd__center` (desktop) |
+| 4 — Timeline | `data-onb-target="timeline"` | `.dm__bot` (mobile) / `.dd__cardmap` (desktop) |
+
+Sur le desktop, la zone sac a été wrappée dans un `<div class="dd__bag-zone">` (position absolute couvrant la zone visible du sac) pour avoir un élément ciblable.
+
+### Intégration dans `dashboard.vue`
+
+`<DashboardOnboardingOverlay />` placé dans le `<ClientOnly>` existant — se superpose aux deux layouts (mobile/desktop) sans interférer.
+
+### i18n
+
+Section `dashboard.onboarding` ajoutée dans `fr.json` : `title1–4`, `step1–4`, `next`, `finish`, `skip`, `ariaLabel`, `step`.
+
+---
+
+## 2026-05-29 — Session 16 : Page profil, BackButton & fond global
+
+### Page `/profil`
+
+**Données** : appel `GET /api/users/me` via `fetchProfile()` (ajouté au composable `useAuth`) au `onMounted`. Page en `ssr: false` + `<ClientOnly>` pour éviter le mismatch d'hydratation (même pattern que dashboard).
+
+**Contenu affiché :**
+- Avatar : si `user.avatarUrl` existe → l'image ; sinon → **DiceBear mock** déterministe par username : `https://api.dicebear.com/9.x/adventurer/svg?seed={username}&backgroundColor=5C3317&backgroundType=solid`
+- Date d'inscription (`createdAt`) formatée en `fr-FR`
+- Badge email vérifié / non vérifié
+- Badge onboarding complété / incomplet
+
+**Éditeur de bio inline :**
+- Bouton "Modifier" → `<textarea>` avec compteur de caractères
+- Limite : `BIO_MAX = 500` (contrainte DB Drizzle)
+- Sauvegarde : `PATCH /api/users/me` avec `{ bio }` → confirmation ou message d'erreur
+
+**Sélecteur de visibilité :**
+- 3 options : `private` / `friends_only` / `public` — mappées sur les valeurs TS `Visibility`
+- Sauvegarde immédiate à la sélection : `PATCH /api/users/me` avec `{ visibility }`
+
+**Bouton déconnexion** : appel `logout()` depuis `useAuth`.
+
+### Fixes techniques associés
+
+| Bug | Cause | Fix |
+|-----|-------|-----|
+| Warning `$vuetify.input.appendAction` | `vuetify-nuxt-module` hijacke `@nuxtjs/i18n` | `moduleOptions: { i18n: false }` dans `nuxt.config.ts` |
+| Hydratation mismatch sur `/profil` | SSR rend `user = null`, client a les vraies données | `<ClientOnly>` + `definePageMeta({ ssr: false })` |
+| CORS bloque `PATCH` | `@fastify/cors` n'inclut pas PATCH par défaut | `methods: ['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS']` dans `cors.ts` |
+| `$fetch` non résolu en TypeScript | Auto-import Nuxt non résolu dans certains fichiers `.vue` | `import { $fetch } from 'ofetch'` explicite |
+
+### `UiBackButton` — composant réutilisable
+
+Extrait depuis les pages qui avaient un bouton retour inline. Utilise la variante `back` de `UiPatchButton` (carré 64×64, `border-image: wooly-btn-final.png`) avec une flèche MDI.
+
+```vue
+<UiBackButton to="/dashboard" />
+```
+
+### Fond global (texture laine)
+
+Problème : le fond tricoté `fond.png` était appliqué dans chaque composant dashboard séparément. Après passage à la page profil, il n'y était plus.
+
+Fix : déclaration unique dans `assets/css/main.css` sur `html, body` :
+- `background-image: url('/images/backgrounds/fond.png')`
+- `background-attachment: fixed` — le fond ne scrolle pas avec le contenu
+
+Suppression des déclarations redondantes dans `DashboardMobile.vue` et `DashboardDesktop.vue` (`background: transparent` à la place).
+
+### Mise à jour du type `User` (`packages/shared`)
+
+Alignement sur le `UserDTO` de l'API — champs ajoutés : `bio`, `visibility`, `emailVerified`, `onboardingCompleted`, `createdAt`. Champs supprimés : `isPublic`, `updatedAt`. Fixtures de test mises à jour en conséquence (68/68 tests passants).
+
+---
+
 ## 2026-05-12 — Session 13 : Auto-typage OpenAPI
 
 ### Ce qui a été fait

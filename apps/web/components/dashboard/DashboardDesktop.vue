@@ -23,24 +23,28 @@ const games = [
 <template>
   <div class="dd">
 
-    <!-- Sac à dos — déborde sur la gauche -->
-    <img
-      src="/images/dashboard/sac-a-dos.png"
-      alt=""
-      class="dd__bag"
-    />
-    <NuxtLink to="/game-list" class="dd__bag-btn">
-      {{ t('dashboard.sacoche.gameList') }}
-    </NuxtLink>
-
-    <!-- Profil horizontal + roue : empilés au centre -->
-    <div class="dd__center">
-      <DashboardDbProfileCard :username="username" :horizontal="true" />
-      <DashboardDbWheel />
+    <!-- Colonne gauche : sac à dos -->
+    <div class="dd__bag" data-onb-target="bag">
+      <img
+        src="/images/dashboard/sac-a-dos.png"
+        alt=""
+        class="dd__bag-img"
+      />
+      <NuxtLink to="/game-list" class="dd__bag-btn">
+        {{ t('dashboard.sacoche.gameList') }}
+      </NuxtLink>
     </div>
 
-    <!-- Parchemin ouvert — droite, avec cards scrollables à l'intérieur -->
-    <div class="dd__parchemin">
+    <!-- Colonne centrale : profil + boussole -->
+    <div class="dd__center">
+      <DashboardDbProfileCard :username="username" :horizontal="true" data-onb-target="profile" />
+      <div data-onb-target="wheel">
+        <DashboardDbWheel />
+      </div>
+    </div>
+
+    <!-- Colonne droite : parchemin -->
+    <div class="dd__parchemin" data-onb-target="parchemin">
       <img
         src="/images/dashboard/parchemin-ouvert.png"
         alt=""
@@ -61,8 +65,8 @@ const games = [
       </NuxtLink>
     </div>
 
-    <!-- Card map + globe — bas -->
-    <div class="dd__cardmap">
+    <!-- Ligne basse : sorties de jeux (pleine largeur) -->
+    <div class="dd__cardmap" data-onb-target="timeline">
       <DashboardDbGameCards>
         <template #header>
           <NuxtLink to="/timeline" class="dd__timeline-link">
@@ -77,45 +81,77 @@ const games = [
 </template>
 
 <style scoped>
+/*
+ * Grille principale — fidèle au wireframe :
+ *
+ * | sac       | profil/boussole | parchemin |
+ * | sortie de jeux (pleine largeur)           |
+ */
 .dd {
   width: 100%;
   height: 100dvh;
-  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 66% 34%;
+  grid-template-areas:
+    "bag    center   parchemin"
+    "cardmap cardmap cardmap";
   overflow: hidden;
-  background-image: url('/images/backgrounds/fond.png');
-  background-size: cover;
-  background-position: center top;
+  background: transparent;
 }
 
-/* ── Sac à dos : déborde ~22% sur la gauche ── */
+/* ── Sac à dos ─────────────────────────────────────────────────── */
 .dd__bag {
+  grid-area: bag;
+  position: relative;
+  overflow: hidden;
+}
+
+.dd__bag-img {
   position: absolute;
-  left: -17%;
-  top: 0%;
-  width: 72%;
-  height: auto;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
   pointer-events: none;
 }
 
-/* ── Centre : profil + roue empilés ── */
-.dd__center {
+.dd__bag-btn {
   position: absolute;
+  top: 30%;           /* % de la hauteur de cellule → vraiment responsive */
   left: 50%;
-  top: 5%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--nq-font);
+  font-size: clamp(0.875rem, 1vw, 1rem);
+  color: #edc78e;
+  text-decoration: none;
+  background: #7a3e2a;
+  padding: 7px 18px;
+  border-radius: 5px;
+  white-space: nowrap;
+  min-height: 44px;
+}
+
+/* ── Centre : profil + boussole ─────────────────────────────────── */
+.dd__center {
+  grid-area: center;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: space-around;
+  padding-top: 5%;
   gap: 48px;
 }
 
-/* ── Parchemin ouvert : droite, déborde légèrement en haut ── */
+/* ── Parchemin ──────────────────────────────────────────────────── */
 .dd__parchemin {
-  position: absolute;
-  left: 70%;
-  top: -1%;
-  width: 25%;
-  height: 70%;
+  grid-area: parchemin;
+  position: relative;
+  margin-top: -1%;
 }
 
 .dd__parchemin-img {
@@ -126,7 +162,6 @@ const games = [
   object-fit: fill;
 }
 
-/* Zone scrollable à l'intérieur du parchemin (évite les bords) */
 .dd__parchemin-scroll {
   position: absolute;
   top: 14%;
@@ -146,7 +181,6 @@ const games = [
   display: none;
 }
 
-/* Carte actualité / amis — bord fin ── */
 .dd__game-slot {
   flex-shrink: 0;
   width: 82%;
@@ -157,25 +191,6 @@ const games = [
   background: rgba(245, 237, 223, 0.55);
 }
 
-/* ── Bouton sac à dos : en haut de la zone visible ── */
-.dd__bag-btn {
-  position: absolute;
-  left: 13%;
-  top: 14%;
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--nq-font);
-  font-size: clamp(0.875rem, 1vw, 1rem);
-  color: #edc78e;
-  text-decoration: none;
-  background: #7a3e2a;
-  padding: 7px 18px;
-  border-radius: 5px;
-  white-space: nowrap;
-  min-height: 44px;
-}
-
-/* ── Bouton "Voir tout" en bas du parchemin ── */
 .dd__parchemin-voir-tout {
   position: absolute;
   bottom: 5%;
@@ -194,7 +209,14 @@ const games = [
   min-height: 44px;
 }
 
-/* ── Bouton Sorties de jeux ── */
+/* ── Cardmap (pleine largeur) ───────────────────────────────────── */
+.dd__cardmap {
+  grid-area: cardmap;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+
 .dd__timeline-link {
   display: inline-flex;
   align-items: center;
@@ -209,16 +231,5 @@ const games = [
   border: none;
   white-space: nowrap;
   min-height: 44px;
-}
-
-/* ── Card map : bas, centrée ── */
-.dd__cardmap {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 68%;
-  height: 36%;
-  display: flex;
-  justify-content: center;
 }
 </style>

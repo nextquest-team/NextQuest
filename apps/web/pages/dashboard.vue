@@ -7,9 +7,17 @@ import { useDisplay } from 'vuetify'
 definePageMeta({ ssr: false, layout: 'plain' })
 
 const { mobile } = useDisplay()
-const { user, logout } = useAuth()
+const { user, logout, fetchProfile } = useAuth()
 
 const username = computed(() => user.value?.displayName ?? user.value?.username ?? '')
+
+// Le DTO /auth/register et /auth/refresh est réduit et ne contient pas
+// onboardingCompleted. On appelle fetchProfile() (/api/users/me) dès que
+// l'utilisateur arrive sur le dashboard pour hydrater le store complet.
+// L'overlay réagit en temps réel via son watch sur show.
+onMounted(() => {
+  if (user.value) fetchProfile()
+})
 </script>
 
 <template>
@@ -24,5 +32,6 @@ const username = computed(() => user.value?.displayName ?? user.value?.username 
       :username="username"
       @logout="logout"
     />
+    <DashboardOnboardingOverlay />
   </ClientOnly>
 </template>

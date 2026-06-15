@@ -11,7 +11,14 @@ export async function searchGames(params: {
   offset: number;
 }): Promise<{ items: GameSummaryDTO[]; total: number }> {
   const { userId, search, limit, offset } = params;
-  const visible = or(eq(games.visibility, "public"), eq(games.createdBy, userId));
+  // Catalogue partage : les jeux non-custom (importes Steam/IGDB) sont cherchables
+  // par tous, quelle que soit leur visibilite (le defaut "private" du schema vise
+  // les jeux custom). On ne cache que les jeux custom prives d'un AUTRE user.
+  const visible = or(
+    eq(games.isCustom, false),
+    eq(games.createdBy, userId),
+    eq(games.visibility, "public"),
+  );
   const where = and(ilike(games.title, `%${search}%`), visible);
 
   const [{ total }] = await db.select({ total: count() }).from(games).where(where);

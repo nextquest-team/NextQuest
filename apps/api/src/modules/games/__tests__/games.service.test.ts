@@ -45,4 +45,15 @@ describe("searchGames", () => {
     const res = await searchGames({ userId: u.id, search: "secret", limit: 20, offset: 0 });
     expect(res.total).toBe(0);
   });
+  it("trouve un jeu catalogue non-custom meme en visibilite par defaut (privee)", async () => {
+    const [u] = await db
+      .insert(users)
+      .values({ email: "s4@test.com", username: "s4", passwordHash: "x" })
+      .returning({ id: users.id });
+    // Jeu importe (Steam/IGDB) : isCustom=false, visibility par defaut (private),
+    // createdBy null. Doit rester cherchable par tout le monde (catalogue partage).
+    await db.insert(games).values({ title: "Warhammer Catalogue", slug: "whc-1" });
+    const res = await searchGames({ userId: u.id, search: "warhammer", limit: 20, offset: 0 });
+    expect(res.total).toBe(1);
+  });
 });

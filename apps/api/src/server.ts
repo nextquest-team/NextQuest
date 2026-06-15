@@ -12,6 +12,7 @@ import { authRoutes } from "./modules/auth/auth.routes.js";
 import { oauthRoutes } from "./modules/auth/oauth/oauth.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
 import { steamRoutes } from "./modules/platforms/steam/steam.routes.js";
+import { collectionRoutes } from "./modules/collection/collection.routes.js";
 import { igdbRoutes } from "./modules/games/igdb/igdb.routes.js";
 
 const app = Fastify({
@@ -60,6 +61,7 @@ async function start() {
   await app.register(authRoutes, { prefix: "/api" });
   await app.register(usersRoutes, { prefix: "/api" });
   await app.register(steamRoutes, { prefix: "/api" });
+  await app.register(collectionRoutes, { prefix: "/api" });
   await app.register(igdbRoutes, { prefix: "/api" });
   await app.register(oauthRoutes, { prefix: "/api/auth" });
 

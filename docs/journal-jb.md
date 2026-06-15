@@ -129,6 +129,13 @@
 
 ---
 
+## 11 juin 2026
+
+**Module collection (statut jeu, lot #57)** -- Route `PATCH /api/collection/:userGameId/status` pour passer un jeu entre les 4 statuts MVP (à faire / en cours / terminé / abandonné). Chaque changement est historisé dans `user_game_status_history`. `started_at`/`completed_at` sont posés automatiquement à la première transition (vers en cours / terminé) et jamais réécrits ensuite.
+
+**Statut auto à l'import Steam** -- Pour réduire la friction, l'import classe désormais chaque jeu d'office : "en cours" si déjà joué (temps de jeu > 0), sinon "à faire". L'user n'ajuste que les exceptions (terminés / abandonnés). Un réimport ne réécrit jamais un statut ajusté manuellement.
+
+**Tests** -- 12 tests d'intégration (service + route + import) sur vraie BDD, suite API complète au vert (113 tests). Validé E2E en réel : route de statut sur serveur live (auth, validation, ownership, transitions, historique persisté) + import réel contre l'API Steam (13 jeux, classés `playing`/`backlog` sans erreur de classification).
 ## 10 juin 2026
 
 **Module IGDB (lot #55)** -- Enrichissement du catalogue `games` avec les métadonnées IGDB (résumé, jaquette, genres, thèmes, note joueurs, jeux similaires). Auth via Twitch (token mis en cache Redis), mapping appid Steam -> id IGDB via `external_games`, upsert transactionnel. La table `games` étant un catalogue global partagé, un jeu enrichi une fois l'est pour tous : c'est le cache.

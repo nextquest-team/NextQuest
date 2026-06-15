@@ -130,4 +130,56 @@ describe("importSteamLibrary", () => {
     const userId = await createUser();
     expect(await importSteamLibrary(userId, [])).toBe(0);
   });
+
+  it("classe le statut initial selon le temps de jeu (playing si joue, sinon backlog)", async () => {
+    const userId = await createUser();
+
+    await importSteamLibrary(userId, [
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200 },
+      { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 0 },
+    ]);
+
+    const ug = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.userId, userId));
+
+    const statusOf = async (appid: number) => {
+      const [g] = await db
+        .select()
+        .from(games)
+        .where(eq(games.steamAppid, appid));
+      return ug.find((r) => r.gameId === g.id)?.status;
+    };
+
+    expect(await statusOf(570)).toBe("playing");
+    expect(await statusOf(730)).toBe("backlog");
+  });
+
+  it("ne reecrit pas le statut ajuste par l'user lors d'un reimport", async () => {
+    const userId = await createUser();
+
+    await importSteamLibrary(userId, [
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200 },
+    ]);
+
+    // L'user marque le jeu comme termine via sa collection.
+    await db
+      .update(userGames)
+      .set({ status: "completed" })
+      .where(eq(userGames.userId, userId));
+
+    // Reimport avec plus d'heures : les heures se mettent a jour, pas le statut.
+    await importSteamLibrary(userId, [
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1500 },
+    ]);
+
+    const ug = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.userId, userId));
+    expect(ug).toHaveLength(1);
+    expect(ug[0].status).toBe("completed");
+    expect(ug[0].playtimeMinutes).toBe(1500);
+  });
 });

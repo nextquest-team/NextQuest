@@ -179,11 +179,20 @@ export async function importSteamLibrary(
           serviceId,
           platformId,
           playtimeMinutes: g.playtimeMinutes,
+          // Classification initiale sans friction : un jeu deja lance arrive
+          // "en cours", un jeu jamais lance reste "a faire". L'user n'ajuste que
+          // les exceptions (termines / abandonnes). Steam n'expose pas de date
+          // de premiere partie, donc pas de started_at ici.
+          status: (g.playtimeMinutes > 0 ? "playing" : "backlog") as
+            | "playing"
+            | "backlog",
         })),
       )
       .onConflictDoUpdate({
         target: [userGames.userId, userGames.gameId, userGames.platformId],
         set: {
+          // status volontairement absent du set : un reimport ne doit jamais
+          // reecrire le statut que l'user a ajuste depuis l'import initial.
           playtimeMinutes: sql.raw(
             `excluded.${userGames.playtimeMinutes.name}`,
           ),

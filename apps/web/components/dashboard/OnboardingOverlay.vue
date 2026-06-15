@@ -45,15 +45,21 @@ async function startTour() {
     stageRadius: 10,
     popoverClass: 'nq-popover',
     onDestroyStarted: () => {
-      // complete() est appelé ici — point unique de terminaison quel que soit
-      // le déclencheur (Done, X, ou bouton Skip via driverObj.destroy()).
+      // Driver.js appelle onDestroyStarted avant la vraie destruction (Done, X, Échap).
+      // Si on n'appelle pas destroy() ici, le tour reste ouvert.
+      // obj.destroy() appelle g(false) qui bypasse onDestroyStarted et détruit vraiment.
+      obj.destroy()
+    },
+    onDestroyed: () => {
+      // Appelé après la destruction effective, quel que soit le déclencheur :
+      // Done/X/Échap → onDestroyStarted → obj.destroy() → onDestroyed
+      // Skip        → obj.destroy() directement → onDestroyed
       complete()
     },
     onPopoverRender: (popover) => {
       const btn = document.createElement('button')
       btn.innerText = t('dashboard.onboarding.skip')
       btn.className = 'nq-skip-btn'
-      // destroy() déclenche onDestroyStarted → complete() — pas d'appel direct ici
       btn.onclick = () => obj.destroy()
       popover.footer.appendChild(btn)
     },

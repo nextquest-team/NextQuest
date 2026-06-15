@@ -150,13 +150,37 @@ describe('OnboardingOverlay', () => {
     ])
   })
 
-  // ── Callback onDestroyStarted ──────────────────────────
-  it('onDestroyStarted appelle POST /api/users/me/onboarding/complete', async () => {
+  // ── onDestroyStarted : confirme la fermeture du tour ──
+  it('onDestroyStarted appelle destroy() pour fermer vraiment le tour (Done/X/Échap)', async () => {
+    // driver.js appelle onDestroyStarted mais n'effectue PAS la destruction si
+    // destroy() n'est pas rappelé à l'intérieur — le tour resterait affiché.
     mockUserRef.value = { ...fakeUser }
     wrapper = mount(OnboardingOverlay)
     await flushPromises()
 
-    await capturedConfig?.onDestroyStarted()
+    capturedConfig?.onDestroyStarted()
+
+    expect(destroyMock).toHaveBeenCalledOnce()
+  })
+
+  it('onDestroyStarted n\'appelle pas complete() directement', async () => {
+    mockUserRef.value = { ...fakeUser }
+    wrapper = mount(OnboardingOverlay)
+    await flushPromises()
+
+    capturedConfig?.onDestroyStarted()
+    await flushPromises()
+
+    expect($fetchMock).not.toHaveBeenCalled()
+  })
+
+  // ── onDestroyed : marque l'onboarding après fermeture effective ──
+  it('onDestroyed appelle POST /api/users/me/onboarding/complete', async () => {
+    mockUserRef.value = { ...fakeUser }
+    wrapper = mount(OnboardingOverlay)
+    await flushPromises()
+
+    await capturedConfig?.onDestroyed()
     await flushPromises()
 
     expect($fetchMock).toHaveBeenCalledWith(
@@ -165,12 +189,12 @@ describe('OnboardingOverlay', () => {
     )
   })
 
-  it('onDestroyStarted appelle setAuth avec onboardingCompleted = true', async () => {
+  it('onDestroyed appelle setAuth avec onboardingCompleted = true', async () => {
     mockUserRef.value = { ...fakeUser }
     wrapper = mount(OnboardingOverlay)
     await flushPromises()
 
-    await capturedConfig?.onDestroyStarted()
+    await capturedConfig?.onDestroyed()
     await flushPromises()
 
     expect(setAuthMock).toHaveBeenCalledWith(
@@ -180,38 +204,51 @@ describe('OnboardingOverlay', () => {
   })
 
   it('ne met pas à jour le store si l\'appel API échoue', async () => {
-    // Comportement attendu : si le POST échoue, on ne marque PAS l'onboarding
-    // comme terminé en local — le tour réapparaîtra au prochain rechargement
     $fetchMock.mockRejectedValue(new Error('network'))
     mockUserRef.value = { ...fakeUser }
     wrapper = mount(OnboardingOverlay)
     await flushPromises()
 
-    await capturedConfig?.onDestroyStarted()
+    await capturedConfig?.onDestroyed()
     await flushPromises()
 
     expect(setAuthMock).not.toHaveBeenCalled()
   })
 
-  it('Skip ne déclenche pas complete() directement — un seul POST via onDestroyStarted', async () => {
+  it('envoie le token d\'autorisation dans le header', async () => {
+    mockStore.accessToken = 'secret-jwt'
     mockUserRef.value = { ...fakeUser }
     wrapper = mount(OnboardingOverlay)
     await flushPromises()
 
-    // Récupère le bouton Skip injecté par onPopoverRender
+    await capturedConfig?.onDestroyed()
+    await flushPromises()
+
+    expect($fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer secret-jwt' }),
+      }),
+    )
+  })
+
+  // ── Skip : ferme le tour et marque l'onboarding via onDestroyed ──
+  it('Skip appelle destroy() et ne déclenche pas complete() directement', async () => {
+    mockUserRef.value = { ...fakeUser }
+    wrapper = mount(OnboardingOverlay)
+    await flushPromises()
+
     const fakeFooter = { appendChild: vi.fn() }
     capturedConfig?.onPopoverRender({ footer: fakeFooter })
     const skipBtn = fakeFooter.appendChild.mock.calls[0][0] as HTMLButtonElement
 
-    // Clic Skip : ne doit PAS appeler $fetch directement
     skipBtn.onclick?.(new PointerEvent('click'))
     await flushPromises()
-    expect($fetchMock).not.toHaveBeenCalled()
 
-    // complete() ne passe que par onDestroyStarted → un seul POST au total
-    await capturedConfig?.onDestroyStarted()
-    await flushPromises()
-    expect($fetchMock).toHaveBeenCalledOnce()
+    // Skip appelle destroy() (qui déclenchera onDestroyed en vrai)
+    expect(destroyMock).toHaveBeenCalledOnce()
+    // Pas de POST direct — complete() passe exclusivement par onDestroyed
+    expect($fetchMock).not.toHaveBeenCalled()
   })
 
   it('la garde tourStarted empêche un double démarrage du tour', async () => {
@@ -228,22 +265,5 @@ describe('OnboardingOverlay', () => {
 
     // La garde bloque le second démarrage
     expect(driverFactoryMock).toHaveBeenCalledOnce()
-  })
-
-  it('envoie le token d\'autorisation dans le header', async () => {
-    mockStore.accessToken = 'secret-jwt'
-    mockUserRef.value = { ...fakeUser }
-    wrapper = mount(OnboardingOverlay)
-    await flushPromises()
-
-    await capturedConfig?.onDestroyStarted()
-    await flushPromises()
-
-    expect($fetchMock).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer secret-jwt' }),
-      }),
-    )
   })
 })

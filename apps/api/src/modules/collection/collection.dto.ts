@@ -40,3 +40,118 @@ export function toUserGameStatusDTO(
     updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
   };
 }
+
+// --- DTO de lecture de la collection (liste + detail) ---
+
+export type GenreRef = { id: string; name: string; slug: string };
+export type TagRef = { id: string; name: string; slug: string };
+export type SimilarGameRef = {
+  id: string;
+  title: string;
+  coverUrl: string | null;
+};
+
+export type CollectionGameMeta = {
+  id: string;
+  title: string;
+  slug: string;
+  coverUrl: string | null;
+  backgroundUrl: string | null;
+  releaseDate: string | null;
+  developer: string | null;
+  publisher: string | null;
+  igdbRating: number | null;
+  // True des qu'on a un igdb_id : le jeu a ete enrichi (description, genres, tags...).
+  // Permet au front de signaler les jeux qui n'ont pas encore de metadonnees.
+  isEnriched: boolean;
+};
+
+export type CollectionItemDTO = {
+  userGameId: string;
+  status: GameStatus;
+  playtimeMinutes: number | null;
+  rating: number | null;
+  review: string | null;
+  isHidden: boolean;
+  startedAt: string | null; // date YYYY-MM-DD
+  completedAt: string | null;
+  addedAt: string | null; // ISO 8601 (user_games.createdAt)
+  game: CollectionGameMeta;
+  genres: GenreRef[];
+  tags: TagRef[];
+};
+
+export type CollectionDetailDTO = CollectionItemDTO & {
+  description: string | null;
+  similarGames: SimilarGameRef[];
+};
+
+// Forme de la row jointe user_games + games attendue par les mappers.
+// `description` n'est selectionne que pour le detail.
+export type CollectionRow = {
+  userGameId: string;
+  status: string;
+  playtimeMinutes: number | null;
+  rating: number | null;
+  review: string | null;
+  isHidden: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+  addedAt: Date | null;
+  gameId: string;
+  title: string;
+  slug: string;
+  coverUrl: string | null;
+  backgroundUrl: string | null;
+  releaseDate: string | null;
+  developer: string | null;
+  publisher: string | null;
+  igdbRating: number | null;
+  igdbId: number | null;
+  description?: string | null;
+};
+
+export function toCollectionItemDTO(
+  row: CollectionRow,
+  genres: GenreRef[],
+  tags: TagRef[],
+): CollectionItemDTO {
+  return {
+    userGameId: row.userGameId,
+    status: assertMvpStatus(row.status),
+    playtimeMinutes: row.playtimeMinutes,
+    rating: row.rating,
+    review: row.review,
+    isHidden: row.isHidden,
+    startedAt: row.startedAt,
+    completedAt: row.completedAt,
+    addedAt: row.addedAt ? row.addedAt.toISOString() : null,
+    game: {
+      id: row.gameId,
+      title: row.title,
+      slug: row.slug,
+      coverUrl: row.coverUrl,
+      backgroundUrl: row.backgroundUrl,
+      releaseDate: row.releaseDate,
+      developer: row.developer,
+      publisher: row.publisher,
+      igdbRating: row.igdbRating,
+      isEnriched: row.igdbId !== null,
+    },
+    genres,
+    tags,
+  };
+}
+
+export function toCollectionDetailDTO(
+  row: CollectionRow,
+  genres: GenreRef[],
+  tags: TagRef[],
+  similarGames: SimilarGameRef[],
+): CollectionDetailDTO {
+  return {
+    ...toCollectionItemDTO(row, genres, tags),
+    description: row.description ?? null,
+    similarGames,
+  };
+}

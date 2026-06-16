@@ -82,6 +82,20 @@
       "completed": "Terminé",
       "abandoned": "Abandonné"
     },
+    "filterAll": "Tous",
+    "filterBtn": "Filtres",
+    "filterReset": "Réinitialiser",
+    "filterApply": "Appliquer",
+    "filterPlatform": "Plateforme",
+    "filterTags": "Catégories",
+    "filterTagsHint": "Sélection multiple par genre ou thème.",
+    "searchPlaceholder": "Rechercher un jeu…",
+    "soon": "Bientôt",
+    "pagination": {
+      "prev": "Précédent",
+      "next": "Suivant",
+      "page": "Page {current} / {total}"
+    },
     "addModal": {
       "title": "Ajouter un jeu",
       "searchPlaceholder": "Rechercher un jeu…",
@@ -108,6 +122,8 @@
     "removeGame": "Retirer de ma liste",
     "removeConfirm": "Retirer ce jeu de ta liste ?",
     "noSummary": "Aucun synopsis disponible.",
+    "tags": "Thèmes",
+    "similarGames": "Jeux similaires",
     "comingSoon": "Les données IGDB seront disponibles une fois l'API connectée."
   },
   "dashboard": {

@@ -82,6 +82,20 @@
       "completed": "Completed",
       "abandoned": "Abandoned"
     },
+    "filterAll": "All",
+    "filterBtn": "Filters",
+    "filterReset": "Reset",
+    "filterApply": "Apply",
+    "filterPlatform": "Platform",
+    "filterTags": "Categories",
+    "filterTagsHint": "Multi-select by genre or theme.",
+    "searchPlaceholder": "Search a game…",
+    "soon": "Soon",
+    "pagination": {
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {current} / {total}"
+    },
     "addModal": {
       "title": "Add a game",
       "searchPlaceholder": "Search for a game…",
@@ -108,6 +122,8 @@
     "removeGame": "Remove from my list",
     "removeConfirm": "Remove this game from your list?",
     "noSummary": "No summary available.",
+    "tags": "Themes",
+    "similarGames": "Similar games",
     "comingSoon": "IGDB data will be available once the API is connected."
   },
   "dashboard": {

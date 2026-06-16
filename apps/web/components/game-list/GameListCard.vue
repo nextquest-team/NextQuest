@@ -5,7 +5,7 @@ const props = defineProps<{ game: UserGame }>()
 const emit = defineEmits<{
   statusChange: [id: string, status: GameStatus]
   delete: [id: string]
-  click: [gameId: string]
+  click: [userGameId: string]
 }>()
 
 const { t } = useI18n()
@@ -31,7 +31,7 @@ function onDelete(e: Event) {
 </script>
 
 <template>
-  <div class="gl-card" role="button" tabindex="0" @click="emit('click', game.gameId)" @keydown.enter="emit('click', game.gameId)">
+  <div class="gl-card" role="button" tabindex="0" @click="emit('click', game.id)" @keydown.enter="emit('click', game.id)">
 
     <!-- Cover -->
     <div class="gl-card__cover">
@@ -106,7 +106,7 @@ function onDelete(e: Event) {
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
   position: relative;
-  min-height: 110px;
+  height: 120px;
 }
 
 .gl-card:hover {
@@ -122,7 +122,7 @@ function onDelete(e: Event) {
 /* ── Cover ── */
 .gl-card__cover {
   flex-shrink: 0;
-  width: 80px;
+  width: 88px;
   background: rgba(92, 51, 23, 0.08);
 }
 
@@ -164,28 +164,28 @@ function onDelete(e: Event) {
 
 /* ── Statuts ── */
 .gl-card__statuses {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 4px;
-  flex-wrap: wrap;
 }
 
 .gl-card__status-select-wrap { display: none; }
 
 .gl-card__status-btn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 3px 8px;
-  border-radius: 999px;
+  padding: 3px 6px;
+  border-radius: 6px;
   border: 1px solid rgba(92, 51, 23, 0.25);
   background: transparent;
   color: rgba(58, 26, 10, 0.6);
   font-family: var(--nq-font);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   cursor: pointer;
-  white-space: nowrap;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
-  min-height: 28px;
+  min-height: 26px;
 }
 
 .gl-card__status-btn:hover:not(.gl-card__status-btn--active) {

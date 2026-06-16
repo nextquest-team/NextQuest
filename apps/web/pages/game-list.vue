@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
-import type { UserGame, GameStatus } from '~/types/game'
+import type { UserGame, GameStatus, CollectionListResponse } from '~/types/game'
+import { toUserGame } from '~/types/game'
 
 definePageMeta({ ssr: false })
 
@@ -82,26 +83,84 @@ async function enrichGames() {
   }
 }
 
+// ── Filtres, recherche, drawer ───────────────────────────
+const LIMIT = 20
+const drawerOpen = ref(false)
+const searchQuery = ref('')
+const selectedStatuses = ref<GameStatus[]>([])
+
+const STATUS_OPTIONS: { key: GameStatus; icon: string }[] = [
+  { key: 'playing',   icon: 'mdi-play-circle-outline' },
+  { key: 'backlog',   icon: 'mdi-bookmark-outline' },
+  { key: 'completed', icon: 'mdi-check-circle-outline' },
+  { key: 'abandoned', icon: 'mdi-close-circle-outline' },
+]
+
+const activeFilterCount = computed(() => selectedStatuses.value.length)
+
+function toggleStatus(status: GameStatus) {
+  const idx = selectedStatuses.value.indexOf(status)
+  if (idx >= 0) selectedStatuses.value.splice(idx, 1)
+  else selectedStatuses.value.push(status)
+}
+
+function applyFilters() {
+  currentPage.value = 1
+  drawerOpen.value = false
+  fetchGames()
+}
+
+function resetFilters() {
+  selectedStatuses.value = []
+  currentPage.value = 1
+  fetchGames()
+  drawerOpen.value = false
+}
+
+// Debounce sur la recherche : attend 350 ms d'inactivité avant d'appeler l'API
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchQuery, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+    fetchGames()
+  }, 350)
+})
+
+// ── Pagination ───────────────────────────────────────────
+const currentPage = ref(1)
+const total = ref(0)
+const totalPages = computed(() => Math.ceil(total.value / LIMIT))
+
+function goToPage(page: number) {
+  currentPage.value = page
+  fetchGames()
+}
+
 // ── Liste des jeux ───────────────────────────────────────
-// TODO(JB): remplacer le stub par GET /api/collection quand l'endpoint sera disponible.
-// Structure attendue : UserGame[] avec { id, gameId, title, coverUrl, status, playtimeMinutes }
 const gamesLoading = ref(false)
-const games = ref<UserGame[]>([
-  { id: 'ug-1', gameId: 'g-1', title: 'Hollow Knight', coverUrl: null, status: 'playing', playtimeMinutes: 1240 },
-  { id: 'ug-2', gameId: 'g-2', title: 'Zelda: Breath of the Wild', coverUrl: null, status: 'completed', playtimeMinutes: 3600 },
-  { id: 'ug-3', gameId: 'g-3', title: 'Portal 2', coverUrl: null, status: 'backlog', playtimeMinutes: 0 },
-])
+const games = ref<UserGame[]>([])
 
 async function fetchGames() {
-  // TODO(JB): décommenter quand GET /api/collection est disponible
-  // gamesLoading.value = true
-  // try {
-  //   games.value = await $fetch<UserGame[]>(`${apiBase}/api/collection`, {
-  //     credentials: 'include',
-  //     headers: authHeaders(),
-  //   })
-  // } catch { /* conserve les données actuelles en cas d'erreur */ }
-  // finally { gamesLoading.value = false }
+  gamesLoading.value = true
+  try {
+    const query: Record<string, string | number> = {
+      limit: LIMIT,
+      offset: (currentPage.value - 1) * LIMIT,
+    }
+    if (searchQuery.value.trim()) query.search = searchQuery.value.trim()
+    // API supporte un seul status pour l'instant — multi-select prévu côté API
+    if (selectedStatuses.value.length === 1) query.status = selectedStatuses.value[0]
+
+    const res = await $fetch<CollectionListResponse>(`${apiBase}/api/collection`, {
+      query,
+      credentials: 'include',
+      headers: authHeaders(),
+    })
+    games.value = res.items.map(toUserGame)
+    total.value = res.total
+  } catch { /* conserve les données actuelles en cas d'erreur réseau */ }
+  finally { gamesLoading.value = false }
 }
 
 // ── Actions sur les jeux ─────────────────────────────────
@@ -117,18 +176,35 @@ async function onStatusChange(userGameId: string, status: GameStatus) {
       credentials: 'include',
       headers: authHeaders(),
     })
+    // Recharge si le statut sorti du filtre actif
+    if (selectedStatuses.value.length === 1 && !selectedStatuses.value.includes(status)) {
+      await fetchGames()
+    }
   } catch {
     game.status = previous
   }
 }
 
-function onDeleteGame(id: string) {
-  games.value = games.value.filter(g => g.id !== id)
-  // TODO(JB): DELETE /api/collection/:userGameId (endpoint à venir)
+async function onDeleteGame(userGameId: string) {
+  games.value = games.value.filter(g => g.id !== userGameId)
+  total.value = Math.max(0, total.value - 1)
+  // Revenir à la page précédente si la page courante est maintenant vide
+  if (games.value.length === 0 && currentPage.value > 1) {
+    currentPage.value--
+  }
+  try {
+    await $fetch(`${apiBase}/api/collection/${userGameId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: authHeaders(),
+    })
+  } catch {
+    await fetchGames()
+  }
 }
 
-function onCardClick(gameId: string) {
-  navigateTo(`/games/${gameId}`)
+function onCardClick(userGameId: string) {
+  navigateTo(`/games/${userGameId}`)
 }
 
 // ── Modale d'ajout ───────────────────────────────────────
@@ -216,8 +292,91 @@ onMounted(() => {
       </div>
     </Transition>
 
+    <!-- Barre recherche + filtre -->
+    <div class="gl__toolbar">
+      <div class="gl__search-wrap">
+        <v-icon class="gl__search-icon" size="18">mdi-magnify</v-icon>
+        <input
+          v-model="searchQuery"
+          class="gl__search"
+          type="search"
+          :placeholder="t('gameList.searchPlaceholder')"
+        />
+      </div>
+      <button class="gl__filter-toggle" :class="{ 'gl__filter-toggle--active': activeFilterCount > 0 }" @click="drawerOpen = true">
+        <v-icon size="18">mdi-tune-variant</v-icon>
+        {{ t('gameList.filterBtn') }}
+        <span v-if="activeFilterCount > 0" class="gl__filter-badge">{{ activeFilterCount }}</span>
+      </button>
+    </div>
+
+    <!-- Drawer filtres -->
+    <v-navigation-drawer v-model="drawerOpen" location="right" temporary width="300">
+      <div class="gl-drawer">
+        <div class="gl-drawer__header">
+          <span class="gl-drawer__title">{{ t('gameList.filterBtn') }}</span>
+          <div class="gl-drawer__header-actions">
+            <button v-if="activeFilterCount > 0" class="gl-drawer__reset" @click="resetFilters">
+              {{ t('gameList.filterReset') }}
+            </button>
+            <button class="gl-drawer__close" @click="drawerOpen = false">
+              <v-icon size="20">mdi-close</v-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Statut -->
+        <div class="gl-drawer__section">
+          <p class="gl-drawer__section-title">{{ t('gameList.status.label') }}</p>
+          <div class="gl-drawer__checks">
+            <label v-for="s in STATUS_OPTIONS" :key="s.key" class="gl-drawer__check-item">
+              <input
+                type="checkbox"
+                class="gl-drawer__checkbox"
+                :checked="selectedStatuses.includes(s.key)"
+                @change="toggleStatus(s.key)"
+              />
+              <v-icon size="16">{{ s.icon }}</v-icon>
+              <span>{{ t(`gameList.status.${s.key}`) }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Plateforme -->
+        <div class="gl-drawer__section gl-drawer__section--soon">
+          <p class="gl-drawer__section-title">
+            {{ t('gameList.filterPlatform') }}
+            <span class="gl-drawer__soon">{{ t('gameList.soon') }}</span>
+          </p>
+          <div class="gl-drawer__chips">
+            <span v-for="p in ['Steam', 'Switch', 'Xbox', 'PSN']" :key="p" class="gl-drawer__chip">{{ p }}</span>
+          </div>
+        </div>
+
+        <!-- Tags / Catégories -->
+        <div class="gl-drawer__section gl-drawer__section--soon">
+          <p class="gl-drawer__section-title">
+            {{ t('gameList.filterTags') }}
+            <span class="gl-drawer__soon">{{ t('gameList.soon') }}</span>
+          </p>
+          <p class="gl-drawer__soon-hint">{{ t('gameList.filterTagsHint') }}</p>
+        </div>
+
+        <div class="gl-drawer__footer">
+          <button class="gl__btn gl__btn--add" style="width:100%;justify-content:center" @click="applyFilters">
+            {{ t('gameList.filterApply') }}
+          </button>
+        </div>
+      </div>
+    </v-navigation-drawer>
+
+    <!-- Loader -->
+    <div v-if="gamesLoading" class="gl__loader">
+      <v-progress-circular indeterminate size="32" color="#5C3317" />
+    </div>
+
     <!-- Liste vide -->
-    <div v-if="games.length === 0" class="gl__empty">
+    <div v-else-if="games.length === 0" class="gl__empty">
       <v-icon size="56" color="#a07850">mdi-gamepad-variant-outline</v-icon>
       <p class="gl__empty-title">{{ t('gameList.empty') }}</p>
       <p class="gl__empty-hint">{{ t('gameList.emptyHint') }}</p>
@@ -235,6 +394,31 @@ onMounted(() => {
       />
     </div>
 
+    <!-- Pagination -->
+    <div v-if="totalPages > 1" class="gl__pagination">
+      <button
+        class="gl__page-btn"
+        :disabled="currentPage === 1"
+        @click="goToPage(currentPage - 1)"
+      >
+        <v-icon size="18">mdi-chevron-left</v-icon>
+        {{ t('gameList.pagination.prev') }}
+      </button>
+
+      <span class="gl__page-info">
+        {{ t('gameList.pagination.page', { current: currentPage, total: totalPages }) }}
+      </span>
+
+      <button
+        class="gl__page-btn"
+        :disabled="currentPage === totalPages"
+        @click="goToPage(currentPage + 1)"
+      >
+        {{ t('gameList.pagination.next') }}
+        <v-icon size="18">mdi-chevron-right</v-icon>
+      </button>
+    </div>
+
     <!-- Modale d'ajout IGDB -->
     <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" />
   </div>
@@ -245,9 +429,9 @@ onMounted(() => {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1.5rem 1.5rem 3rem;
   font-family: var(--nq-font);
-  max-width: 800px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
 }
@@ -387,11 +571,289 @@ onMounted(() => {
   max-width: 340px;
 }
 
-/* ── Grille ── */
-.gl__grid {
+/* ── Toolbar recherche + filtre ── */
+.gl__toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.gl__search-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.gl__search-icon {
+  position: absolute;
+  left: 10px;
+  color: rgba(58, 26, 10, 0.45);
+  pointer-events: none;
+}
+
+.gl__search {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(92, 51, 23, 0.22);
+  background: rgba(255, 255, 255, 0.65);
+  font-family: var(--nq-font);
+  font-size: 0.88rem;
+  color: var(--nq-brown-dark, #3A1A0A);
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  height: 40px;
+}
+
+.gl__search::placeholder { color: rgba(58, 26, 10, 0.4); }
+.gl__search:focus {
+  border-color: rgba(92, 51, 23, 0.5);
+  background: #fff;
+}
+.gl__search::-webkit-search-cancel-button { cursor: pointer; }
+
+.gl__filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(92, 51, 23, 0.22);
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--nq-brown-dark, #3A1A0A);
+  font-family: var(--nq-font);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.gl__filter-toggle:hover {
+  background: rgba(92, 51, 23, 0.06);
+  border-color: rgba(92, 51, 23, 0.4);
+}
+
+.gl__filter-toggle--active {
+  border-color: var(--nq-brown, #5C3317);
+  color: var(--nq-brown, #5C3317);
+}
+
+.gl__filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--nq-brown, #5C3317);
+  color: #edc78e;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* ── Drawer ── */
+.gl-drawer {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  height: 100%;
+  font-family: var(--nq-font);
+}
+
+.gl-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid rgba(92, 51, 23, 0.1);
+}
+
+.gl-drawer__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--nq-brown-dark, #3A1A0A);
+}
+
+.gl-drawer__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gl-drawer__reset {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--nq-font);
+  font-size: 0.78rem;
+  color: var(--nq-brown, #5C3317);
+  text-decoration: underline;
+  padding: 0;
+}
+
+.gl-drawer__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(58, 26, 10, 0.5);
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+}
+
+.gl-drawer__close:hover { color: var(--nq-brown-dark, #3A1A0A); }
+
+.gl-drawer__section {
+  padding: 1rem 1rem 0.5rem;
+  border-bottom: 1px solid rgba(92, 51, 23, 0.08);
+}
+
+.gl-drawer__section--soon {
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+
+.gl-drawer__section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(58, 26, 10, 0.55);
+  margin: 0 0 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gl-drawer__soon {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  background: rgba(92, 51, 23, 0.12);
+  color: var(--nq-brown, #5C3317);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.gl-drawer__soon-hint {
+  font-size: 0.78rem;
+  color: rgba(58, 26, 10, 0.45);
+  margin: 0;
+}
+
+.gl-drawer__checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gl-drawer__check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--nq-brown-dark, #3A1A0A);
+  transition: background 0.12s;
+}
+
+.gl-drawer__check-item:hover { background: rgba(92, 51, 23, 0.06); }
+
+.gl-drawer__checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--nq-brown, #5C3317);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.gl-drawer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gl-drawer__chip {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(92, 51, 23, 0.2);
+  font-size: 0.78rem;
+  color: rgba(58, 26, 10, 0.6);
+  background: transparent;
+}
+
+.gl-drawer__footer {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid rgba(92, 51, 23, 0.1);
+}
+
+/* ── Loader ── */
+.gl__loader {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 0;
+}
+
+/* ── Grille ── */
+.gl__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 480px) {
+  .gl__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Pagination ── */
+.gl__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.gl__page-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 51, 23, 0.25);
+  background: transparent;
+  color: var(--nq-brown, #5C3317);
+  font-family: var(--nq-font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.gl__page-btn:hover:not(:disabled) {
+  background: rgba(92, 51, 23, 0.08);
+}
+
+.gl__page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.gl__page-info {
+  font-size: 0.85rem;
+  color: rgba(58, 26, 10, 0.7);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Transitions ── */

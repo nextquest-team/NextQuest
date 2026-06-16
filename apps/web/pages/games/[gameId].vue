@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { $fetch } from 'ofetch'
-import type { GameStatus, GameDetail } from '~/types/game'
+import type { GameStatus, CollectionDetailDTO } from '~/types/game'
 
 definePageMeta({ ssr: false })
 
@@ -15,62 +15,6 @@ function authHeaders() {
   return { Authorization: `Bearer ${store.accessToken}` }
 }
 
-// TODO(JB): remplacer le stub par GET /api/collection/:userGameId + données IGDB quand disponible.
-// Structure attendue : GameDetail avec { id, gameId, title, coverUrl, status, playtimeMinutes, igdb: IgdbData | null }
-const STUB_GAMES: GameDetail[] = [
-  {
-    id: 'ug-1',
-    gameId: 'g-1',
-    title: 'Hollow Knight',
-    coverUrl: null,
-    status: 'playing',
-    playtimeMinutes: 1240,
-    igdb: {
-      summary: 'Forge your own path in Hollow Knight! An epic action adventure through a vast ruined kingdom of insects and heroes. Explore twisting caverns, battle tainted creatures and befriend bizarre bugs, all while unraveling an ancient mystery at the kingdom\'s heart.',
-      releaseDate: '2017-02-24',
-      developer: 'Team Cherry',
-      publisher: 'Team Cherry',
-      genres: ['Platformer', 'Action', 'Adventure'],
-      platforms: ['PC', 'Nintendo Switch', 'PS4', 'Xbox One'],
-      igdbRating: 91,
-    },
-  },
-  {
-    id: 'ug-2',
-    gameId: 'g-2',
-    title: 'Zelda: Breath of the Wild',
-    coverUrl: null,
-    status: 'completed',
-    playtimeMinutes: 3600,
-    igdb: {
-      summary: 'Step into a world of discovery, exploration, and adventure in The Legend of Zelda: Breath of the Wild. Travel across vast fields, through forests, and to mountain peaks as you discover what has become of the ruined kingdom of Hyrule.',
-      releaseDate: '2017-03-03',
-      developer: 'Nintendo EPD',
-      publisher: 'Nintendo',
-      genres: ['RPG', 'Action', 'Adventure'],
-      platforms: ['Nintendo Switch', 'Wii U'],
-      igdbRating: 97,
-    },
-  },
-  {
-    id: 'ug-3',
-    gameId: 'g-3',
-    title: 'Portal 2',
-    coverUrl: null,
-    status: 'backlog',
-    playtimeMinutes: 0,
-    igdb: {
-      summary: 'The single-player portion of Portal 2 introduces a cast of dynamic new characters, a host of fresh puzzle elements, and a much larger set of devious test chambers.',
-      releaseDate: '2011-04-18',
-      developer: 'Valve',
-      publisher: 'Valve',
-      genres: ['Puzzle', 'Platformer'],
-      platforms: ['PC', 'PS3', 'Xbox 360'],
-      igdbRating: 95,
-    },
-  },
-]
-
 const STATUSES: { key: GameStatus; icon: string }[] = [
   { key: 'backlog',   icon: 'mdi-bookmark-outline' },
   { key: 'playing',  icon: 'mdi-play-circle-outline' },
@@ -78,21 +22,20 @@ const STATUSES: { key: GameStatus; icon: string }[] = [
   { key: 'abandoned', icon: 'mdi-close-circle-outline' },
 ]
 
-// TODO(JB): décommenter quand GET /api/collection/:userGameId est disponible
-// const game = ref<GameDetail | null>(null)
-// onMounted(async () => {
-//   try {
-//     game.value = await $fetch<GameDetail>(`${apiBase}/api/collection/${route.params.gameId}`, {
-//       credentials: 'include',
-//       headers: authHeaders(),
-//     })
-//   } catch { /* game reste null → affiche l'écran "introuvable" */ }
-// })
-const game = ref<GameDetail | null>(
-  STUB_GAMES.find(g => g.gameId === route.params.gameId) ?? null,
-)
+const game = ref<CollectionDetailDTO | null>(null)
+const loading = ref(true)
 
-function formatPlaytime(minutes: number | undefined) {
+onMounted(async () => {
+  try {
+    game.value = await $fetch<CollectionDetailDTO>(
+      `${apiBase}/api/collection/${route.params.gameId}`,
+      { credentials: 'include', headers: authHeaders() },
+    )
+  } catch { /* game reste null → affiche l'écran "introuvable" */ }
+  finally { loading.value = false }
+})
+
+function formatPlaytime(minutes: number | null | undefined) {
   if (!minutes) return null
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
@@ -109,7 +52,7 @@ async function onStatusChange(status: GameStatus) {
   const previous = game.value.status
   game.value.status = status
   try {
-    await $fetch(`${apiBase}/api/collection/${game.value.id}/status`, {
+    await $fetch(`${apiBase}/api/collection/${game.value.userGameId}/status`, {
       method: 'PATCH',
       body: { status },
       credentials: 'include',
@@ -124,15 +67,14 @@ const showRemoveConfirm = ref(false)
 
 async function confirmRemove() {
   showRemoveConfirm.value = false
-  // TODO(JB): DELETE /api/collection/:userGameId quand l'endpoint sera disponible
-  // try {
-  //   await $fetch(`${apiBase}/api/collection/${game.value?.id}`, {
-  //     method: 'DELETE',
-  //     credentials: 'include',
-  //     headers: authHeaders(),
-  //   })
-  // } catch { /* ignorer — on navigue quand même */ }
-  router.back()
+  try {
+    await $fetch(`${apiBase}/api/collection/${game.value?.userGameId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: authHeaders(),
+    })
+  } catch { /* on navigue quand même */ }
+  navigateTo('/game-list')
 }
 </script>
 
@@ -144,8 +86,13 @@ async function confirmRemove() {
       {{ t('gameDetail.back') }}
     </button>
 
+    <!-- Chargement -->
+    <div v-if="loading" class="gd__not-found">
+      <v-icon size="40" color="#a07850">mdi-loading mdi-spin</v-icon>
+    </div>
+
     <!-- Jeu introuvable -->
-    <div v-if="!game" class="gd__not-found">
+    <div v-else-if="!game" class="gd__not-found">
       <v-icon size="56" color="#a07850">mdi-help-circle-outline</v-icon>
       <p class="gd__nf-title">{{ t('gameDetail.notFound') }}</p>
       <p class="gd__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
@@ -155,14 +102,14 @@ async function confirmRemove() {
       <!-- Hero : cover + titre + statut -->
       <div class="gd__hero">
         <div class="gd__cover">
-          <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="gd__cover-img" />
+          <img v-if="game.game.coverUrl" :src="game.game.coverUrl" :alt="game.game.title" class="gd__cover-img" />
           <div v-else class="gd__cover-placeholder">
             <v-icon size="56" color="#a07850">mdi-gamepad-variant</v-icon>
           </div>
         </div>
 
         <div class="gd__hero-info">
-          <h1 class="gd__title">{{ game.title }}</h1>
+          <h1 class="gd__title">{{ game.game.title }}</h1>
 
           <!-- Statut -->
           <p class="gd__label">{{ t('gameDetail.status') }}</p>
@@ -189,61 +136,75 @@ async function confirmRemove() {
         </div>
       </div>
 
-      <!-- Bannière IGDB coming soon si pas de données -->
-      <div v-if="!game.igdb" class="gd__coming-soon">
+      <!-- Bannière si pas encore enrichi IGDB -->
+      <div v-if="!game.game.isEnriched" class="gd__coming-soon">
         <v-icon size="18" color="#a07850">mdi-information-outline</v-icon>
         {{ t('gameDetail.comingSoon') }}
       </div>
 
       <template v-else>
         <!-- Synopsis -->
-        <section class="gd__section">
+        <section v-if="game.description" class="gd__section">
           <h2 class="gd__section-title">{{ t('gameDetail.summary') }}</h2>
-          <p class="gd__summary">{{ game.igdb.summary ?? t('gameDetail.noSummary') }}</p>
+          <p class="gd__summary">{{ game.description }}</p>
         </section>
 
         <!-- Infos IGDB -->
         <section class="gd__section">
           <dl class="gd__meta">
-            <template v-if="game.igdb.releaseDate">
+            <template v-if="game.game.releaseDate">
               <dt class="gd__dt">{{ t('gameDetail.releaseDate') }}</dt>
-              <dd class="gd__dd">{{ formatReleaseDate(game.igdb.releaseDate) }}</dd>
+              <dd class="gd__dd">{{ formatReleaseDate(game.game.releaseDate) }}</dd>
             </template>
 
-            <template v-if="game.igdb.developer">
+            <template v-if="game.game.developer">
               <dt class="gd__dt">{{ t('gameDetail.developer') }}</dt>
-              <dd class="gd__dd">{{ game.igdb.developer }}</dd>
+              <dd class="gd__dd">{{ game.game.developer }}</dd>
             </template>
 
-            <template v-if="game.igdb.publisher && game.igdb.publisher !== game.igdb.developer">
+            <template v-if="game.game.publisher && game.game.publisher !== game.game.developer">
               <dt class="gd__dt">{{ t('gameDetail.publisher') }}</dt>
-              <dd class="gd__dd">{{ game.igdb.publisher }}</dd>
+              <dd class="gd__dd">{{ game.game.publisher }}</dd>
             </template>
 
-            <template v-if="game.igdb.genres.length">
+            <template v-if="game.genres.length">
               <dt class="gd__dt">{{ t('gameDetail.genres') }}</dt>
               <dd class="gd__dd">
-                <span v-for="g in game.igdb.genres" :key="g" class="gd__chip">{{ g }}</span>
+                <span v-for="g in game.genres" :key="g.id" class="gd__chip">{{ g.name }}</span>
               </dd>
             </template>
 
-            <template v-if="game.igdb.platforms.length">
-              <dt class="gd__dt">{{ t('gameDetail.platforms') }}</dt>
+            <template v-if="game.tags.length">
+              <dt class="gd__dt">{{ t('gameDetail.tags') }}</dt>
               <dd class="gd__dd">
-                <span v-for="p in game.igdb.platforms" :key="p" class="gd__chip">{{ p }}</span>
+                <span v-for="tag in game.tags" :key="tag.id" class="gd__chip gd__chip--tag">{{ tag.name }}</span>
               </dd>
             </template>
 
-            <template v-if="game.igdb.igdbRating !== null">
+            <template v-if="game.game.igdbRating !== null">
               <dt class="gd__dt">{{ t('gameDetail.igdbRating') }}</dt>
               <dd class="gd__dd">
                 <span class="gd__rating">
                   <v-icon size="16" color="#c8a44a">mdi-star</v-icon>
-                  {{ game.igdb.igdbRating }}<span class="gd__rating-max">/100</span>
+                  {{ game.game.igdbRating }}<span class="gd__rating-max">/100</span>
                 </span>
               </dd>
             </template>
           </dl>
+        </section>
+
+        <!-- Jeux similaires -->
+        <section v-if="game.similarGames.length" class="gd__section">
+          <h2 class="gd__section-title">{{ t('gameDetail.similarGames') }}</h2>
+          <div class="gd__similar">
+            <div v-for="sim in game.similarGames" :key="sim.id" class="gd__similar-item">
+              <div class="gd__similar-cover">
+                <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
+                <v-icon v-else size="24" color="#a07850">mdi-gamepad-variant</v-icon>
+              </div>
+              <span class="gd__similar-title">{{ sim.title }}</span>
+            </div>
+          </div>
         </section>
       </template>
 
@@ -506,6 +467,55 @@ async function confirmRemove() {
   padding: 2px 10px;
   font-size: 0.78rem;
   font-weight: 600;
+}
+
+.gd__chip--tag {
+  background: rgba(92, 51, 23, 0.04);
+  font-weight: 400;
+  color: rgba(58, 26, 10, 0.6);
+}
+
+/* ── Jeux similaires ── */
+.gd__similar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gd__similar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 80px;
+}
+
+.gd__similar-cover {
+  width: 80px;
+  height: 106px;
+  border-radius: 8px;
+  background: rgba(92, 51, 23, 0.08);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gd__similar-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gd__similar-title {
+  font-size: 0.7rem;
+  color: rgba(58, 26, 10, 0.7);
+  text-align: center;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ── Note IGDB ── */

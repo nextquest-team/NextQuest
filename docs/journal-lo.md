@@ -911,6 +911,32 @@ Alignement sur le `UserDTO` de l'API — champs ajoutés : `bio`, `visibility`, 
 
 ---
 
+## 2026-06-16 — Module collection : game-list, page détail, filtres et recherche
+
+### Résumé exécutif
+
+Session de fond sur la branche `feat/front-collection`. Objectif : livrer deux pages frontend entièrement câblées sur les routes API collection que JB avait livrées via `develop`, plus le refactor des filtres en drawer et l'ajout d'un moteur de recherche server-side.
+
+**Types centralisés** — Tous les types liés à la collection sont extraits dans `apps/web/types/game.ts` : `GameStatus`, `CollectionGameMeta`, `CollectionItemDTO`, `CollectionDetailDTO`, `CollectionListResponse`, `UserGame`, et le helper `toUserGame()`. Aucun type n'est exporté depuis un composant — le fichier est la source de vérité partagée entre `game-list.vue`, `[gameId].vue` et `GameListCard.vue`.
+
+**`GameListCard.vue`** — Carte de collection avec cover, titre et 4 boutons de statut. Sur mobile (≤480px), les 4 pills sont remplacées par un `<select>` natif via CSS seul. Sur desktop, les boutons sont en grille 2×2 (compact et symétrique). Les clics sur les pills déclenchent un PATCH optimiste : l'UI se met à jour immédiatement avec rollback si l'API échoue. La card est en hauteur fixe (`120px`) pour homogénéiser les rangées de la grille CSS.
+
+**Page `game-list.vue`** — Câblée sur `GET /api/collection` avec pagination 20 par page. Grille CSS `auto-fill minmax(360px, 1fr)` — 1 colonne mobile, 2 tablette, 3+ desktop. Contient : Steam (lier / importer), enrich IGDB, ajout manuel (modale placeholder), pagination avec compteur "Page X / Y", toolbar recherche + bouton drawer de filtres. Conteneur élargi à `max-width: 1400px` pour utiliser l'espace disponible.
+
+**Page `games/[gameId].vue`** — Route dynamique Nuxt (le param `gameId` contient le `userGameId`, pas le `games.id`). Appelle `GET /api/collection/:userGameId` pour le détail complet. Affiche : cover, titre, statut modifiable, synopsis, date de sortie, développeur, éditeur, genres, tags, note IGDB, temps de jeu, jeux similaires. Bannière "données IGDB bientôt disponibles" si `!game.game.isEnriched`. Suppression depuis la fiche redirige vers `/game-list`.
+
+**Fix callback Steam** — La route OAuth redirectait vers `/settings?steam=linked` (page inexistante → 404). Corrigé en `/game-list?steam=linked` dans `steam.routes.ts`.
+
+**Rebases depuis `develop`** — Deux rebases successifs pour récupérer les routes API collection livrées par JB. Conflits résolus manuellement dans `fr.json` et `en.json` : section `profil` complète de `develop` conservée, sections `gameList` et `gameDetail` ajoutées, doublon `profil.cancel` supprimé.
+
+**Architecture multi-plateforme** — Décision de conception retenue : la table `games` est le pivot central. Steam, Switch, PSN et toute autre source créent des entrées dans `games` avec leur ID natif. L'enrichissement IGDB mappe via `igdb_id`. Ainsi `user_games.game_id → games.id` est platform-agnostique : la fiche détail IGDB est accessible quel que soit le mode d'import. Le flag `isEnriched` gate l'affichage des métadonnées IGDB.
+
+**Filtres et pagination** — Implémentés en deux temps : d'abord en onglets pills, puis refactorisés en toolbar (`[🔍 Recherche] [Filtres]`) + drawer Vuetify (`v-navigation-drawer location="right" temporary`). Le drawer contient : statut multi-select (checkboxes, badge de comptage sur le bouton), plateforme et tags en placeholder "Bientôt". Note : l'API supporte un seul `?status=` pour l'instant — le multi-select enverra plusieurs valeurs quand JB étendra le schema.
+
+**Moteur de recherche server-side** — Champ de recherche avec debounce 350 ms côté frontend, envoie `?search=` à l'API. Backend : `search: z.string().trim().min(1).max(100).optional()` dans `listCollectionQuerySchema`, `ilike(games.title, \`%${search}%\`)` dans `listCollection()` (Drizzle). Correctif appliqué : le `count()` pour la pagination ne joingnait pas la table `games` quand `search` était présent → 500. Fix : `.$dynamic()` + join conditionnel sur la requête de comptage uniquement si `search` est fourni.
+
+---
+
 ## 2026-05-12 — Session 13 : Auto-typage OpenAPI
 
 ### Ce qui a été fait

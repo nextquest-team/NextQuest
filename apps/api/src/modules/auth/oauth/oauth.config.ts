@@ -4,6 +4,7 @@ interface ProviderConfig {
   authorizationUrl: string;
   tokenUrl: string;
   scopes: string[];
+  prompt?: string;
 }
 
 // Configs statiques (URLs, scopes) -- les credentials viennent de process.env a l'appel,
@@ -15,6 +16,8 @@ const providerConfigs: Record<string, Omit<ProviderConfig, "clientId" | "clientS
     authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
     scopes: ["openid", "email", "profile"],
+    // Force Google à afficher le sélecteur de compte à chaque connexion
+    prompt: "select_account",
   },
   microsoft: {
     clientIdEnv: "MICROSOFT_CLIENT_ID",
@@ -35,6 +38,7 @@ export function getProviderConfig(provider: string): ProviderConfig | null {
     authorizationUrl: cfg.authorizationUrl,
     tokenUrl: cfg.tokenUrl,
     scopes: cfg.scopes,
+    prompt: cfg.prompt,
   };
 }
 
@@ -69,6 +73,7 @@ export function buildAuthorizationUrl(
     response_type: "code",
     scope: config.scopes.join(" "),
     state,
+    ...(config.prompt ? { prompt: config.prompt } : {}),
   });
 
   return `${config.authorizationUrl}?${params.toString()}`;

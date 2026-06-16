@@ -9,7 +9,7 @@ import {
   gameTags,
   gameSimilar,
 } from "@nextquest/db";
-import { and, eq, sql, inArray, desc, count, isNull } from "drizzle-orm";
+import { and, eq, sql, inArray, desc, count, isNull, ilike } from "drizzle-orm";
 import type {
   GameStatus,
   UpdateUserGameInput,
@@ -161,21 +161,26 @@ async function tagsByGame(gameIds: string[]): Promise<Map<string, TagRef[]>> {
 export async function listCollection(params: {
   userId: string;
   status?: GameStatus;
+  search?: string;
   limit: number;
   offset: number;
   includeHidden: boolean;
 }): Promise<{ items: CollectionItemDTO[]; total: number }> {
-  const { userId, status, limit, offset, includeHidden } = params;
+  const { userId, status, search, limit, offset, includeHidden } = params;
   const conds = [eq(userGames.userId, userId)];
   if (status) conds.push(eq(userGames.status, status));
+  if (search) conds.push(ilike(games.title, `%${search}%`));
   if (!includeHidden) conds.push(eq(userGames.isHidden, false));
   const where = and(...conds);
 
-  // total robuste (independant de l'offset, contrairement a count(*) OVER()).
-  const [{ total }] = await db
+  // total robuste — si search est présent, il faut joindre games pour le count aussi.
+  const countQuery = db
     .select({ total: count() })
     .from(userGames)
-    .where(where);
+    .$dynamic();
+  const [{ total }] = await (search
+    ? countQuery.innerJoin(games, eq(userGames.gameId, games.id)).where(where)
+    : countQuery.where(where));
   if (total === 0) return { items: [], total: 0 };
 
   const rows = await db

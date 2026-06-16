@@ -1,23 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Fastify from "fastify";
-import { ZodError } from "zod";
 import { db, users, games, userGames } from "@nextquest/db";
+import { validatorCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../plugins/jwt.js";
+import { registerErrorHandler } from "../../../lib/error-handler.js";
+import { registerSwagger } from "../../../plugins/swagger.js";
 import { collectionRoutes } from "../collection.routes.js";
 import type { GameStatus } from "../collection.schemas.js";
 
 async function buildApp() {
   const app = Fastify();
-  app.setErrorHandler(
-    (error: Error & { statusCode?: number }, _request, reply) => {
-      if (error instanceof ZodError) {
-        return reply.code(400).send({ error: "Validation Error" });
-      }
-      return reply
-        .code(error.statusCode ?? 500)
-        .send({ error: error.message || "Internal Server Error" });
-    },
-  );
+  app.setValidatorCompiler(validatorCompiler);
+  registerErrorHandler(app);
+  await registerSwagger(app);
   await registerJwt(app);
   await app.register(collectionRoutes, { prefix: "/api" });
   await app.ready();
@@ -148,5 +143,167 @@ describe("PATCH /api/collection/:userGameId/status", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body).status).toBe("playing");
+  });
+
+  it("documente le body de la route dans l'OpenAPI", async () => {
+    const app = await buildApp();
+    const spec = app.swagger() as {
+      paths: Record<string, Record<string, { requestBody?: unknown }>>;
+    };
+    const op = spec.paths["/api/collection/{userGameId}/status"].patch;
+    expect(op.requestBody).toBeDefined();
+    expect(JSON.stringify(op.requestBody)).toContain("playing");
+  });
+});
+
+describe("GET /api/collection", () => {
+  it("401 sans JWT", async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: "GET", url: "/api/collection" });
+    expect(res.statusCode).toBe(401);
+  });
+  it("200 et renvoie items + total + limit + offset", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame("playing");
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/collection",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.total).toBe(1);
+    expect(body.items[0].game.title).toBeDefined();
+    expect(body.limit).toBe(20);
+  });
+  it("400 si limit > 100", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/collection?limit=999",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("GET /api/collection/:userGameId", () => {
+  it("404 si le jeu appartient a un autre user", async () => {
+    const app = await buildApp();
+    const { userGameId } = await seedUserGame();
+    const [other] = await db
+      .insert(users)
+      .values({ email: "o2@test.com", username: "o2", passwordHash: "x" })
+      .returning({ id: users.id });
+    const token = app.jwt.sign({ sub: other.id });
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/collection/${userGameId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+  it("200 et renvoie le detail du jeu possede", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/collection/${userGameId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).userGameId).toBe(userGameId);
+  });
+});
+
+describe("PATCH /api/collection/:userGameId", () => {
+  it("400 sur body vide", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/collection/${userGameId}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(400);
+  });
+  it("200 met a jour la note", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/collection/${userGameId}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { rating: 7 },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).rating).toBe(7);
+  });
+});
+
+describe("DELETE /api/collection/:userGameId", () => {
+  it("204 et supprime", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/collection/${userGameId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(204);
+  });
+  it("404 si non possede", async () => {
+    const app = await buildApp();
+    const { userGameId } = await seedUserGame();
+    const [other] = await db
+      .insert(users)
+      .values({ email: "o3@test.com", username: "o3", passwordHash: "x" })
+      .returning({ id: users.id });
+    const token = app.jwt.sign({ sub: other.id });
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/collection/${userGameId}`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("POST /api/collection", () => {
+  it("201 ajoute un jeu existant", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const [g] = await db
+      .insert(games)
+      .values({ title: "Add Me", slug: "add-me-1" })
+      .returning({ id: games.id });
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { gameId: g.id },
+    });
+    expect(res.statusCode).toBe(201);
+  });
+  it("404 si le jeu n'existe pas", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { gameId: "00000000-0000-0000-0000-000000000000" },
+    });
+    expect(res.statusCode).toBe(404);
   });
 });

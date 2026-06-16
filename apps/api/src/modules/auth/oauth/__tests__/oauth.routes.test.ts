@@ -1,33 +1,19 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db, users, authProviders, sessions } from "@nextquest/db";
-import { ZodError } from "zod";
 import Fastify from "fastify";
+import { validatorCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../../plugins/jwt.js";
 import { registerCookie } from "../../../../plugins/cookie.js";
 import { registerRateLimit } from "../../../../plugins/rate-limit.js";
+import { registerErrorHandler } from "../../../../lib/error-handler.js";
+import { registerSwagger } from "../../../../plugins/swagger.js";
 import { oauthRoutes } from "../oauth.routes.js";
 
 async function buildApp() {
   const app = Fastify();
-
-  // Add Zod error handler (same as in server.ts)
-  app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
-    if (error instanceof ZodError) {
-      return reply.code(400).send({
-        error: "Validation Error",
-        details: error.issues.map((issue) => ({
-          field: issue.path.join("."),
-          message: issue.message,
-        })),
-      });
-    }
-
-    app.log.error(error);
-    return reply.code(error.statusCode ?? 500).send({
-      error: error.message || "Internal Server Error",
-    });
-  });
-
+  app.setValidatorCompiler(validatorCompiler);
+  registerErrorHandler(app);
+  await registerSwagger(app);
   await registerJwt(app);
   await registerCookie(app);
   await registerRateLimit(app);

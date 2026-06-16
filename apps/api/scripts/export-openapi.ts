@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { writeFileSync } from 'node:fs'
 import Fastify from 'fastify'
+import { validatorCompiler, serializerCompiler } from 'fastify-type-provider-zod'
 import { registerCors } from '../src/plugins/cors.js'
 import { registerSwagger } from '../src/plugins/swagger.js'
 import { registerJwt } from '../src/plugins/jwt.js'
@@ -11,11 +12,21 @@ import { registerRateLimit } from '../src/plugins/rate-limit.js'
 import { healthRoutes } from '../src/modules/health/health.routes.js'
 import { authRoutes } from '../src/modules/auth/auth.routes.js'
 import { oauthRoutes } from '../src/modules/auth/oauth/oauth.routes.js'
+import { usersRoutes } from '../src/modules/users/users.routes.js'
+import { steamRoutes } from '../src/modules/platforms/steam/steam.routes.js'
+import { collectionRoutes } from '../src/modules/collection/collection.routes.js'
+import { igdbRoutes } from '../src/modules/games/igdb/igdb.routes.js'
+import { gamesRoutes } from '../src/modules/games/games.routes.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 config({ path: resolve(__dirname, '../../../.env') })
 
 const app = Fastify({ logger: false })
+
+// Mêmes compilers que server.ts : sans eux, les schémas Zod des routes ne sont
+// ni validés ni sérialisés correctement (la génération du spec échoue).
+app.setValidatorCompiler(validatorCompiler)
+app.setSerializerCompiler(serializerCompiler)
 
 async function main() {
   // Même ordre que server.ts — certaines routes appellent app.rateLimit()
@@ -27,6 +38,11 @@ async function main() {
 
   await app.register(healthRoutes, { prefix: '/api' })
   await app.register(authRoutes, { prefix: '/api' })
+  await app.register(usersRoutes, { prefix: '/api' })
+  await app.register(steamRoutes, { prefix: '/api' })
+  await app.register(collectionRoutes, { prefix: '/api' })
+  await app.register(igdbRoutes, { prefix: '/api' })
+  await app.register(gamesRoutes, { prefix: '/api' })
   await app.register(oauthRoutes, { prefix: '/api/auth' })
 
   await app.ready()

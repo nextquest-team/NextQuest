@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { z } from "zod";
 import {
   getProviderConfig,
@@ -45,8 +46,10 @@ const providerParamSchema = z.object({
 });
 
 export async function oauthRoutes(app: FastifyInstance) {
+  const r = app.withTypeProvider<ZodTypeProvider>();
+
   // Initiation : renvoie l'URL d'autorisation du provider
-  app.get("/oauth/:provider", {
+  r.get("/oauth/:provider", {
     // Anti-spam : un user legitime initie un flow OAuth rarement.
     // 30/min couvre les retries reseau et tabs multiples.
     preHandler: app.rateLimit({ max: 30, timeWindow: "1 minute" }),
@@ -55,16 +58,10 @@ export async function oauthRoutes(app: FastifyInstance) {
       summary: "Demarrer un flow OAuth",
       description:
         "Renvoie l'URL d'autorisation du provider (google, microsoft) que le front utilise pour rediriger l'utilisateur. Pose un cookie state pour la protection CSRF.",
-      params: {
-        type: "object",
-        required: ["provider"],
-        properties: {
-          provider: { type: "string", enum: ["google", "microsoft"] },
-        },
-      },
+      params: providerParamSchema,
     },
   }, async (request, reply) => {
-    const { provider } = providerParamSchema.parse(request.params);
+    const { provider } = request.params;
 
     const config = getProviderConfig(provider);
     if (!config || !config.clientId) {
@@ -79,7 +76,7 @@ export async function oauthRoutes(app: FastifyInstance) {
   });
 
   // Callback : le provider redirige ici apres authentification
-  app.get("/oauth/:provider/callback", {
+  r.get("/oauth/:provider/callback", {
     // Le callback fait des appels HTTP couteux (echange code, profil),
     // donc plus restrictif que l'initiation. 20/min suffit largement.
     preHandler: app.rateLimit({ max: 20, timeWindow: "1 minute" }),
@@ -88,9 +85,10 @@ export async function oauthRoutes(app: FastifyInstance) {
       summary: "Callback OAuth (appele par le provider)",
       description:
         "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token. En cas d'erreur, redirige vers le front avec ?error=...",
+      params: providerParamSchema,
     },
   }, async (request, reply) => {
-    const { provider } = providerParamSchema.parse(request.params);
+    const { provider } = request.params;
 
     const query = request.query as { code?: string; state?: string; error?: string };
 
@@ -153,7 +151,7 @@ export async function oauthRoutes(app: FastifyInstance) {
   });
 
   // Lier un provider OAuth a un compte existant (authentifie)
-  app.post(
+  r.post(
     "/oauth/:provider/link",
     {
       // Rate limit AVANT jwtVerify : on bloque les abus avant de payer
@@ -168,10 +166,11 @@ export async function oauthRoutes(app: FastifyInstance) {
         description:
           "Demarre un flow OAuth pour ajouter un provider supplementaire au compte connecte (ex: deja inscrit en email/password, on ajoute Google).",
         security: [{ bearerAuth: [] }],
+        params: providerParamSchema,
       },
     },
     async (request, reply) => {
-      const { provider } = providerParamSchema.parse(request.params);
+      const { provider } = request.params;
 
       const config = getProviderConfig(provider);
       if (!config || !config.clientId) {
@@ -192,7 +191,7 @@ export async function oauthRoutes(app: FastifyInstance) {
   );
 
   // Deliaison d'un provider (authentifie)
-  app.delete(
+  r.delete(
     "/oauth/:provider/link",
     {
       onRequest: [async (req) => req.jwtVerify()],
@@ -202,10 +201,11 @@ export async function oauthRoutes(app: FastifyInstance) {
         description:
           "Supprime la liaison d'un provider OAuth. Refuse si c'est la seule methode de connexion (l'utilisateur n'a ni mot de passe ni autre provider).",
         security: [{ bearerAuth: [] }],
+        params: providerParamSchema,
       },
     },
     async (request, reply) => {
-      const { provider } = providerParamSchema.parse(request.params);
+      const { provider } = request.params;
       const userId = (request.user as any).sub;
 
       try {

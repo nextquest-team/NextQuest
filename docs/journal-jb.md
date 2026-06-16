@@ -147,3 +147,21 @@
 **Tests** -- 121 tests (auth/client/service/routes IGDB + Redis + guards + Steam), unitaires et intégration.
 
 **Validation E2E réelle** -- Testé bout en bout contre les vraies API : token Twitch, match Steam->IGDB, métadonnées, puis flux complet (vraie bibliothèque Steam -> import -> enrichissement, 12/13 jeux matchés, le 13e étant un "playtest" absent d'IGDB). **Bug révélé que seul le réel pouvait montrer** : IGDB a retiré le champ `category` d'`external_games` au profit d'`external_game_source` (Steam = 1) ; le filtre a été corrigé. Les tests mockés étaient verts mais la requête réelle renvoyait zéro.
+
+---
+
+## 15 juin 2026
+
+**OpenAPI via Zod (source unique, #75)** -- Adoption de `fastify-type-provider-zod` : le schéma Zod d'une route sert désormais à la fois à valider la requête (runtime), typer le handler et générer la doc OpenAPI sur `/docs`. Avant, la validation se faisait par `.parse()` dans le handler et aucun corps de requête n'était documenté (Swagger aveugle). Le schéma Zod devient la source unique, et la doc ne peut plus se périmer. Routes migrées : collection, users (profil), oauth (param provider), auth (register/login). L'error handler de validation est mutualisé dans `lib/error-handler.ts` au lieu de 6 copies.
+
+**Deux bugs que seuls le réel et la CI ont montrés** -- Les tests unitaires (apps Fastify isolées, sans toutes les routes) étaient verts mais ne bootaient jamais l'app entière. (1) En testant `/docs` en réel : la route `health` gardait un response schema en JSON Schema brut, rejeté par le transform OpenAPI -> génération de la doc impossible ; passée en Zod. (2) En CI : le script de génération du spec (`export-openapi.ts`) bootait sans les compilers Zod -> sérialisation cassée sur `/health`. Les deux corrigés, avec un test de régression sur la génération du spec.
+
+**Tests & validation** -- Suite API complète au vert (142 tests) + test vérifiant que l'OpenAPI documente bien le body d'une route. Validé E2E sur le serveur live : Swagger `/docs` rendu, bodies présents (l'enum de statut dérivé du schéma Zod apparaît), et un body invalide renvoie bien un 400 avec le détail des champs en erreur.
+
+**API Collection complétée (lecture / édition / suppression / ajout)** -- Le module collection n'avait qu'un PATCH de statut : aucune route de lecture, donc le front ne pouvait afficher ni gérer la bibliothèque. Ajout de `GET /collection` (liste paginée, filtre par statut, genres/tags inline + flag d'enrichissement), `GET /collection/:id` (détail + jeux similaires), `PATCH /collection/:id` (note/avis/temps de jeu/visibilité), `DELETE /collection/:id` (hard delete, cascade vérifiée), et `POST /collection` (ajout d'un jeu existant du catalogue, dédoublonnage applicatif). Même pattern Zod-in-schema que le reste.
+
+**Recherche catalogue** -- Nouveau module `games` avec `GET /games?search=` pour l'ajout manuel. Les jeux non-custom (catalogue Steam/IGDB) restent cherchables par tous ; seuls les jeux custom privés d'un autre user sont masqués. La création d'un jeu 100% custom est reportée à un lot dédié.
+
+**"Pas de tags" de Loreleï : pas un bug** -- Le code mappe bien Steam -> IGDB via `external_game_source` (corrigé au lot #55). Sa cause probable : un conteneur servant une image périmée -> rebuild + relance de l'enrich. Confirmé en E2E réel : vraie bibliothèque Steam -> import (13 jeux) -> enrichissement (12/13 enrichis, 30 genres et 27 tags écrits), puis toutes les routes (liste/détail/PATCH/POST/DELETE) déroulées contre Postgres + API externes réelles.
+
+**Tests & validation** -- Suite API au vert (187 tests, dont service + routes collection et games). Branche stackée sur la PR Zod (#75/#77) : à merger après elle.

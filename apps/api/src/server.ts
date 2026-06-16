@@ -1,12 +1,13 @@
 import { config } from "dotenv";
 config({ path: "../../.env" });
 import Fastify from "fastify";
-import { ZodError } from "zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerCors } from "./plugins/cors.js";
 import { registerSwagger } from "./plugins/swagger.js";
 import { registerJwt } from "./plugins/jwt.js";
 import { registerCookie } from "./plugins/cookie.js";
 import { registerRateLimit } from "./plugins/rate-limit.js";
+import { registerErrorHandler } from "./lib/error-handler.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { oauthRoutes } from "./modules/auth/oauth/oauth.routes.js";
@@ -14,6 +15,7 @@ import { usersRoutes } from "./modules/users/users.routes.js";
 import { steamRoutes } from "./modules/platforms/steam/steam.routes.js";
 import { collectionRoutes } from "./modules/collection/collection.routes.js";
 import { igdbRoutes } from "./modules/games/igdb/igdb.routes.js";
+import { gamesRoutes } from "./modules/games/games.routes.js";
 
 const app = Fastify({
   logger: {
@@ -28,25 +30,10 @@ const app = Fastify({
   trustProxy: true,
 });
 
-// Erreurs de validation Zod -> 400 avec details exploitables par le client.
-// `error` est typee unknown depuis Fastify 5.8.5, on raffine avec le shape
-// minimal qu'on consomme (statusCode optionnel, message d'Error standard).
-app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
-  if (error instanceof ZodError) {
-    return reply.code(400).send({
-      error: "Validation Error",
-      details: error.issues.map((issue) => ({
-        field: issue.path.join("."),
-        message: issue.message,
-      })),
-    });
-  }
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
 
-  app.log.error(error);
-  return reply.code(error.statusCode ?? 500).send({
-    error: error.message || "Internal Server Error",
-  });
-});
+registerErrorHandler(app);
 
 async function start() {
   // L'ordre d'enregistrement compte : CORS et Swagger d'abord (infra),
@@ -63,6 +50,7 @@ async function start() {
   await app.register(steamRoutes, { prefix: "/api" });
   await app.register(collectionRoutes, { prefix: "/api" });
   await app.register(igdbRoutes, { prefix: "/api" });
+  await app.register(gamesRoutes, { prefix: "/api" });
   await app.register(oauthRoutes, { prefix: "/api/auth" });
 
   const port = Number(process.env.PORT) || 3000;

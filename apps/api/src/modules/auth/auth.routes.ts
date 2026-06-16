@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { registerSchema, loginSchema } from "./auth.schemas.js";
 import {
   createUser,
@@ -26,8 +27,10 @@ function getRefreshToken(request: any): string | undefined {
 }
 
 export async function authRoutes(app: FastifyInstance) {
+  const r = app.withTypeProvider<ZodTypeProvider>();
+
   // Inscription : cree le user + session, renvoie access token + refresh token
-  app.post("/auth/register", {
+  r.post("/auth/register", {
     // Anti-abus : limite la creation de comptes a 5 par IP par 15 min
     config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
     schema: {
@@ -35,9 +38,10 @@ export async function authRoutes(app: FastifyInstance) {
       summary: "Inscription email/mot de passe",
       description:
         "Cree un nouveau compte. Renvoie un access token JWT (15 min) et place le refresh token (30 jours) dans un cookie HttpOnly. Le refresh token est aussi renvoye dans le body pour le mobile.",
+      body: registerSchema,
     },
   }, async (request, reply) => {
-    const input = registerSchema.parse(request.body);
+    const input = request.body;
 
     let user;
     try {
@@ -76,7 +80,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // Login : verifie les credentials, cree une nouvelle session
-  app.post("/auth/login", {
+  r.post("/auth/login", {
     // Anti brute-force IP-based, en complement du verrouillage compte
     // (5 echecs / 15 min) gere dans verifyCredentials. 10 / min par IP.
     // Forme preHandler explicite (et non config.rateLimit) pour que les
@@ -87,9 +91,10 @@ export async function authRoutes(app: FastifyInstance) {
       summary: "Connexion email/mot de passe",
       description:
         "Verifie les credentials, cree une session et renvoie access + refresh token. Apres 5 echecs, le compte est verrouille 15 minutes.",
+      body: loginSchema,
     },
   }, async (request, reply) => {
-    const input = loginSchema.parse(request.body);
+    const input = request.body;
 
     const user = await verifyCredentials(input.email, input.password);
     if (!user) {

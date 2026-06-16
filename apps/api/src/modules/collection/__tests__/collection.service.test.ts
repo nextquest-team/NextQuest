@@ -5,17 +5,70 @@ import {
   games,
   userGames,
   userGameStatusHistory,
+  genres,
+  tags,
+  gameGenres,
+  gameTags,
+  gameSimilar,
 } from "@nextquest/db";
 import { eq } from "drizzle-orm";
-import { updateGameStatus } from "../collection.service.js";
+import {
+  updateGameStatus,
+  listCollection,
+  getCollectionItem,
+  updateCollectionItem,
+  deleteCollectionItem,
+  addGameToCollection,
+} from "../collection.service.js";
 import type { GameStatus } from "../collection.schemas.js";
 
 async function cleanup() {
-  // La FK user_game_status_history -> user_games est ON DELETE CASCADE :
-  // supprimer user_games purge aussi l'historique.
+  // La FK user_game_status_history / user_game_tags -> user_games est ON DELETE
+  // CASCADE : supprimer user_games purge aussi l'historique et les tags du jeu.
   await db.delete(userGames);
+  await db.delete(gameTags);
+  await db.delete(gameGenres);
+  await db.delete(gameSimilar);
   await db.delete(games);
+  await db.delete(tags);
+  await db.delete(genres);
   await db.delete(users);
+}
+
+// Seed riche : un user + 2 jeux dans sa collection, genres/tags sur le 1er,
+// le 2e masque (isHidden) pour tester le filtre par defaut.
+async function seedCollection() {
+  const [u] = await db
+    .insert(users)
+    .values({ email: "list@test.com", username: "listu", passwordHash: "x" })
+    .returning({ id: users.id });
+  const [g1] = await db
+    .insert(games)
+    .values({ title: "Hollow Knight", slug: "hk-1", igdbId: 1 })
+    .returning({ id: games.id });
+  const [g2] = await db
+    .insert(games)
+    .values({ title: "Celeste", slug: "celeste-1" })
+    .returning({ id: games.id });
+  const [genre] = await db
+    .insert(genres)
+    .values({ name: "Platform", slug: "platform" })
+    .returning({ id: genres.id });
+  const [tag] = await db
+    .insert(tags)
+    .values({ name: "Action", slug: "action", category: "theme", igdbId: 1 })
+    .returning({ id: tags.id });
+  await db.insert(gameGenres).values({ gameId: g1.id, genreId: genre.id });
+  await db.insert(gameTags).values({ gameId: g1.id, tagId: tag.id });
+  const [ug1] = await db
+    .insert(userGames)
+    .values({ userId: u.id, gameId: g1.id, status: "playing" })
+    .returning({ id: userGames.id });
+  const [ug2] = await db
+    .insert(userGames)
+    .values({ userId: u.id, gameId: g2.id, status: "backlog", isHidden: true })
+    .returning({ id: userGames.id });
+  return { userId: u.id, gameId1: g1.id, gameId2: g2.id, ug1: ug1.id, ug2: ug2.id };
 }
 
 async function seedUserGame(status: GameStatus = "backlog") {
@@ -96,5 +149,181 @@ describe("updateGameStatus", () => {
       "playing",
     );
     expect(dto).toBeNull();
+  });
+});
+
+describe("listCollection", () => {
+  it("renvoie les jeux du user avec genres/tags inline et total", async () => {
+    const { userId } = await seedCollection();
+    const { items, total } = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: false,
+    });
+    // ug2 est isHidden -> exclu par defaut
+    expect(total).toBe(1);
+    expect(items[0].game.title).toBe("Hollow Knight");
+    expect(items[0].genres.map((x) => x.name)).toContain("Platform");
+    expect(items[0].tags.map((x) => x.name)).toContain("Action");
+    expect(items[0].game.isEnriched).toBe(true);
+  });
+  it("inclut les jeux masques si includeHidden=true", async () => {
+    const { userId } = await seedCollection();
+    const { total } = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(total).toBe(2);
+  });
+  it("filtre par statut", async () => {
+    const { userId } = await seedCollection();
+    const { items, total } = await listCollection({
+      userId,
+      status: "playing",
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(total).toBe(1);
+    expect(items[0].status).toBe("playing");
+  });
+  it("pagine (limit/offset)", async () => {
+    const { userId } = await seedCollection();
+    const page = await listCollection({
+      userId,
+      limit: 1,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(page.items).toHaveLength(1);
+    expect(page.total).toBe(2);
+  });
+  it("ne renvoie jamais la collection d'un autre user", async () => {
+    await seedCollection();
+    const res = await listCollection({
+      userId: "00000000-0000-0000-0000-000000000000",
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(res.total).toBe(0);
+    expect(res.items).toEqual([]);
+  });
+});
+
+describe("getCollectionItem", () => {
+  it("renvoie le detail avec description, genres, tags et jeux similaires", async () => {
+    const { userId, gameId1, ug1 } = await seedCollection();
+    // un jeu similaire qu'on possede dans le catalogue (igdbId=42), relie a g1.
+    await db
+      .insert(games)
+      .values({ title: "Ori", slug: "ori-1", igdbId: 42 });
+    await db
+      .update(games)
+      .set({ description: "metroidvania" })
+      .where(eq(games.id, gameId1));
+    await db.insert(gameSimilar).values({ gameId: gameId1, similarIgdbId: 42 });
+
+    const dto = await getCollectionItem(userId, ug1);
+    expect(dto?.description).toBe("metroidvania");
+    expect(dto?.similarGames.map((s) => s.title)).toContain("Ori");
+    expect(dto?.genres.map((x) => x.name)).toContain("Platform");
+  });
+  it("renvoie null si le jeu n'appartient pas au user", async () => {
+    const { ug1 } = await seedCollection();
+    const dto = await getCollectionItem(
+      "00000000-0000-0000-0000-000000000000",
+      ug1,
+    );
+    expect(dto).toBeNull();
+  });
+});
+
+describe("updateCollectionItem", () => {
+  it("met a jour note/avis/playtime/isHidden et renvoie l'item", async () => {
+    const { userId, ug1 } = await seedCollection();
+    const dto = await updateCollectionItem(userId, ug1, {
+      rating: 9,
+      review: "genial",
+      isHidden: true,
+    });
+    expect(dto?.rating).toBe(9);
+    expect(dto?.review).toBe("genial");
+    expect(dto?.isHidden).toBe(true);
+  });
+  it("efface la note avec null", async () => {
+    const { userId, ug1 } = await seedCollection();
+    await updateCollectionItem(userId, ug1, { rating: 5 });
+    const dto = await updateCollectionItem(userId, ug1, { rating: null });
+    expect(dto?.rating).toBeNull();
+  });
+  it("renvoie null si non possede", async () => {
+    const { ug1 } = await seedCollection();
+    const dto = await updateCollectionItem(
+      "00000000-0000-0000-0000-000000000000",
+      ug1,
+      { rating: 5 },
+    );
+    expect(dto).toBeNull();
+  });
+});
+
+describe("deleteCollectionItem", () => {
+  it("supprime la ligne et purge l'historique en cascade", async () => {
+    const { userId, ug1 } = await seedCollection();
+    await updateGameStatus(userId, ug1, "completed"); // cree une ligne d'historique
+    const ok = await deleteCollectionItem(userId, ug1);
+    expect(ok).toBe(true);
+    const remaining = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.id, ug1));
+    expect(remaining).toHaveLength(0);
+    const hist = await db
+      .select()
+      .from(userGameStatusHistory)
+      .where(eq(userGameStatusHistory.userGameId, ug1));
+    expect(hist).toHaveLength(0); // cascade
+  });
+  it("renvoie false si non possede (et ne supprime rien)", async () => {
+    const { ug1 } = await seedCollection();
+    const ok = await deleteCollectionItem(
+      "00000000-0000-0000-0000-000000000000",
+      ug1,
+    );
+    expect(ok).toBe(false);
+    const remaining = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.id, ug1));
+    expect(remaining).toHaveLength(1);
+  });
+});
+
+describe("addGameToCollection", () => {
+  it("ajoute un jeu existant et renvoie l'item (status backlog)", async () => {
+    const { userId } = await seedCollection();
+    const [g3] = await db
+      .insert(games)
+      .values({ title: "Dead Cells", slug: "dc-1" })
+      .returning({ id: games.id });
+    const res = await addGameToCollection(userId, { gameId: g3.id });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.item.status).toBe("backlog");
+  });
+  it("renvoie game_not_found si le jeu n'existe pas", async () => {
+    const { userId } = await seedCollection();
+    const res = await addGameToCollection(userId, {
+      gameId: "00000000-0000-0000-0000-000000000000",
+    });
+    expect(res).toEqual({ ok: false, reason: "game_not_found" });
+  });
+  it("renvoie conflict si deja present (meme platformId null)", async () => {
+    const { userId, gameId2 } = await seedCollection(); // gameId2 deja ajoute, platformId null
+    const res = await addGameToCollection(userId, { gameId: gameId2 });
+    expect(res).toEqual({ ok: false, reason: "conflict" });
   });
 });

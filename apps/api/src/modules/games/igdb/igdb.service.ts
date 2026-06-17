@@ -258,3 +258,74 @@ export async function enrichGames(
 
   return summary;
 }
+
+// Hydrate des jeux manquants dans le catalogue a partir d'igdbIds. Idempotent :
+// ne traite que les igdbIds absents. Retourne le nombre de jeux inseres.
+export async function hydrateGamesByIgdbIds(
+  igdbIds: number[],
+  clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
+  deps: IgdbDeps = defaultDeps(),
+): Promise<number> {
+  if (igdbIds.length === 0) return 0;
+
+  // Filtrer les igdbIds deja presents.
+  const present = await db
+    .select({ igdbId: games.igdbId })
+    .from(games)
+    .where(inArray(games.igdbId, igdbIds));
+  const have = new Set(present.map((p) => p.igdbId).filter((x): x is number => x != null));
+  const missing = igdbIds.filter((id) => !have.has(id));
+  if (missing.length === 0) return 0;
+
+  const token = await deps.getToken();
+  let hydrated = 0;
+
+  // Fetcher par lots + upsert pour chaque igdbId.
+  for (const part of chunk(missing, BATCH)) {
+    let fetched: IgdbGame[];
+    let timeToBeat: Map<number, { normallyMinutes: number; count: number }>;
+    try {
+      fetched = await deps.fetchGamesByIds(part, token, clientId);
+      timeToBeat = await deps.fetchTimeToBeats(part, token, clientId);
+    } catch {
+      // Echec du lot : skip et continuer au prochain.
+      continue;
+    }
+
+    for (const data of fetched) {
+      // Generer un slug deterministe + unique avec l'igdbId.
+      const slug = `${slugify(data.name)}-igdb-${data.igdbId}`;
+      const [newGame] = await db
+        .insert(games)
+        .values({
+          igdbId: data.igdbId,
+          title: data.name,
+          slug,
+          isCustom: false,
+        })
+        .returning({ id: games.id });
+      // Enrichir le jeu nouvellement insere.
+      await upsertEnrichedGame(
+        newGame.id,
+        data,
+        timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+        data.hypes,
+      );
+      hydrated += 1;
+    }
+    await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
+  }
+
+  return hydrated;
+}
+
+// Slugify helper, pour garantir la coherence avec steam.service.ts.
+function slugify(input: string): string {
+  const base = input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "game";
+}

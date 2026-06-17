@@ -1,15 +1,17 @@
-import { db, recommendations } from "@nextquest/db";
-import { and, eq, isNull } from "drizzle-orm";
+import { db, recommendations, games, userGames, gameSimilar } from "@nextquest/db";
+import { and, eq, isNull, inArray } from "drizzle-orm";
 import {
   getOwnedForProfile,
   getDimensionFrequencies,
   getSwipeDeltas,
   getLibraryUnplayedCandidates,
+  getDiscoveryCandidates,
 } from "./candidates.js";
 import { buildBaseProfile, applySwipeDeltas, normalize } from "./profile.js";
 import { buildIdfMap } from "./idf.js";
 import { scoreCandidate, type Bucket, type Candidate } from "./scoring.js";
 import { buildReason } from "./recommendations.dto.js";
+import { hydrateMissingGames } from "./hydrate.js";
 
 const PER_BUCKET = 20; // nb de recos conservees par categorie
 
@@ -25,9 +27,27 @@ export async function generateRecommendations(userId: string): Promise<{ inserte
     applySwipeDeltas(buildBaseProfile(owned, idf), swipes),
   );
 
-  // 2. Candidats par bucket (decouverte/a venir ajoutes en Tasks 8-9).
+  // 2. Hydratation discovery + candidats par bucket.
+  // Recuperer les igdbIds similaires des jeux possedes et hydrater les manquants.
+  let similarIgdbIds: number[] = [];
+  if (owned.length > 0) {
+    const ownedGameIds = owned.map((o) => o.gameId);
+    if (ownedGameIds.length > 0) {
+      const sims = await db
+        .select({ similarIgdbId: gameSimilar.similarIgdbId })
+        .from(gameSimilar)
+        .where(inArray(gameSimilar.gameId, ownedGameIds));
+      similarIgdbIds = [...new Set(sims.map((s) => s.similarIgdbId))];
+    }
+    // Hydrater les igdbIds manquants avant d'appeler getDiscoveryCandidates
+    if (similarIgdbIds.length > 0) {
+      await hydrateMissingGames(similarIgdbIds);
+    }
+  }
+
   const buckets: { bucket: Bucket; candidates: Candidate[] }[] = [
     { bucket: "library_unplayed", candidates: await getLibraryUnplayedCandidates(userId) },
+    { bucket: "discovery", candidates: await getDiscoveryCandidates(userId) },
   ];
 
   // 3. Score + selection top N par bucket.

@@ -5,6 +5,7 @@ import {
   gameGenres,
   gameTags,
   recommendations,
+  gameSimilar,
 } from "@nextquest/db";
 import { and, eq, count, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { OwnedGameForProfile, SwipeDelta } from "./profile.js";
@@ -134,4 +135,61 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
     igdbHypes: r.igdbHypes,
     similarVotes: 0, // pas de graphe similaire pour ce bucket
   }));
+}
+
+// Candidats du bucket "discovery" : jeux similaires aux jeux possedes, via le graphe
+// game_similar. Avant d'appeler, hydrateMissingGames() garantit que les igdbIds y
+// sont. Pondere par la proximite (similarVotes).
+export async function getDiscoveryCandidates(userId: string): Promise<Candidate[]> {
+  // Jeux possedes et leur igdbId
+  const owned = await db
+    .select({ gameId: games.id, igdbId: games.igdbId })
+    .from(userGames)
+    .innerJoin(games, eq(userGames.gameId, games.id))
+    .where(eq(userGames.userId, userId));
+  const ownedGameIds = new Set(owned.map((o) => o.gameId));
+  const ownedIgdbIds = owned.map((o) => o.igdbId).filter((x): x is number => x != null);
+  if (ownedIgdbIds.length === 0) return [];
+
+  // Similaires (igdbId) + comptage des votes de proximite
+  const sims = await db
+    .select({ ownerGameId: gameSimilar.gameId, similarIgdbId: gameSimilar.similarIgdbId })
+    .from(gameSimilar)
+    .where(inArray(gameSimilar.gameId, [...ownedGameIds]));
+  const votesByIgdb = new Map<number, number>();
+  for (const s of sims) votesByIgdb.set(s.similarIgdbId, (votesByIgdb.get(s.similarIgdbId) ?? 0) + 1);
+
+  // Exclusions : deja swipes
+  const swiped = await db
+    .select({ gameId: recommendations.gameId })
+    .from(recommendations)
+    .where(and(eq(recommendations.userId, userId), isNotNull(recommendations.feedback)));
+  const swipedGameIds = new Set(swiped.map((s) => s.gameId));
+
+  // Resolution igdbId -> games (apres hydratation), hors possedes
+  const candidateIgdbIds = [...votesByIgdb.keys()].filter((id) => !ownedIgdbIds.includes(id));
+  if (candidateIgdbIds.length === 0) return [];
+  const resolved = await db
+    .select({
+      gameId: games.id,
+      igdbId: games.igdbId,
+      igdbRating: games.igdbRating,
+      igdbRatingCount: games.igdbRatingCount,
+      igdbHypes: games.igdbHypes,
+    })
+    .from(games)
+    .where(inArray(games.igdbId, candidateIgdbIds));
+
+  const { g, t } = await genreTagIdsByGame(resolved.map((r) => r.gameId));
+  return resolved
+    .filter((r) => !ownedGameIds.has(r.gameId) && !swipedGameIds.has(r.gameId))
+    .map((r) => ({
+      gameId: r.gameId,
+      genreIds: g.get(r.gameId) ?? [],
+      tagIds: t.get(r.gameId) ?? [],
+      igdbRating: r.igdbRating,
+      igdbRatingCount: r.igdbRatingCount,
+      igdbHypes: r.igdbHypes,
+      similarVotes: votesByIgdb.get(r.igdbId!) ?? 0,
+    }));
 }

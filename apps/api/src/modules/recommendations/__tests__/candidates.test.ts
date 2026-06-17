@@ -15,11 +15,14 @@ import {
   getOwnedForProfile,
   getDimensionFrequencies,
   getSwipeDeltas,
+  getDiscoveryCandidates,
 } from "../candidates.js";
+import { gameSimilar } from "@nextquest/db";
 
 // Cleanup after each test
 async function cleanup() {
   await db.delete(recommendations);
+  await db.delete(gameSimilar);
   await db.delete(userGames);
   await db.delete(gameTags);
   await db.delete(gameGenres);
@@ -323,5 +326,257 @@ describe("getSwipeDeltas", () => {
     const deltas = await getSwipeDeltas(user.id);
 
     expect(deltas).toHaveLength(0);
+  });
+});
+
+describe("getDiscoveryCandidates", () => {
+  it("retourne jeux similaires des jeux possedes, excluant les possedes et swipes", async () => {
+    // Seed : user + jeu A (igdbId 100) avec game_similar -> igdbId 200 ;
+    // jeu B (igdbId 200) deja dans games
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery@example.com",
+        username: "discoveryuser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    // Jeu A possede (igdbId 100)
+    const [gameA] = await db
+      .insert(games)
+      .values({
+        title: "Game A",
+        slug: "game-a",
+        igdbId: 100,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    // Jeu B (igdbId 200) - sera candidate de decouverte
+    const [gameB] = await db
+      .insert(games)
+      .values({
+        title: "Game B",
+        slug: "game-b",
+        igdbId: 200,
+        igdbRating: 75,
+        igdbRatingCount: 150,
+        igdbHypes: 50,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    // User possede A
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: gameA.id,
+        status: "completed",
+      });
+
+    // A est similaire a B
+    await db
+      .insert(gameSimilar)
+      .values({
+        gameId: gameA.id,
+        similarIgdbId: 200,
+      });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].gameId).toBe(gameB.id);
+    expect(candidates[0].similarVotes).toBe(1);
+    expect(candidates[0].igdbRating).toBe(75);
+  });
+
+  it("exclut les jeux possedes des candidats", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery2@example.com",
+        username: "discoveryuser2",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    // Deux jeux possedes
+    const [gameA] = await db
+      .insert(games)
+      .values({
+        title: "Game A",
+        slug: "game-a",
+        igdbId: 100,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    const [gameC] = await db
+      .insert(games)
+      .values({
+        title: "Game C",
+        slug: "game-c",
+        igdbId: 300,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    // User possede A et C
+    await db.insert(userGames).values([
+      { userId: user.id, gameId: gameA.id, status: "completed" },
+      { userId: user.id, gameId: gameC.id, status: "playing" },
+    ]);
+
+    // A est similaire a C (mais C est deja possede)
+    await db
+      .insert(gameSimilar)
+      .values({
+        gameId: gameA.id,
+        similarIgdbId: 300,
+      });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates).toHaveLength(0);
+  });
+
+  it("exclut les jeux deja swipes", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery3@example.com",
+        username: "discoveryuser3",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [gameA] = await db
+      .insert(games)
+      .values({
+        title: "Game A",
+        slug: "game-a",
+        igdbId: 100,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    const [gameB] = await db
+      .insert(games)
+      .values({
+        title: "Game B",
+        slug: "game-b",
+        igdbId: 200,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    // User possede A
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: gameA.id,
+        status: "completed",
+      });
+
+    // A est similaire a B
+    await db
+      .insert(gameSimilar)
+      .values({
+        gameId: gameA.id,
+        similarIgdbId: 200,
+      });
+
+    // User a deja swipe sur B
+    await db
+      .insert(recommendations)
+      .values({
+        userId: user.id,
+        gameId: gameB.id,
+        feedback: "dismissed",
+        bucket: "discovery",
+      });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates).toHaveLength(0);
+  });
+
+  it("retourne array vide si l'user n'a pas de jeux possedes", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery4@example.com",
+        username: "discoveryuser4",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates).toHaveLength(0);
+  });
+
+  it("compte les votes de proximite quand plusieurs jeux possedes pointent a la meme candidate", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery5@example.com",
+        username: "discoveryuser5",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    // Deux jeux possedes A et A2
+    const [gameA] = await db
+      .insert(games)
+      .values({
+        title: "Game A",
+        slug: "game-a",
+        igdbId: 100,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    const [gameA2] = await db
+      .insert(games)
+      .values({
+        title: "Game A2",
+        slug: "game-a2",
+        igdbId: 101,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    // Jeu B candidate
+    const [gameB] = await db
+      .insert(games)
+      .values({
+        title: "Game B",
+        slug: "game-b",
+        igdbId: 200,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    // User possede A et A2
+    await db.insert(userGames).values([
+      { userId: user.id, gameId: gameA.id, status: "completed" },
+      { userId: user.id, gameId: gameA2.id, status: "playing" },
+    ]);
+
+    // A et A2 pointent tous deux a B
+    await db.insert(gameSimilar).values([
+      { gameId: gameA.id, similarIgdbId: 200 },
+      { gameId: gameA2.id, similarIgdbId: 200 },
+    ]);
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].gameId).toBe(gameB.id);
+    expect(candidates[0].similarVotes).toBe(2);
   });
 });

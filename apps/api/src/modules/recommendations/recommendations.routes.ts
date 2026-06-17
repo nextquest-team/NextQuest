@@ -1,9 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { listRecoQuerySchema } from "./recommendations.schemas.js";
+import { listRecoQuerySchema, recoParamsSchema, feedbackBodySchema } from "./recommendations.schemas.js";
 import {
   listRecommendations,
   getGroupedRecommendations,
+  recordFeedback,
 } from "./recommendations.service.js";
 import { requireAuth, userIdOf } from "../../lib/guards.js";
 
@@ -39,6 +40,25 @@ export async function recommendationsRoutes(app: FastifyInstance) {
       });
 
       return { items, total, limit, offset };
+    },
+  );
+
+  r.post(
+    "/recommendations/:id/feedback",
+    {
+      onRequest: [requireAuth],
+      schema: {
+        tags: ["Recommendations"],
+        summary: "Enregistrer un swipe (like / dismiss / add)",
+        security: [{ bearerAuth: [] }],
+        params: recoParamsSchema,
+        body: feedbackBodySchema,
+      },
+    },
+    async (request, reply) => {
+      const ok = await recordFeedback(userIdOf(request), request.params.id, request.body.action);
+      if (!ok) return reply.code(404).send({ error: "Recommandation introuvable" });
+      return { ok: true };
     },
   );
 }

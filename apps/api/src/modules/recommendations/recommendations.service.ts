@@ -6,7 +6,7 @@ import {
   gameGenres,
 } from "@nextquest/db";
 import { and, eq, isNull, inArray, desc, count } from "drizzle-orm";
-import type { ListRecoQuery, RECO_BUCKETS } from "./recommendations.schemas.js";
+import type { ListRecoQuery, RECO_BUCKETS, FeedbackBody } from "./recommendations.schemas.js";
 import {
   toRecommendationDTO,
   type RecommendationDTO,
@@ -132,4 +132,19 @@ export async function getGroupedRecommendations(
     discovery: discovery.items,
     upcoming: upcoming.items,
   };
+}
+
+// Enregistre le feedback utilisateur (swipe) sur une reco.
+// Retourne true si la reco a ete trouvee et mise a jour, false sinon.
+export async function recordFeedback(
+  userId: string,
+  recoId: string,
+  action: FeedbackBody["action"],
+): Promise<boolean> {
+  const updated = await db
+    .update(recommendations)
+    .set({ feedback: action, feedbackAt: new Date() })
+    .where(and(eq(recommendations.id, recoId), eq(recommendations.userId, userId)))
+    .returning({ id: recommendations.id });
+  return updated.length > 0;
 }

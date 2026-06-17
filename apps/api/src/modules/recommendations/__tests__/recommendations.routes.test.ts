@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Fastify from "fastify";
 import { db, users, games, recommendations, gameGenres, genres } from "@nextquest/db";
+import { eq } from "drizzle-orm";
 import { validatorCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
@@ -232,5 +233,225 @@ describe("GET /api/recommendations", () => {
     expect(item.game).toHaveProperty("igdbRating");
     expect(item.game).toHaveProperty("genres");
     expect(Array.isArray(item.game.genres)).toBe(true);
+  });
+});
+
+describe("POST /api/recommendations/:id/feedback", () => {
+  it("renvoie 401 sans JWT", async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/recommendations/550e8400-e29b-41d4-a716-446655440000/feedback",
+      payload: { action: "dismissed" },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("renvoie 404 si la reco n'existe pas", async () => {
+    const app = await buildApp();
+    const { userId } = await seedRecommendations();
+    const token = app.jwt.sign({ sub: userId });
+    const fakeRecoId = "550e8400-e29b-41d4-a716-446655440000";
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/recommendations/${fakeRecoId}/feedback`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { action: "dismissed" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe("Recommandation introuvable");
+  });
+
+  it("renvoie 404 si la reco appartient a un autre user", async () => {
+    const app = await buildApp();
+    const { userId } = await seedRecommendations();
+    const token = app.jwt.sign({ sub: userId });
+
+    // Seed another user and their reco
+    const [otherUser] = await db
+      .insert(users)
+      .values({
+        email: "other@test.com",
+        username: "otheruser",
+        passwordHash: "x",
+      })
+      .returning({ id: users.id });
+
+    const [game] = await db
+      .insert(games)
+      .values({ title: "Other Game", slug: "other-game" })
+      .returning({ id: games.id });
+
+    const [otherReco] = await db
+      .insert(recommendations)
+      .values({
+        userId: otherUser.id,
+        gameId: game.id,
+        bucket: "discovery",
+        score: "0.8",
+        reason: { text: "Other user's reco", factors: {} },
+        feedback: null,
+      })
+      .returning({ id: recommendations.id });
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/recommendations/${otherReco.id}/feedback`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { action: "dismissed" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("enregistre le feedback et le rend invisible ensuite", async () => {
+    const app = await buildApp();
+    const { userId } = await seedRecommendations();
+    const token = app.jwt.sign({ sub: userId });
+
+    // Get reco list first to find one
+    const listRes = await app.inject({
+      method: "GET",
+      url: "/api/recommendations?bucket=discovery",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const listBody = listRes.json();
+    expect(listBody.items.length).toBeGreaterThan(0);
+    const recoId = listBody.items[0].id;
+
+    // Record feedback
+    const feedbackRes = await app.inject({
+      method: "POST",
+      url: `/api/recommendations/${recoId}/feedback`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { action: "dismissed" },
+    });
+    expect(feedbackRes.statusCode).toBe(200);
+    expect(feedbackRes.json()).toEqual({ ok: true });
+
+    // Verify reco no longer appears in list
+    const listRes2 = await app.inject({
+      method: "GET",
+      url: "/api/recommendations?bucket=discovery",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const listBody2 = listRes2.json();
+    expect(listBody2.items.find((i: any) => i.id === recoId)).toBeUndefined();
+  });
+
+  it("accepte les actions liked, dismissed et added", async () => {
+    const app = await buildApp();
+    const { userId } = await seedRecommendations();
+    const token = app.jwt.sign({ sub: userId });
+
+    // Seed 3 recos for testing each action
+    const [game1] = await db
+      .insert(games)
+      .values({ title: "Test Game 1", slug: "test-game-1" })
+      .returning({ id: games.id });
+    const [game2] = await db
+      .insert(games)
+      .values({ title: "Test Game 2", slug: "test-game-2" })
+      .returning({ id: games.id });
+    const [game3] = await db
+      .insert(games)
+      .values({ title: "Test Game 3", slug: "test-game-3" })
+      .returning({ id: games.id });
+
+    const [reco1] = await db
+      .insert(recommendations)
+      .values({
+        userId,
+        gameId: game1.id,
+        bucket: "discovery",
+        score: "0.9",
+        reason: { text: "Test", factors: {} },
+        feedback: null,
+      })
+      .returning({ id: recommendations.id });
+
+    const [reco2] = await db
+      .insert(recommendations)
+      .values({
+        userId,
+        gameId: game2.id,
+        bucket: "discovery",
+        score: "0.9",
+        reason: { text: "Test", factors: {} },
+        feedback: null,
+      })
+      .returning({ id: recommendations.id });
+
+    const [reco3] = await db
+      .insert(recommendations)
+      .values({
+        userId,
+        gameId: game3.id,
+        bucket: "discovery",
+        score: "0.9",
+        reason: { text: "Test", factors: {} },
+        feedback: null,
+      })
+      .returning({ id: recommendations.id });
+
+    // Test "liked"
+    const res1 = await app.inject({
+      method: "POST",
+      url: `/api/recommendations/${reco1.id}/feedback`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { action: "liked" },
+    });
+    expect(res1.statusCode).toBe(200);
+
+    // Test "dismissed"
+    const res2 = await app.inject({
+      method: "POST",
+      url: `/api/recommendations/${reco2.id}/feedback`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { action: "dismissed" },
+    });
+    expect(res2.statusCode).toBe(200);
+
+    // Test "added"
+    const res3 = await app.inject({
+      method: "POST",
+      url: `/api/recommendations/${reco3.id}/feedback`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { action: "added" },
+    });
+    expect(res3.statusCode).toBe(200);
+  });
+
+  it("persiste le feedback en base avec timestamp", async () => {
+    const app = await buildApp();
+    const { userId } = await seedRecommendations();
+    const token = app.jwt.sign({ sub: userId });
+
+    // Get a reco
+    const listRes = await app.inject({
+      method: "GET",
+      url: "/api/recommendations?bucket=library_unplayed",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const recoId = listRes.json().items[0].id;
+
+    // Record feedback
+    const before = new Date();
+    await app.inject({
+      method: "POST",
+      url: `/api/recommendations/${recoId}/feedback`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { action: "liked" },
+    });
+    const after = new Date();
+
+    // Verify in database
+    const updated = await db.query.recommendations.findFirst({
+      where: (t) => eq(t.id, recoId),
+    });
+    expect(updated?.feedback).toBe("liked");
+    expect(updated?.feedbackAt).not.toBeNull();
+    const feedbackTime = new Date(updated!.feedbackAt!).getTime();
+    expect(feedbackTime).toBeGreaterThanOrEqual(before.getTime());
+    expect(feedbackTime).toBeLessThanOrEqual(after.getTime());
   });
 });

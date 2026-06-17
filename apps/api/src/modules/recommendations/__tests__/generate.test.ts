@@ -350,4 +350,82 @@ describe("generateRecommendations", () => {
     expect(failureLogCalls[0][0].bucket).toBe("upcoming");
     expect(failureLogCalls[0][0].err).toContain("IGDB API unavailable");
   });
+
+  it("discovery : filtre les candidats avec qualite sous le plancher (0.35)", async () => {
+    // Seed : user + 2 jeux reels pour tester le filtering de qualite
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "quality-floor-test@example.com",
+        username: "qualityflooruser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    // Creer 2 jeux reels : 1 bas qualite (sera filtre), 1 bon
+    const [lowQualityGame] = await db
+      .insert(games)
+      .values({
+        title: "Low Quality Game",
+        slug: "low-quality-game",
+        avgPlaytime: 50,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    const [goodQualityGame] = await db
+      .insert(games)
+      .values({
+        title: "Good Quality Game",
+        slug: "good-quality-game",
+        avgPlaytime: 60,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    // Mock pour retourner 2 candidats discovery : 1 bas qualite (sera filtre), 1 bon
+    const lowQualityCandidate = {
+      gameId: lowQualityGame.id,
+      genreIds: [],
+      tagIds: [],
+      igdbRating: 20, // 20/100 avec 1000 votes = confiance 1 = quality 0.2 < 0.35
+      igdbRatingCount: 1000,
+      igdbHypes: null,
+      similarVotes: 1,
+    };
+
+    const goodQualityCandidate = {
+      gameId: goodQualityGame.id,
+      genreIds: [],
+      tagIds: [],
+      igdbRating: 75, // 75/100 avec 1000 votes = quality 0.75 > 0.35
+      igdbRatingCount: 1000,
+      igdbHypes: null,
+      similarVotes: 1,
+    };
+
+    // Espionner getDiscoveryCandidates pour retourner nos candidats
+    vi.spyOn(candidates, "getDiscoveryCandidates").mockResolvedValueOnce([
+      lowQualityCandidate,
+      goodQualityCandidate,
+    ]);
+
+    // Pour les autres buckets, retourner des listes vides
+    vi.spyOn(candidates, "getLibraryUnplayedCandidates").mockResolvedValueOnce([]);
+    vi.spyOn(candidates, "getUpcomingCandidates").mockResolvedValueOnce([]);
+
+    const fakeLogger: RecoLogger = { info: vi.fn() };
+
+    await generateRecommendations(user.id, fakeLogger);
+
+    // Verifier que seul le bon candidat (quality > floor) a ete insere
+    const recos = await db
+      .select()
+      .from(recommendations)
+      .where(eq(recommendations.userId, user.id));
+
+    const discoveryRecos = recos.filter((r) => r.bucket === "discovery");
+    expect(discoveryRecos.length).toBe(1); // Seulement le bon candidat
+    expect(discoveryRecos[0].gameId).toBe(goodQualityGame.id);
+  });
 });

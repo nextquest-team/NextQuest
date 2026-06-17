@@ -10,7 +10,13 @@ import {
 } from "./candidates.js";
 import { buildBaseProfile, applySwipeDeltas, normalize } from "./profile.js";
 import { buildIdfMap } from "./idf.js";
-import { scoreCandidate, type Bucket, type Candidate, type ScoreFactors } from "./scoring.js";
+import {
+  scoreCandidate,
+  DISCOVERY_QUALITY_FLOOR,
+  type Bucket,
+  type Candidate,
+  type ScoreFactors,
+} from "./scoring.js";
 import { buildReason } from "./recommendations.dto.js";
 import { hydrateMissingGames } from "./hydrate.js";
 
@@ -98,7 +104,20 @@ export async function generateRecommendations(
 
   for (const { bucket, candidates } of buckets) {
     const maxSim = Math.max(1, ...candidates.map((c) => c.similarVotes));
-    const scored = candidates
+    let filtered = candidates;
+    // Appliquer le plancher de qualite pour le bucket discovery uniquement
+    if (bucket === "discovery") {
+      filtered = candidates.filter((c) => {
+        const q =
+          c.igdbRating != null
+            ? (c.igdbRating / 100) *
+              Math.min(Math.max((c.igdbRatingCount ?? 0) / 200, 0), 1) +
+              0.4 * (1 - Math.min(Math.max((c.igdbRatingCount ?? 0) / 200, 0), 1))
+            : 0.4;
+        return q >= DISCOVERY_QUALITY_FLOOR;
+      });
+    }
+    const scored = filtered
       .map((c) => ({ c, ...scoreCandidate(profile, c, bucket, maxSim) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, PER_BUCKET);

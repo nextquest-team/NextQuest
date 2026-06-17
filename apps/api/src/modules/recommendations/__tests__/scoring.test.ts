@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ratingQuality, hypeQuality, scoreCandidate } from "../scoring.js";
+import { ratingQuality, hypeQuality, scoreCandidate, DISCOVERY_QUALITY_FLOOR } from "../scoring.js";
 
 describe("ratingQuality", () => {
   it("peu de votes -> tire vers le prior bas (0.4), pas 0.5", () => {
@@ -34,4 +34,26 @@ it("un jeu de qualite inconnue ne bat pas une valeur sure a profil egal", () => 
     1,
   );
   expect(sur.score).toBeGreaterThan(inconnu.score);
+});
+
+it("DISCOVERY_QUALITY_FLOOR est bien accessible pour le filtering", () => {
+  // Constante exportee pour filtrer les candidats discovery
+  expect(DISCOVERY_QUALITY_FLOOR).toBe(0.35);
+});
+
+describe("quality floor logic", () => {
+  it("un jeu avec rating bas et votes confirmes descend sous le plancher", () => {
+    const lowRated = ratingQuality(25, 500); // 25/100 avec confiance =1
+    expect(lowRated).toBeLessThan(DISCOVERY_QUALITY_FLOOR);
+  });
+
+  it("un jeu avec rating moyen et votes confirmes reste au-dessus du plancher", () => {
+    const midRated = ratingQuality(50, 500); // 50/100 avec confiance = 1
+    expect(midRated).toBeGreaterThanOrEqual(DISCOVERY_QUALITY_FLOOR);
+  });
+
+  it("un jeu de qualite inconnue (prior 0.4) reste au-dessus du plancher", () => {
+    const unknown = ratingQuality(null, 1000);
+    expect(unknown).toBeGreaterThanOrEqual(DISCOVERY_QUALITY_FLOOR);
+  });
 });

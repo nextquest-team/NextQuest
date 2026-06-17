@@ -18,14 +18,18 @@ export type ScoreFactors = {
   sim: number;
 };
 
+// Genre/tag match sature a 1.0 sur une library fournie, donc on donne plus de budget
+// de classement a la qualite qu'a la similarite, pour que les valeurs sures remontent
+// au-dessus des jeux mediocres tres similaires.
 const BUCKET_WEIGHTS: Record<Bucket, { g: number; t: number; q: number; s: number }> = {
-  library_unplayed: { g: 0.45, t: 0.25, q: 0.3, s: 0.0 },
-  discovery: { g: 0.35, t: 0.2, q: 0.25, s: 0.2 },
-  upcoming: { g: 0.4, t: 0.25, q: 0.2, s: 0.15 },
+  library_unplayed: { g: 0.30, t: 0.20, q: 0.50, s: 0.0 },
+  discovery: { g: 0.25, t: 0.15, q: 0.45, s: 0.15 },
+  upcoming: { g: 0.30, t: 0.20, q: 0.35, s: 0.15 },
 };
 const QUALITY_PRIOR = 0.4;
 const RATING_CONF_VOTES = 200;
 const HYPE_REF = Math.log(500);
+export const DISCOVERY_QUALITY_FLOOR = 0.35;
 
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(Math.max(v, lo), hi);

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db, games } from "@nextquest/db";
+import { eq } from "drizzle-orm";
 import { hydrateMissingGames } from "../hydrate.js";
 import { hydrateGamesByIgdbIds, type IgdbDeps } from "../../games/igdb/igdb.service.js";
 import type { IgdbGame } from "../../games/igdb/igdb.client.js";
@@ -197,6 +198,56 @@ describe("hydrateGamesByIgdbIds", () => {
     const hydrated = await hydrateGamesByIgdbIds([], "fake-client", mockDeps);
 
     expect(hydrated).toBe(0);
+  });
+
+  it("deduplique l'input : igdbIds dupliques ne causent pas d'erreur unique", async () => {
+    // Scenario : input [900900, 900900] contient un igdbId deux fois
+    // (deux jeux owned qui pointent vers le meme igdbId). Sans dedup,
+    // le second insert sur le meme slug echouerait avec unique violation.
+    const mockDeps: IgdbDeps = {
+      getToken: async () => "fake-token",
+      findGameIdsBySteamAppids: async () => new Map(),
+      fetchGamesByIds: async (ids) => {
+        return ids.map(
+          (id) =>
+            ({
+              igdbId: id,
+              name: "Duplicate Game",
+              summary: "A game that appears twice in input",
+              rating: 80,
+              ratingCount: 200,
+              releaseDate: null,
+              developer: "Dev",
+              publisher: "Pub",
+              genres: [],
+              themes: [],
+              similarIgdbIds: [],
+              hypes: 75,
+              coverImageId: null,
+              artworkImageId: null,
+            }) as IgdbGame,
+        );
+      },
+      fetchTimeToBeats: async () => new Map(),
+      sleep: async () => {},
+    };
+
+    // Appeler avec [900900, 900900] : duplique
+    const hydrated = await hydrateGamesByIgdbIds([900900, 900900], "fake-client", mockDeps);
+
+    // Verifier qu'exactement 1 jeu a ete insere (dedup a fonctionne)
+    expect(hydrated).toBe(1);
+
+    const inserted = await db
+      .select({ id: games.id, igdbId: games.igdbId })
+      .from(games)
+      .where(eq(games.igdbId, 900900));
+
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].igdbId).toBe(900900);
+
+    // Cleanup
+    await db.delete(games).where(eq(games.igdbId, 900900));
   });
 
 });

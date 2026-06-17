@@ -268,13 +268,18 @@ export async function hydrateGamesByIgdbIds(
 ): Promise<number> {
   if (igdbIds.length === 0) return 0;
 
+  // Deduplication : l'input peut contenir des doublons (ex. plusieurs jeux
+  // owned qui pointent vers le meme igdbId). Set pour deduper une fois
+  // au depart.
+  const uniqueIds = [...new Set(igdbIds)];
+
   // Filtrer les igdbIds deja presents.
   const present = await db
     .select({ igdbId: games.igdbId })
     .from(games)
-    .where(inArray(games.igdbId, igdbIds));
+    .where(inArray(games.igdbId, uniqueIds));
   const have = new Set(present.map((p) => p.igdbId).filter((x): x is number => x != null));
-  const missing = igdbIds.filter((id) => !have.has(id));
+  const missing = uniqueIds.filter((id) => !have.has(id));
   if (missing.length === 0) return 0;
 
   const token = await deps.getToken();
@@ -303,15 +308,22 @@ export async function hydrateGamesByIgdbIds(
           slug,
           isCustom: false,
         })
+        // Defense-in-depth : tolérer un conflit de slug (insert concurrent ou
+        // igdbId deja present de maniere raciale). Si insert reussit, returning
+        // donne [{ id }] ; si conflict, returning donne [] et newGame.id est
+        // undefined. Ne pas appeler upsertEnrichedGame si insert a echoue.
+        .onConflictDoNothing({ target: games.slug })
         .returning({ id: games.id });
-      // Enrichir le jeu nouvellement insere.
-      await upsertEnrichedGame(
-        newGame.id,
-        data,
-        timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
-        data.hypes,
-      );
-      hydrated += 1;
+      // Enregistrer l'enrichissement uniquement si l'insert a reussi.
+      if (newGame) {
+        await upsertEnrichedGame(
+          newGame.id,
+          data,
+          timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+          data.hypes,
+        );
+        hydrated += 1;
+      }
     }
     await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
   }

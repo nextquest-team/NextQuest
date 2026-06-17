@@ -10,13 +10,26 @@ import {
 } from "./candidates.js";
 import { buildBaseProfile, applySwipeDeltas, normalize } from "./profile.js";
 import { buildIdfMap } from "./idf.js";
-import { scoreCandidate, type Bucket, type Candidate } from "./scoring.js";
+import { scoreCandidate, type Bucket, type Candidate, type ScoreFactors } from "./scoring.js";
 import { buildReason } from "./recommendations.dto.js";
 import { hydrateMissingGames } from "./hydrate.js";
 
 const PER_BUCKET = 20; // nb de recos conservees par categorie
 
-export async function generateRecommendations(userId: string): Promise<{ inserted: number }> {
+// Logger injectable pour les recos. Adapte a pino et testable.
+export type RecoLogger = {
+  info: (obj: object, msg?: string) => void;
+};
+
+// Logger par defaut ecrit en JSON structuree sur console.
+const defaultRecoLogger: RecoLogger = {
+  info: (obj, msg) => console.log(msg ?? "reco", JSON.stringify(obj)),
+};
+
+export async function generateRecommendations(
+  userId: string,
+  logger: RecoLogger = defaultRecoLogger,
+): Promise<{ inserted: number }> {
   // 1. Profil de gout normalise (base + apprentissage swipe).
   const [owned, dims, swipes] = await Promise.all([
     getOwnedForProfile(userId),
@@ -54,6 +67,12 @@ export async function generateRecommendations(userId: string): Promise<{ inserte
 
   // 3. Score + selection top N par bucket.
   const toInsert: (typeof recommendations.$inferInsert)[] = [];
+  const bucketCounts: Record<Bucket, number> = {
+    library_unplayed: 0,
+    discovery: 0,
+    upcoming: 0,
+  };
+
   for (const { bucket, candidates } of buckets) {
     const maxSim = Math.max(1, ...candidates.map((c) => c.similarVotes));
     const scored = candidates
@@ -68,16 +87,62 @@ export async function generateRecommendations(userId: string): Promise<{ inserte
         score: s.score.toFixed(3),
         reason: { text: buildReason(bucket, s.factors), factors: s.factors },
       });
+      bucketCounts[bucket]++;
     }
+  }
+
+  // Recuperer les titres des jeux recommandes pour le logging.
+  let titleMap = new Map<string, string>();
+  if (toInsert.length > 0) {
+    const gameIds = toInsert.map((r) => r.gameId);
+    const titlesResult = await db
+      .select({ id: games.id, title: games.title })
+      .from(games)
+      .where(inArray(games.id, gameIds));
+    titleMap = new Map(titlesResult.map((g) => [g.id, g.title]));
+  }
+
+  // Emettre les logs de recommandations individuelles.
+  for (const row of toInsert) {
+    const title = titleMap.get(row.gameId) ?? row.gameId;
+    const reasonObj = row.reason as { text: string; factors: ScoreFactors };
+    logger.info(
+      {
+        userId,
+        bucket: row.bucket,
+        gameId: row.gameId,
+        title,
+        score: Number(row.score),
+        factors: reasonObj.factors,
+        reason: reasonObj.text,
+      },
+      "reco generee",
+    );
   }
 
   // 4. Remplace les recos NON actionnees (on garde celles avec feedback : exclusion
   //    + apprentissage). Insertion en transaction.
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     await tx
       .delete(recommendations)
       .where(and(eq(recommendations.userId, userId), isNull(recommendations.feedback)));
     if (toInsert.length > 0) await tx.insert(recommendations).values(toInsert);
     return { inserted: toInsert.length };
   });
+
+  // Emettre le log de synthese.
+  logger.info(
+    {
+      userId,
+      total: toInsert.length,
+      parBucket: {
+        library_unplayed: bucketCounts.library_unplayed,
+        discovery: bucketCounts.discovery,
+        upcoming: bucketCounts.upcoming,
+      },
+    },
+    "recos generees",
+  );
+
+  return result;
 }

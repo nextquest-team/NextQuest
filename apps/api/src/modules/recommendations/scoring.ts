@@ -18,13 +18,12 @@ export type ScoreFactors = {
   sim: number;
 };
 
-// Genre/tag match sature a 1.0 sur une library fournie, donc on donne plus de budget
-// de classement a la qualite qu'a la similarite, pour que les valeurs sures remontent
-// au-dessus des jeux mediocres tres similaires.
+// Maintenant que le match genre/tag discrimine (cosinus, non saturant),
+// on revient a un equilibre genre/tag vs qualite vs similarite.
 const BUCKET_WEIGHTS: Record<Bucket, { g: number; t: number; q: number; s: number }> = {
-  library_unplayed: { g: 0.30, t: 0.20, q: 0.50, s: 0.0 },
-  discovery: { g: 0.25, t: 0.15, q: 0.45, s: 0.15 },
-  upcoming: { g: 0.30, t: 0.20, q: 0.35, s: 0.15 },
+  library_unplayed: { g: 0.35, t: 0.25, q: 0.40, s: 0.0 },
+  discovery: { g: 0.30, t: 0.20, q: 0.30, s: 0.20 },
+  upcoming: { g: 0.35, t: 0.25, q: 0.25, s: 0.15 },
 };
 const QUALITY_PRIOR = 0.4;
 const RATING_CONF_VOTES = 200;
@@ -33,7 +32,21 @@ export const DISCOVERY_QUALITY_FLOOR = 0.35;
 
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(Math.max(v, lo), hi);
-const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+// Similarite cosinus entre le vecteur de gout (profileNorm, restreint a un groupe)
+// et le vecteur binaire du candidat (1 si le jeu a la dimension). Non saturante :
+// un jeu qui partage plusieurs de tes genres dominants score plus haut qu'un qui
+// n'en partage qu'un, sans plafonner a 1 pour tout le monde.
+function cosineGroup(profileNorm: Map<string, number>, ids: string[], prefix: "g:" | "t:"): number {
+  if (ids.length === 0) return 0;
+  let dot = 0;
+  for (const id of ids) dot += profileNorm.get(prefix + id) ?? 0;
+  if (dot <= 0) return 0;
+  let pSq = 0;
+  for (const [k, v] of profileNorm) if (k.startsWith(prefix)) pSq += v * v;
+  const denom = Math.sqrt(pSq) * Math.sqrt(ids.length);
+  return denom > 0 ? clamp(dot / denom, 0, 1) : 0;
+}
 
 // Note joueurs ponderee par la confiance (nb de votes). Peu de votes -> prior bas,
 // pour qu'un jeu de qualite inconnue ne batte pas une valeur sure.
@@ -58,16 +71,8 @@ export function scoreCandidate(
   maxSimilarVotes: number,
 ): { score: number; factors: ScoreFactors } {
   const w = BUCKET_WEIGHTS[bucket];
-  const matchG = clamp(
-    sum(c.genreIds.map((id) => profileNorm.get(`g:${id}`) ?? 0)),
-    0,
-    1,
-  );
-  const matchT = clamp(
-    sum(c.tagIds.map((id) => profileNorm.get(`t:${id}`) ?? 0)),
-    0,
-    1,
-  );
+  const matchG = cosineGroup(profileNorm, c.genreIds, "g:");
+  const matchT = cosineGroup(profileNorm, c.tagIds, "t:");
   const quality =
     bucket === "upcoming"
       ? hypeQuality(c.igdbHypes)

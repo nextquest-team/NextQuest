@@ -206,7 +206,7 @@ describe("generateRecommendations", () => {
 
     // Verifier que logger.info a ete appelé au moins une fois avec "reco generee"
     const recoLogCalls = (fakeLogger.info as any).mock.calls.filter(
-      ([obj, msg]: [any, string | undefined]) => msg === "reco generee",
+      ([_obj, msg]: [unknown, string | undefined]) => msg === "reco generee",
     );
     expect(recoLogCalls.length).toBeGreaterThan(0);
 
@@ -225,7 +225,7 @@ describe("generateRecommendations", () => {
 
     // Verifier le log de synthese "recos generees"
     const summaryLogCalls = (fakeLogger.info as any).mock.calls.filter(
-      ([obj, msg]: [any, string | undefined]) => msg === "recos generees",
+      ([_obj, msg]: [unknown, string | undefined]) => msg === "recos generees",
     );
     expect(summaryLogCalls.length).toBe(1);
 

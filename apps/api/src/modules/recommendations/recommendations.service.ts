@@ -6,7 +6,7 @@ import {
   gameGenres,
 } from "@nextquest/db";
 import { and, eq, isNull, inArray, desc, count } from "drizzle-orm";
-import type { ListRecoQuery, RECO_BUCKETS, FeedbackBody } from "./recommendations.schemas.js";
+import type { RECO_BUCKETS, FeedbackBody } from "./recommendations.schemas.js";
 import {
   toRecommendationDTO,
   type RecommendationDTO,

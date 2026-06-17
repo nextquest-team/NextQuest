@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { it, expect } from "vitest";
 import { idf, buildIdfMap } from "../idf.js";
 
 it("un genre ubiquitaire a un IDF plus faible qu'un genre rare", () => {

@@ -10,7 +10,6 @@ import {
   genres,
   tags,
 } from "@nextquest/db";
-import { eq } from "drizzle-orm";
 import {
   getOwnedForProfile,
   getDimensionFrequencies,

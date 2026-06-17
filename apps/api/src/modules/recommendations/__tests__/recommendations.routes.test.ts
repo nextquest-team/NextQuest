@@ -66,7 +66,7 @@ async function seedRecommendations() {
   ]);
 
   // Seed recommendations (some with feedback, some without)
-  const [r1] = await db
+  await db
     .insert(recommendations)
     .values({
       userId: u.id,
@@ -75,10 +75,9 @@ async function seedRecommendations() {
       score: "0.95",
       reason: { text: "Test reason 1", factors: { matchG: 0.8 } },
       feedback: null,
-    })
-    .returning({ id: recommendations.id });
+    });
 
-  const [r2] = await db
+  await db
     .insert(recommendations)
     .values({
       userId: u.id,
@@ -87,10 +86,9 @@ async function seedRecommendations() {
       score: "0.85",
       reason: { text: "Test reason 2", factors: { matchG: 0.7 } },
       feedback: null,
-    })
-    .returning({ id: recommendations.id });
+    });
 
-  const [r3] = await db
+  await db
     .insert(recommendations)
     .values({
       userId: u.id,
@@ -99,8 +97,7 @@ async function seedRecommendations() {
       score: "0.75",
       reason: { text: "Test reason 3", factors: { matchG: 0.6 } },
       feedback: null,
-    })
-    .returning({ id: recommendations.id });
+    });
 
   // Add one with feedback (should be filtered out)
   await db.insert(recommendations).values({
@@ -586,8 +583,8 @@ describe("POST /api/recommendations/generate", () => {
     const stillExists = await db.query.recommendations.findFirst({
       where: (t) => eq(t.id, oldReco.id),
     });
-    // Old reco may or may not exist depending on new generation output
-    // Just verify that generate succeeded and returned a count
+    // Old reco should be deleted after regeneration (no feedback means it's replaced)
+    expect(stillExists).toBeUndefined();
     expect(res.json().inserted).toBeGreaterThanOrEqual(0);
   });
 

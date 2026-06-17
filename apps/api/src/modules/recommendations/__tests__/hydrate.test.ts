@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { db, games } from "@nextquest/db";
-import { inArray } from "drizzle-orm";
 import { hydrateMissingGames } from "../hydrate.js";
 import { hydrateGamesByIgdbIds, type IgdbDeps } from "../../games/igdb/igdb.service.js";
 import type { IgdbGame } from "../../games/igdb/igdb.client.js";
@@ -17,24 +16,17 @@ beforeEach(async () => {
 describe("hydrateMissingGames", () => {
   it("n'appelle hydrateGamesByIgdbIds que pour les igdbIds absents", async () => {
     // Seed : un jeu avec igdbId 100 deja present
-    const [existing] = await db
+    await db
       .insert(games)
       .values({
         title: "Existing Game",
         slug: "existing-game",
         igdbId: 100,
         isCustom: false,
-      })
-      .returning({ id: games.id });
-
-    // Mock hydrateGamesByIgdbIds pour verifier l'appel
-    const mockHydrate = vi.fn(async (ids: number[]) => {
-      return ids.length;
-    });
+      });
 
     // On veut verifier que seul l'igdbId 200 est passe a hydrateGamesByIgdbIds
     // (100 est deja present, donc skip).
-    const igdbIds = [100, 200, 300]; // 100 present, 200 et 300 manquants
 
     // Depuis hydrate.ts, c'est hydrateGamesByIgdbIds qui est appelee.
     // On ne peut pas mocker directement depuis hydrate.ts (c'est un appel direct),

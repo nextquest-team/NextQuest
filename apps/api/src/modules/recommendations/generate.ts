@@ -1,4 +1,4 @@
-import { db, recommendations, games, userGames, gameSimilar } from "@nextquest/db";
+import { db, recommendations, games, gameSimilar } from "@nextquest/db";
 import { and, eq, isNull, inArray } from "drizzle-orm";
 import {
   getOwnedForProfile,

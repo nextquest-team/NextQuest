@@ -6,8 +6,9 @@ import {
   gameTags,
   recommendations,
 } from "@nextquest/db";
-import { and, eq, count, inArray, isNotNull } from "drizzle-orm";
+import { and, eq, count, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { OwnedGameForProfile, SwipeDelta } from "./profile.js";
+import type { Candidate } from "./scoring.js";
 
 // Genres/tags groupes par gameId (1 requete IN), pour eviter le N+1.
 async function genreTagIdsByGame(gameIds: string[]) {
@@ -99,5 +100,38 @@ export async function getSwipeDeltas(userId: string): Promise<SwipeDelta[]> {
     feedback: r.feedback as SwipeDelta["feedback"],
     genreIds: g.get(r.gameId) ?? [],
     tagIds: t.get(r.gameId) ?? [],
+  }));
+}
+
+// Candidats du bucket "library_unplayed" : jeux de la biblio avec status backlog/wishlist
+// et playtime < 30 min (ou null).
+const UNPLAYED_MAX_MINUTES = 30;
+
+export async function getLibraryUnplayedCandidates(userId: string): Promise<Candidate[]> {
+  const rows = await db
+    .select({
+      gameId: games.id,
+      igdbRating: games.igdbRating,
+      igdbRatingCount: games.igdbRatingCount,
+      igdbHypes: games.igdbHypes,
+    })
+    .from(userGames)
+    .innerJoin(games, eq(userGames.gameId, games.id))
+    .where(
+      and(
+        eq(userGames.userId, userId),
+        inArray(userGames.status, ["backlog", "wishlist"]),
+        or(isNull(userGames.playtimeMinutes), lt(userGames.playtimeMinutes, UNPLAYED_MAX_MINUTES)),
+      ),
+    );
+  const { g, t } = await genreTagIdsByGame(rows.map((r) => r.gameId));
+  return rows.map((r) => ({
+    gameId: r.gameId,
+    genreIds: g.get(r.gameId) ?? [],
+    tagIds: t.get(r.gameId) ?? [],
+    igdbRating: r.igdbRating,
+    igdbRatingCount: r.igdbRatingCount,
+    igdbHypes: r.igdbHypes,
+    similarVotes: 0, // pas de graphe similaire pour ce bucket
   }));
 }

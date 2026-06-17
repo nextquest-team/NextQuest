@@ -108,10 +108,27 @@ describe("fetchGamesByIds", () => {
 });
 
 describe("fetchUpcomingByGenres", () => {
-  it("filtre par date de sortie future, genres et ordonne par hype", async () => {
+  it("filtre par date de sortie future, genres et ordonne par hype desc (IGDB passthrough)", async () => {
     const nowEpoch = 1700000000;
     const fetchMock = vi.fn().mockResolvedValue(
       ok([
+        {
+          id: 1002,
+          name: "Upcoming Game 2",
+          summary: "Even more anticipated.",
+          first_release_date: nowEpoch + 86400 * 60,
+          rating: null,
+          rating_count: null,
+          cover: { id: 2, image_id: "upcover2" },
+          artworks: [{ id: 11, image_id: "upart2" }],
+          genres: [{ id: 12, name: "RPG", slug: "rpg" }],
+          themes: [],
+          involved_companies: [
+            { company: { name: "Dev Inc 2" }, developer: true, publisher: false },
+          ],
+          similar_games: [],
+          hypes: 800, // Rang plus haut (premiere position apres sort desc)
+        },
         {
           id: 1001,
           name: "Upcoming Game 1",
@@ -127,15 +144,7 @@ describe("fetchUpcomingByGenres", () => {
             { company: { name: "Dev Inc" }, developer: true, publisher: false },
           ],
           similar_games: [],
-          hypes: 500,
-        },
-        {
-          id: 1002,
-          name: "Upcoming Game 2",
-          summary: "Even more anticipated.",
-          first_release_date: nowEpoch + 86400 * 60,
-          hypes: 800, // Rang plus haut
-          genres: [{ id: 12, name: "RPG", slug: "rpg" }],
+          hypes: 500, // Rang plus bas
         },
       ]),
     );
@@ -143,10 +152,11 @@ describe("fetchUpcomingByGenres", () => {
     const games = await fetchUpcomingByGenres([12], nowEpoch, "TOKEN", "CID", fetchMock);
 
     expect(games).toHaveLength(2);
-    expect(games[0].name).toBe("Upcoming Game 1");
-    expect(games[0].hypes).toBe(500);
-    expect(games[1].name).toBe("Upcoming Game 2");
-    expect(games[1].hypes).toBe(800);
+    // Client passes IGDB response through unchanged, respecting IGDB's "sort hypes desc"
+    expect(games[0].name).toBe("Upcoming Game 2");
+    expect(games[0].hypes).toBe(800);
+    expect(games[1].name).toBe("Upcoming Game 1");
+    expect(games[1].hypes).toBe(500);
 
     // Verifie la requete Apicalypse
     const init = fetchMock.mock.calls[0][1];

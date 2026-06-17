@@ -11,6 +11,9 @@ import {
 import { and, eq, count, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { OwnedGameForProfile, SwipeDelta } from "./profile.js";
 import type { Candidate } from "./scoring.js";
+import { fetchUpcomingByGenres } from "../games/igdb/igdb.client.js";
+import { defaultDeps } from "../games/igdb/igdb.service.js";
+import { hydrateMissingGames } from "./hydrate.js";
 
 // Genres/tags groupes par gameId (1 requete IN), pour eviter le N+1.
 async function genreTagIdsByGame(gameIds: string[]) {
@@ -238,10 +241,6 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
   if (igdbGenreIds.length === 0) return [];
 
   // Fetch upcoming games from IGDB
-  const { fetchUpcomingByGenres } = await import("../games/igdb/igdb.client.js");
-  const { defaultDeps } = await import("../games/igdb/igdb.service.js");
-  const { hydrateMissingGames: hydrate } = await import("./hydrate.js");
-
   const nowEpoch = Math.floor(Date.now() / 1000);
   const deps = defaultDeps();
   const token = await deps.getToken();
@@ -252,7 +251,7 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
   if (upcomingGames.length === 0) return [];
 
   // Hydrate missing games into catalog
-  await hydrate(upcomingGames.map((g) => g.igdbId));
+  await hydrateMissingGames(upcomingGames.map((g) => g.igdbId));
 
   // Get already swiped games
   const swipedGameIds = new Set(

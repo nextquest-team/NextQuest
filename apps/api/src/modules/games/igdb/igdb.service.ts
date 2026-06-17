@@ -13,6 +13,7 @@ import {
   igdbImageUrl,
   findGameIdsBySteamAppids,
   fetchGamesByIds,
+  fetchTimeToBeats,
   type IgdbGame,
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
@@ -39,6 +40,7 @@ export interface IgdbDeps {
   getToken(): Promise<string>;
   findGameIdsBySteamAppids(appids: number[], token: string, clientId: string): Promise<Map<number, number>>;
   fetchGamesByIds(ids: number[], token: string, clientId: string): Promise<IgdbGame[]>;
+  fetchTimeToBeats(ids: number[], token: string, clientId: string): Promise<Map<number, { normallyMinutes: number; count: number }>>;
   sleep(ms: number): Promise<void>;
 }
 
@@ -61,6 +63,7 @@ export function defaultDeps(): IgdbDeps {
     findGameIdsBySteamAppids: (appids, token, clientId) =>
       findGameIdsBySteamAppids(appids, token, clientId),
     fetchGamesByIds: (ids, token, clientId) => fetchGamesByIds(ids, token, clientId),
+    fetchTimeToBeats: (ids, token, clientId) => fetchTimeToBeats(ids, token, clientId),
     // Pacing pour rester sous 4 req/s entre deux lots.
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   };
@@ -101,7 +104,12 @@ async function selectCandidates(userId?: string) {
 }
 
 // Upsert d'un jeu enrichi + ses genres/themes/similar, dans une transaction.
-async function upsertEnrichedGame(gameId: string, data: IgdbGame): Promise<void> {
+async function upsertEnrichedGame(
+  gameId: string,
+  data: IgdbGame,
+  avgPlaytime: number | null = null,
+  igdbHypes: number | null = null,
+): Promise<void> {
   await db.transaction(async (tx) => {
     await tx
       .update(games)
@@ -115,6 +123,8 @@ async function upsertEnrichedGame(gameId: string, data: IgdbGame): Promise<void>
         publisher: data.publisher,
         coverUrl: data.coverImageId ? igdbImageUrl(data.coverImageId, "t_cover_big") : null,
         backgroundUrl: data.artworkImageId ? igdbImageUrl(data.artworkImageId, "t_1080p") : null,
+        avgPlaytime: avgPlaytime,
+        igdbHypes: igdbHypes,
         lastSyncedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -224,15 +234,22 @@ export async function enrichGames(
 
   for (const part of chunk([...igdbIdToGameIds.keys()], BATCH)) {
     let fetched: IgdbGame[];
+    let timeToBeat: Map<number, { normallyMinutes: number; count: number }>;
     try {
       fetched = await deps.fetchGamesByIds(part, token, clientId);
+      timeToBeat = await deps.fetchTimeToBeats(part, token, clientId);
     } catch {
       summary.failed += part.length;
       continue; // IGDB en panne sur ce lot : on n'ecrit rien, retente plus tard.
     }
     for (const data of fetched) {
       for (const gameId of igdbIdToGameIds.get(data.igdbId) ?? []) {
-        await upsertEnrichedGame(gameId, data);
+        await upsertEnrichedGame(
+          gameId,
+          data,
+          timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+          data.hypes,
+        );
         summary.enriched += 1;
       }
     }

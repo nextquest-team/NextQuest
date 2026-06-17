@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   findGameIdsBySteamAppids,
   fetchGamesByIds,
+  fetchTimeToBeats,
   igdbImageUrl,
 } from "../igdb.client.js";
 
@@ -102,5 +103,21 @@ describe("fetchGamesByIds", () => {
     expect(g.coverImageId).toBeNull();
     expect(g.genres).toEqual([]);
     expect(g.similarIgdbIds).toEqual([]);
+  });
+});
+
+describe("fetchTimeToBeats", () => {
+  it("convertit normally (secondes) en minutes et filtre count faible", async () => {
+    const fakeFetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => [
+        { game_id: 1, normally: 7200, count: 40 }, // 120 min
+        { game_id: 2, normally: 3600, count: 3 }, // count < 10 -> exclu
+      ],
+    });
+    const map = await fetchTimeToBeats([1, 2], "tok", "cid", fakeFetch as never);
+    expect(map.get(1)).toEqual({ normallyMinutes: 120, count: 40 });
+    expect(map.has(2)).toBe(false);
   });
 });

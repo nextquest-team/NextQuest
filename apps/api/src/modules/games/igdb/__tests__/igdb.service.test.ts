@@ -55,11 +55,16 @@ const sampleIgdbGame = (over: Partial<IgdbGame> = {}): IgdbGame => ({
   genres: [{ igdbId: 5, name: "Shooter", slug: "shooter" }],
   themes: [{ igdbId: 1, name: "Action", slug: "action" }],
   similarIgdbIds: [11, 22],
+  hypes: 850,
   ...over,
 });
 
 // Client mocké : on contrôle le mapping appid->igdbId et le fetch metadonnees.
-function makeClient(map: Record<number, number>, gamesById: Record<number, IgdbGame>) {
+function makeClient(
+  map: Record<number, number>,
+  gamesById: Record<number, IgdbGame>,
+  timeToBeatsById: Record<number, { normallyMinutes: number; count: number }> = {},
+) {
   return {
     getToken: vi.fn(async () => "TOKEN"),
     findGameIdsBySteamAppids: vi.fn(async (appids: number[]) => {
@@ -68,6 +73,11 @@ function makeClient(map: Record<number, number>, gamesById: Record<number, IgdbG
       return m;
     }),
     fetchGamesByIds: vi.fn(async (ids: number[]) => ids.map((id) => gamesById[id]).filter(Boolean)),
+    fetchTimeToBeats: vi.fn(async (ids: number[]) => {
+      const m = new Map<number, { normallyMinutes: number; count: number }>();
+      for (const id of ids) if (timeToBeatsById[id] != null) m.set(id, timeToBeatsById[id]);
+      return m;
+    }),
     sleep: vi.fn(async () => {}),
   };
 }
@@ -165,5 +175,43 @@ describe("enrichGames (scopé user)", () => {
     expect(summary.enriched).toBe(1);
     const [after] = await db.select().from(games).where(eq(games.id, g.id));
     expect(after.lastSyncedAt).not.toBeNull();
+  });
+
+  it("stocke avgPlaytime (time_to_beats converti) et igdbHypes", async () => {
+    const userId = await createUser();
+    const gameId = await seedGame(3498, "GTA V");
+    await db.insert(userGames).values({ userId, gameId });
+
+    const client = makeClient(
+      { 3498: 1020 },
+      { 1020: sampleIgdbGame({ hypes: 850 }) },
+      { 1020: { normallyMinutes: 120, count: 42 } },
+    );
+
+    const summary = await enrichGames({ userId }, "CID", client);
+
+    expect(summary.enriched).toBe(1);
+    const [g] = await db.select().from(games).where(eq(games.id, gameId));
+    expect(g.avgPlaytime).toBe(120);
+    expect(g.igdbHypes).toBe(850);
+  });
+
+  it("fallback : pas d'entree time_to_beats -> avgPlaytime reste null", async () => {
+    const userId = await createUser();
+    const gameId = await seedGame(3498, "GTA V");
+    await db.insert(userGames).values({ userId, gameId });
+
+    const client = makeClient(
+      { 3498: 1020 },
+      { 1020: sampleIgdbGame({ hypes: 850 }) },
+      {}, // aucune entree time_to_beats
+    );
+
+    const summary = await enrichGames({ userId }, "CID", client);
+
+    expect(summary.enriched).toBe(1);
+    const [g] = await db.select().from(games).where(eq(games.id, gameId));
+    expect(g.avgPlaytime).toBeNull();
+    expect(g.igdbHypes).toBe(850);
   });
 });

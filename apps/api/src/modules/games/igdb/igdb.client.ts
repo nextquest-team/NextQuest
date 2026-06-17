@@ -34,6 +34,7 @@ export interface IgdbGame {
   genres: IgdbTaxon[];
   themes: IgdbTaxon[];
   similarIgdbIds: number[];
+  hypes: number | null;
 }
 
 export function igdbImageUrl(imageId: string, size: string): string {
@@ -105,6 +106,7 @@ const GAME_FIELDS = [
   "involved_companies.developer",
   "involved_companies.publisher",
   "similar_games",
+  "hypes",
 ].join(",");
 
 interface RawTaxon {
@@ -129,6 +131,7 @@ interface RawGame {
     publisher?: boolean;
   }>;
   similar_games?: number[];
+  hypes?: number;
 }
 
 function mapTaxa(raw: RawTaxon[] | undefined): IgdbTaxon[] {
@@ -168,6 +171,35 @@ export async function fetchGamesByIds(
       genres: mapTaxa(r.genres),
       themes: mapTaxa(r.themes),
       similarIgdbIds: r.similar_games ?? [],
+      hypes: r.hypes ?? null,
     };
   });
+}
+
+// Durees de completion IGDB (game_time_to_beats). On ne garde que `normally`
+// converti en minutes, et seulement si fiable (count >= 10) : la donnee brute
+// contient des aberrations (ex. hastily 876h sur GTA Vice City).
+export async function fetchTimeToBeats(
+  igdbIds: number[],
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<Map<number, { normallyMinutes: number; count: number }>> {
+  const map = new Map<number, { normallyMinutes: number; count: number }>();
+  if (igdbIds.length === 0) return map;
+  const body = `fields game_id,normally,count; where game_id = (${igdbIds.join(",")}); limit 500;`;
+  const rows = (await igdbPost("game_time_to_beats", body, token, clientId, fetchImpl)) as Array<{
+    game_id?: number;
+    normally?: number;
+    count?: number;
+  }>;
+  for (const row of rows) {
+    if (row.game_id != null && row.normally != null && (row.count ?? 0) >= 10) {
+      map.set(row.game_id, {
+        normallyMinutes: Math.round(row.normally / 60),
+        count: row.count ?? 0,
+      });
+    }
+  }
+  return map;
 }

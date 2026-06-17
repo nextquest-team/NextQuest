@@ -6,6 +6,7 @@ import {
   getGroupedRecommendations,
   recordFeedback,
 } from "./recommendations.service.js";
+import { generateRecommendations } from "./generate.js";
 import { requireAuth, userIdOf } from "../../lib/guards.js";
 
 export async function recommendationsRoutes(app: FastifyInstance) {
@@ -40,6 +41,21 @@ export async function recommendationsRoutes(app: FastifyInstance) {
       });
 
       return { items, total, limit, offset };
+    },
+  );
+
+  r.post(
+    "/recommendations/generate",
+    {
+      onRequest: [requireAuth],
+      schema: {
+        tags: ["Recommendations"],
+        summary: "(Re)calculer les recommandations de l'utilisateur",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request) => {
+      return generateRecommendations(userIdOf(request), request.log);
     },
   );
 

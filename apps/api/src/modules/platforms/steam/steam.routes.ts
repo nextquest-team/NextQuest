@@ -8,6 +8,7 @@ import {
   importSteamLibrary,
 } from "./steam.service.js";
 import { enrichGames } from "../../games/igdb/igdb.service.js";
+import { generateRecommendations } from "../../recommendations/generate.js";
 import { requireAuth, userIdOf } from "../../../lib/guards.js";
 
 // URL publique de l'API (joignable par le browser) pour realm + return_to OpenID.
@@ -162,12 +163,15 @@ export async function steamRoutes(app: FastifyInstance) {
 
       const imported = await importSteamLibrary(userId, ownedGames);
 
-      // Enrichissement IGDB en fire-and-forget : on ne bloque pas la reponse (l'user
-      // voit sa biblio tout de suite, les metadonnees arrivent apres). La pass est
-      // idempotente, un echec est rattrape au prochain import/declenchement manuel.
-      void enrichGames({ userId }).catch((err) => {
-        request.log.error({ err }, "Enrichissement IGDB post-import echoue");
-      });
+      // Enrichissement IGDB suivi de la generation de recos en fire-and-forget :
+      // on ne bloque pas la reponse (l'user voit sa biblio tout de suite, les
+      // metadonnees et recos arrivent apres). Les passes sont idempotentes,
+      // un echec est rattrape au prochain import/declenchement manuel.
+      void enrichGames({ userId })
+        .then(() => generateRecommendations(userId, request.log))
+        .catch((err) => {
+          request.log.error({ err }, "Enrichissement/generation reco post-import echoue");
+        });
 
       return reply.send({ imported });
     },

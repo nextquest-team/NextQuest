@@ -143,6 +143,27 @@ function unixToDate(unix: number | undefined): string | null {
   return new Date(unix * 1000).toISOString().slice(0, 10);
 }
 
+function mapRawGame(r: RawGame): IgdbGame {
+  const dev = r.involved_companies?.find((c) => c.developer)?.company?.name ?? null;
+  const pub = r.involved_companies?.find((c) => c.publisher)?.company?.name ?? null;
+  return {
+    igdbId: r.id,
+    name: r.name,
+    summary: r.summary ?? null,
+    releaseDate: unixToDate(r.first_release_date),
+    rating: r.rating ?? null,
+    ratingCount: r.rating_count ?? null,
+    coverImageId: r.cover?.image_id ?? null,
+    artworkImageId: r.artworks?.[0]?.image_id ?? null,
+    developer: dev,
+    publisher: pub,
+    genres: mapTaxa(r.genres),
+    themes: mapTaxa(r.themes),
+    similarIgdbIds: r.similar_games ?? [],
+    hypes: r.hypes ?? null,
+  };
+}
+
 export async function fetchGamesByIds(
   igdbIds: number[],
   token: string,
@@ -154,26 +175,22 @@ export async function fetchGamesByIds(
   const body = `fields ${GAME_FIELDS}; where id = (${igdbIds.join(",")}); limit 500;`;
   const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawGame[];
 
-  return rows.map((r) => {
-    const dev = r.involved_companies?.find((c) => c.developer)?.company?.name ?? null;
-    const pub = r.involved_companies?.find((c) => c.publisher)?.company?.name ?? null;
-    return {
-      igdbId: r.id,
-      name: r.name,
-      summary: r.summary ?? null,
-      releaseDate: unixToDate(r.first_release_date),
-      rating: r.rating ?? null,
-      ratingCount: r.rating_count ?? null,
-      coverImageId: r.cover?.image_id ?? null,
-      artworkImageId: r.artworks?.[0]?.image_id ?? null,
-      developer: dev,
-      publisher: pub,
-      genres: mapTaxa(r.genres),
-      themes: mapTaxa(r.themes),
-      similarIgdbIds: r.similar_games ?? [],
-      hypes: r.hypes ?? null,
-    };
-  });
+  return rows.map(mapRawGame);
+}
+
+// Jeux pas encore sortis dans des genres donnes, tries par hype.
+// nowEpochSeconds = timestamp Unix en secondes (eg. Math.floor(Date.now()/1000)).
+export async function fetchUpcomingByGenres(
+  igdbGenreIds: number[],
+  nowEpochSeconds: number,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbGame[]> {
+  if (igdbGenreIds.length === 0) return [];
+  const body = `fields ${GAME_FIELDS}; where first_release_date > ${nowEpochSeconds} & genres = (${igdbGenreIds.join(",")}); sort hypes desc; limit 60;`;
+  const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawGame[];
+  return rows.map(mapRawGame);
 }
 
 // Durees de completion IGDB (game_time_to_beats). On ne garde que `normally`

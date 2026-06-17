@@ -6,6 +6,7 @@ import {
   gameTags,
   recommendations,
   gameSimilar,
+  genres,
 } from "@nextquest/db";
 import { and, eq, count, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { OwnedGameForProfile, SwipeDelta } from "./profile.js";
@@ -191,5 +192,103 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
       igdbRatingCount: r.igdbRatingCount,
       igdbHypes: r.igdbHypes,
       similarVotes: votesByIgdb.get(r.igdbId!) ?? 0,
+    }));
+}
+
+// Candidats du bucket "upcoming" : jeux pas encore sortis, dans les top genres
+// de l'user, tries par hype.
+export async function getUpcomingCandidates(userId: string): Promise<Candidate[]> {
+  // Jeux possedes et leurs genres
+  const ownedGameIds = new Set(
+    (await db.select({ gameId: userGames.gameId }).from(userGames).where(eq(userGames.userId, userId))).map(
+      (r) => r.gameId,
+    ),
+  );
+
+  if (ownedGameIds.size === 0) return [];
+
+  const { g } = await genreTagIdsByGame([...ownedGameIds]);
+
+  // Frequences des genres dans les jeux possedes
+  const genreFreq = new Map<string, number>();
+  for (const [, genreIds] of g) {
+    for (const gid of genreIds) {
+      genreFreq.set(gid, (genreFreq.get(gid) ?? 0) + 1);
+    }
+  }
+
+  // Top 5 genres les plus frequents, resoudre leur igdbId
+  const topGenreIds = [...genreFreq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map((e) => e[0]);
+
+  if (topGenreIds.length === 0) return [];
+
+  // Resolve genre IDs to IGDB IDs from genres table
+  const genreRows = await db
+    .select({ id: genres.id, igdbId: genres.igdbId })
+    .from(genres)
+    .where(inArray(genres.id, topGenreIds));
+
+  const igdbGenreIds = genreRows
+    .map((r) => r.igdbId)
+    .filter((x): x is number => x != null);
+
+  if (igdbGenreIds.length === 0) return [];
+
+  // Fetch upcoming games from IGDB
+  const { fetchUpcomingByGenres } = await import("../games/igdb/igdb.client.js");
+  const { defaultDeps } = await import("../games/igdb/igdb.service.js");
+  const { hydrateMissingGames: hydrate } = await import("./hydrate.js");
+
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  const deps = defaultDeps();
+  const token = await deps.getToken();
+  const clientId = process.env.IGDB_CLIENT_ID;
+  if (!clientId) throw new Error("IGDB_CLIENT_ID not configured");
+
+  const upcomingGames = await fetchUpcomingByGenres(igdbGenreIds, nowEpoch, token, clientId);
+  if (upcomingGames.length === 0) return [];
+
+  // Hydrate missing games into catalog
+  await hydrate(upcomingGames.map((g) => g.igdbId));
+
+  // Get already swiped games
+  const swipedGameIds = new Set(
+    (
+      await db
+        .select({ gameId: recommendations.gameId })
+        .from(recommendations)
+        .where(and(eq(recommendations.userId, userId), isNotNull(recommendations.feedback)))
+    ).map((s) => s.gameId),
+  );
+
+  // Resolve IGDB IDs to games in catalog
+  const resolved = await db
+    .select({
+      gameId: games.id,
+      igdbId: games.igdbId,
+      igdbRating: games.igdbRating,
+      igdbRatingCount: games.igdbRatingCount,
+      igdbHypes: games.igdbHypes,
+    })
+    .from(games)
+    .where(inArray(games.igdbId, upcomingGames.map((g) => g.igdbId)));
+
+  const { g: resolvedGenres, t: resolvedTags } = await genreTagIdsByGame(
+    resolved.map((r) => r.gameId),
+  );
+
+  return resolved
+    .filter((r) => !ownedGameIds.has(r.gameId) && !swipedGameIds.has(r.gameId))
+    .map((r) => ({
+      gameId: r.gameId,
+      genreIds: resolvedGenres.get(r.gameId) ?? [],
+      tagIds: resolvedTags.get(r.gameId) ?? [],
+      igdbRating: r.igdbRating,
+      igdbRatingCount: r.igdbRatingCount,
+      igdbHypes: r.igdbHypes,
+      similarVotes: 0, // pas de graphe similaire pour ce bucket
     }));
 }

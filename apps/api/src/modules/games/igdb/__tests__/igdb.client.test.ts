@@ -3,6 +3,7 @@ import {
   findGameIdsBySteamAppids,
   fetchGamesByIds,
   fetchTimeToBeats,
+  fetchUpcomingByGenres,
   igdbImageUrl,
 } from "../igdb.client.js";
 
@@ -103,6 +104,93 @@ describe("fetchGamesByIds", () => {
     expect(g.coverImageId).toBeNull();
     expect(g.genres).toEqual([]);
     expect(g.similarIgdbIds).toEqual([]);
+  });
+});
+
+describe("fetchUpcomingByGenres", () => {
+  it("filtre par date de sortie future, genres et ordonne par hype", async () => {
+    const nowEpoch = 1700000000;
+    const fetchMock = vi.fn().mockResolvedValue(
+      ok([
+        {
+          id: 1001,
+          name: "Upcoming Game 1",
+          summary: "Anticipated.",
+          first_release_date: nowEpoch + 86400 * 30, // 30 jours dans le futur
+          rating: null,
+          rating_count: null,
+          cover: { id: 1, image_id: "upcover1" },
+          artworks: [{ id: 10, image_id: "upart1" }],
+          genres: [{ id: 12, name: "RPG", slug: "rpg" }],
+          themes: [],
+          involved_companies: [
+            { company: { name: "Dev Inc" }, developer: true, publisher: false },
+          ],
+          similar_games: [],
+          hypes: 500,
+        },
+        {
+          id: 1002,
+          name: "Upcoming Game 2",
+          summary: "Even more anticipated.",
+          first_release_date: nowEpoch + 86400 * 60,
+          hypes: 800, // Rang plus haut
+          genres: [{ id: 12, name: "RPG", slug: "rpg" }],
+        },
+      ]),
+    );
+
+    const games = await fetchUpcomingByGenres([12], nowEpoch, "TOKEN", "CID", fetchMock);
+
+    expect(games).toHaveLength(2);
+    expect(games[0].name).toBe("Upcoming Game 1");
+    expect(games[0].hypes).toBe(500);
+    expect(games[1].name).toBe("Upcoming Game 2");
+    expect(games[1].hypes).toBe(800);
+
+    // Verifie la requete Apicalypse
+    const init = fetchMock.mock.calls[0][1];
+    expect(init.body).toContain(`first_release_date > ${nowEpoch}`);
+    expect(init.body).toContain("genres = (12)");
+    expect(init.body).toContain("sort hypes desc");
+    expect(init.body).toContain("limit 60");
+  });
+
+  it("renvoie une liste vide si aucun genre donné", async () => {
+    const fetchMock = vi.fn();
+    const games = await fetchUpcomingByGenres([], 1700000000, "TOKEN", "CID", fetchMock);
+    expect(games).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("parse les jeux a venir et gere les champs optionnels", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      ok([
+        {
+          id: 2001,
+          name: "Mystery Game",
+          // Pas de summary, rating, artworks
+          first_release_date: 1800000000,
+          genres: [],
+        },
+      ]),
+    );
+
+    const [g] = await fetchUpcomingByGenres([5, 10], 1700000000, "TOKEN", "CID", fetchMock);
+
+    expect(g.igdbId).toBe(2001);
+    expect(g.name).toBe("Mystery Game");
+    expect(g.summary).toBeNull();
+    expect(g.rating).toBeNull();
+    expect(g.artworkImageId).toBeNull();
+    expect(g.genres).toEqual([]);
+  });
+
+  it("leve si IGDB repond non-200", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(err(500));
+    await expect(
+      fetchUpcomingByGenres([12], 1700000000, "TOKEN", "CID", fetchMock),
+    ).rejects.toThrow(/500/);
   });
 });
 

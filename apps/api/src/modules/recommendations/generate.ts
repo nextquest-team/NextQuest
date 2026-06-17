@@ -6,6 +6,7 @@ import {
   getSwipeDeltas,
   getLibraryUnplayedCandidates,
   getDiscoveryCandidates,
+  getUpcomingCandidates,
 } from "./candidates.js";
 import { buildBaseProfile, applySwipeDeltas, normalize } from "./profile.js";
 import { buildIdfMap } from "./idf.js";
@@ -48,6 +49,7 @@ export async function generateRecommendations(userId: string): Promise<{ inserte
   const buckets: { bucket: Bucket; candidates: Candidate[] }[] = [
     { bucket: "library_unplayed", candidates: await getLibraryUnplayedCandidates(userId) },
     { bucket: "discovery", candidates: await getDiscoveryCandidates(userId) },
+    { bucket: "upcoming", candidates: await getUpcomingCandidates(userId) },
   ];
 
   // 3. Score + selection top N par bucket.

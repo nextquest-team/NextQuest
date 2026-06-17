@@ -19,6 +19,36 @@ import {
   getUpcomingCandidates,
 } from "../candidates.js";
 import { gameSimilar } from "@nextquest/db";
+import type { IgdbGame } from "../../games/igdb/igdb.client.js";
+
+// Mock des dépendances IGDB
+vi.mock("../../games/igdb/igdb.client.js", async () => {
+  const actual = await vi.importActual<typeof import("../../games/igdb/igdb.client.js")>("../../games/igdb/igdb.client.js");
+  return {
+    ...actual,
+    fetchUpcomingByGenres: vi.fn(),
+  };
+});
+
+vi.mock("../../games/igdb/igdb.service.js", async () => {
+  const actual = await vi.importActual<typeof import("../../games/igdb/igdb.service.js")>("../../games/igdb/igdb.service.js");
+  return {
+    ...actual,
+    defaultDeps: vi.fn(() => ({
+      getToken: vi.fn(async () => "test-token"),
+    })),
+  };
+});
+
+vi.mock("../hydrate.js", async () => {
+  const actual = await vi.importActual<typeof import("../hydrate.js")>("../hydrate.js");
+  return {
+    ...actual,
+    hydrateMissingGames: vi.fn(async () => {
+      // No-op: les jeux sont déjà en DB
+    }),
+  };
+});
 
 // Cleanup after each test
 async function cleanup() {
@@ -35,6 +65,8 @@ async function cleanup() {
 
 beforeEach(async () => {
   await cleanup();
+  // Configurer les variables d'environnement pour les tests
+  process.env.IGDB_CLIENT_ID = "test-client-id";
 });
 
 describe("getOwnedForProfile", () => {
@@ -599,9 +631,11 @@ describe("getUpcomingCandidates", () => {
   });
 
   it("exclut les jeux possedes et swipes des candidats upcomings", async () => {
-    // Verify core resolution logic: owned and swiped games are excluded.
-    // Since getUpcomingCandidates requires IGDB_CLIENT_ID and real IGDB calls,
-    // we test early-return paths and DB exclusion logic only.
+    // Teste la logique d'exclusion des jeux possédés et swipés.
+    // Mock fetchUpcomingByGenres et defaultDeps pour éviter les appels IGDB réels.
+
+    const { fetchUpcomingByGenres } = await import("../../games/igdb/igdb.client.js");
+    const { defaultDeps } = await import("../../games/igdb/igdb.service.js");
 
     const [user] = await db
       .insert(users)
@@ -612,7 +646,7 @@ describe("getUpcomingCandidates", () => {
       })
       .returning({ id: users.id });
 
-    // Owned game with genre
+    // Jeu possédé avec genre Action (igdbId 10)
     const [ownedGame] = await db
       .insert(games)
       .values({
@@ -646,13 +680,16 @@ describe("getUpcomingCandidates", () => {
       status: "completed",
     });
 
-    // Swiped game
+    // Jeu swipé (déjà évalué)
     const [swipedGame] = await db
       .insert(games)
       .values({
         title: "Swiped Game",
         slug: "swiped-game",
         igdbId: 200,
+        igdbRating: 75,
+        igdbRatingCount: 300,
+        igdbHypes: 50,
         isCustom: false,
       })
       .returning({ id: games.id });
@@ -664,21 +701,88 @@ describe("getUpcomingCandidates", () => {
       bucket: "upcoming",
     });
 
-    // Test: function fetches owned games and genres, marks them as excluded.
-    // Later in the function, swiped games are also excluded.
-    // We verify owned game is in the exclusion set by checking the DB seed is correct.
-    expect(ownedGame.id).toBeDefined();
-    expect(swipedGame.id).toBeDefined();
+    // Jeu upcoming candidat (igdbId 300) avec genre Action, pas possédé, pas swipé
+    const [upcomingGame] = await db
+      .insert(games)
+      .values({
+        title: "Upcoming Game",
+        slug: "upcoming-game",
+        igdbId: 300,
+        igdbRating: 85,
+        igdbRatingCount: 200,
+        igdbHypes: 120,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db.insert(gameGenres).values({
+      gameId: upcomingGame.id,
+      genreId: genreRow.id,
+    });
+
+    // Mock fetchUpcomingByGenres pour retourner les IgdbGame correspondant aux jeux en DB
+    const mockUpcomingGames: IgdbGame[] = [
+      {
+        igdbId: 200, // Swipé
+        name: "Swiped Game",
+        summary: "A swiped game",
+        releaseDate: "2026-12-01",
+        rating: 75,
+        ratingCount: 300,
+        coverImageId: null,
+        artworkImageId: null,
+        developer: null,
+        publisher: null,
+        genres: [{ igdbId: 10, name: "Action", slug: "action" }],
+        themes: [],
+        similarIgdbIds: [],
+        hypes: 50,
+      },
+      {
+        igdbId: 300, // Upcoming candidat
+        name: "Upcoming Game",
+        summary: "An upcoming game",
+        releaseDate: "2026-09-15",
+        rating: 85,
+        ratingCount: 200,
+        coverImageId: null,
+        artworkImageId: null,
+        developer: null,
+        publisher: null,
+        genres: [{ igdbId: 10, name: "Action", slug: "action" }],
+        themes: [],
+        similarIgdbIds: [],
+        hypes: 120,
+      },
+    ];
+
+    vi.mocked(fetchUpcomingByGenres).mockResolvedValue(mockUpcomingGames);
+    vi.mocked(defaultDeps).mockReturnValue({
+      getToken: vi.fn(async () => "test-token"),
+    } as any);
+
+    const candidates = await getUpcomingCandidates(user.id);
+
+    // Le candidat upcoming devrait être retourné, les owned et swiped exclus
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].gameId).toBe(upcomingGame.id);
+    expect(candidates[0].igdbRating).toBe(85);
+    expect(candidates[0].igdbHypes).toBe(120);
+    expect(candidates[0].similarVotes).toBe(0);
+
+    // Vérifier que le jeu swiped est bien exclus (check indirect: pas dans résultats)
+    const swipedInResults = candidates.some((c) => c.gameId === swipedGame.id);
+    expect(swipedInResults).toBe(false);
+
+    // Vérifier que le jeu possédé est bien exclus
+    const ownedInResults = candidates.some((c) => c.gameId === ownedGame.id);
+    expect(ownedInResults).toBe(false);
   });
 
   it("charge les imports statiques sans erreur circulaire", async () => {
-    // This test verifies that candidates.ts exports getUpcomingCandidates without
-    // encountering circular imports. The function can be imported successfully,
-    // which proves the static imports (fetchUpcomingByGenres, defaultDeps, hydrateMissingGames)
-    // do not create cycles.
+    // Vérifie que candidates.ts exporte getUpcomingCandidates sans cycles d'imports.
+    // Le fait que le module se charge sans erreur prouve qu'il n'y a pas de cycles.
 
-    // getUpcomingCandidates is already imported at the top of this test file,
-    // and the module did not fail to load, so circular deps are ruled out.
     expect(typeof getUpcomingCandidates).toBe("function");
   });
 });

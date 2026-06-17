@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   db,
   users,
@@ -12,6 +12,7 @@ import {
 } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { generateRecommendations, type RecoLogger } from "../generate.js";
+import * as candidates from "../candidates.js";
 
 // Cleanup after each test
 async function cleanup() {
@@ -27,6 +28,10 @@ async function cleanup() {
 
 beforeEach(async () => {
   await cleanup();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("generateRecommendations", () => {
@@ -236,5 +241,113 @@ describe("generateRecommendations", () => {
     expect(summaryObj.parBucket).toHaveProperty("library_unplayed");
     expect(summaryObj.parBucket).toHaveProperty("discovery");
     expect(summaryObj.parBucket).toHaveProperty("upcoming");
+  });
+
+  it("resilience : echec d'un bucket n'arrete pas les autres recommandations", async () => {
+    // Seed : user + 1 jeu joue (completed, RPG) + 1 jeu non joue (backlog)
+    // Objectif : verifier que si getUpcomingCandidates lance une exception,
+    // generateRecommendations reussit quand meme et insere les recommandations
+    // library_unplayed (qui ne depend que de la BDD locale).
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "resilience-test@example.com",
+        username: "resilienceuser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [rpgGenre] = await db
+      .insert(genres)
+      .values({
+        name: "RPG",
+        slug: "rpg",
+      })
+      .returning({ id: genres.id });
+
+    const [playedGame] = await db
+      .insert(games)
+      .values({
+        title: "Played Game",
+        slug: "played-game",
+        avgPlaytime: 100,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db
+      .insert(gameGenres)
+      .values({
+        gameId: playedGame.id,
+        genreId: rpgGenre.id,
+      });
+
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: playedGame.id,
+        status: "completed",
+        playtimeMinutes: 150,
+        rating: 8,
+      });
+
+    const [unplayedGame] = await db
+      .insert(games)
+      .values({
+        title: "Unplayed Game",
+        slug: "unplayed-game",
+        avgPlaytime: 80,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db
+      .insert(gameGenres)
+      .values({
+        gameId: unplayedGame.id,
+        genreId: rpgGenre.id,
+      });
+
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: unplayedGame.id,
+        status: "backlog",
+        playtimeMinutes: 0,
+        rating: null,
+      });
+
+    // Espionner getUpcomingCandidates pour le faire lancer une erreur
+    vi.spyOn(candidates, "getUpcomingCandidates").mockRejectedValueOnce(
+      new Error("IGDB API unavailable"),
+    );
+
+    // Logger fake pour verifier l'appel au message d'erreur
+    const fakeLogger: RecoLogger = {
+      info: vi.fn(),
+    };
+
+    // L'appel doit reussir (ne pas lancer d'exception) meme avec IGDB en echec
+    const { inserted } = await generateRecommendations(user.id, fakeLogger);
+
+    // Au moins la recommendation library_unplayed doit etre inseree
+    expect(inserted).toBeGreaterThan(0);
+
+    const recos = await db
+      .select()
+      .from(recommendations)
+      .where(eq(recommendations.userId, user.id));
+    expect(recos.length).toBeGreaterThan(0);
+    expect(recos.some((r) => r.bucket === "library_unplayed")).toBe(true);
+
+    // Verifier que le logger a enregistre l'echec du bucket upcoming
+    const failureLogCalls = (fakeLogger.info as any).mock.calls.filter(
+      ([_obj, msg]: [unknown, string | undefined]) => msg === "generation candidats bucket echouee",
+    );
+    expect(failureLogCalls.length).toBeGreaterThan(0);
+    expect(failureLogCalls[0][0].bucket).toBe("upcoming");
+    expect(failureLogCalls[0][0].err).toContain("IGDB API unavailable");
   });
 });

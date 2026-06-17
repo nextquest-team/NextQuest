@@ -244,8 +244,8 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
   const nowEpoch = Math.floor(Date.now() / 1000);
   const deps = defaultDeps();
   const token = await deps.getToken();
-  const clientId = process.env.IGDB_CLIENT_ID;
-  if (!clientId) throw new Error("IGDB_CLIENT_ID not configured");
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  if (!clientId) return []; // Si IGDB non disponible, ignorer ce bucket
 
   const upcomingGames = await fetchUpcomingByGenres(igdbGenreIds, nowEpoch, token, clientId);
   if (upcomingGames.length === 0) return [];

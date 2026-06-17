@@ -21,6 +21,23 @@ export type RecoLogger = {
   info: (obj: object, msg?: string) => void;
 };
 
+// Isolation des echecs par bucket : un echec dans une source n'empeche pas les autres buckets
+async function safeCandidates(
+  label: Bucket,
+  fn: () => Promise<Candidate[]>,
+  logger: RecoLogger,
+): Promise<Candidate[]> {
+  try {
+    return await fn();
+  } catch (err) {
+    logger.info(
+      { bucket: label, err: err instanceof Error ? err.message : String(err) },
+      "generation candidats bucket echouee",
+    );
+    return [];
+  }
+}
+
 // Logger par defaut ecrit en JSON structuree sur console.
 const defaultRecoLogger: RecoLogger = {
   info: (obj, msg) => console.log(msg ?? "reco", JSON.stringify(obj)),
@@ -59,11 +76,17 @@ export async function generateRecommendations(
     }
   }
 
-  const buckets: { bucket: Bucket; candidates: Candidate[] }[] = [
-    { bucket: "library_unplayed", candidates: await getLibraryUnplayedCandidates(userId) },
-    { bucket: "discovery", candidates: await getDiscoveryCandidates(userId) },
-    { bucket: "upcoming", candidates: await getUpcomingCandidates(userId) },
-  ];
+  const buckets: { bucket: Bucket; candidates: Candidate[] }[] = await Promise.all([
+    safeCandidates("library_unplayed", () => getLibraryUnplayedCandidates(userId), logger).then(
+      (candidates) => ({ bucket: "library_unplayed" as const, candidates }),
+    ),
+    safeCandidates("discovery", () => getDiscoveryCandidates(userId), logger).then(
+      (candidates) => ({ bucket: "discovery" as const, candidates }),
+    ),
+    safeCandidates("upcoming", () => getUpcomingCandidates(userId), logger).then(
+      (candidates) => ({ bucket: "upcoming" as const, candidates }),
+    ),
+  ]);
 
   // 3. Score + selection top N par bucket.
   const toInsert: (typeof recommendations.$inferInsert)[] = [];

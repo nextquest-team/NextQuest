@@ -214,4 +214,47 @@ describe("enrichGames (scopé user)", () => {
     expect(g.avgPlaytime).toBeNull();
     expect(g.igdbHypes).toBe(850);
   });
+
+  it("derive releaseStatus='upcoming' si release date dans le futur", async () => {
+    const userId = await createUser();
+    const gameId = await seedGame(9999, "Upcoming Game");
+    await db.insert(userGames).values({ userId, gameId });
+
+    // Date dans le futur : 5 ans a partir de maintenant.
+    const futureDate = new Date();
+    futureDate.setFullYear(futureDate.getFullYear() + 5);
+    const futureDateStr = futureDate.toISOString().slice(0, 10);
+
+    const futureGame = sampleIgdbGame({ igdbId: 5000, releaseDate: futureDateStr });
+    const client = makeClient(
+      { 9999: 5000 },
+      { 5000: futureGame },
+    );
+
+    const summary = await enrichGames({ userId }, "CID", client);
+
+    expect(summary.enriched).toBe(1);
+    const [g] = await db.select().from(games).where(eq(games.id, gameId));
+    expect(g.releaseStatus).toBe("upcoming");
+    expect(g.releaseDate).toBe(futureDateStr);
+  });
+
+  it("derive releaseStatus='released' si release date dans le passe", async () => {
+    const userId = await createUser();
+    const gameId = await seedGame(8888, "Past Game");
+    await db.insert(userGames).values({ userId, gameId });
+
+    const pastGame = sampleIgdbGame({ igdbId: 4000, releaseDate: "2020-01-15" });
+    const client = makeClient(
+      { 8888: 4000 },
+      { 4000: pastGame },
+    );
+
+    const summary = await enrichGames({ userId }, "CID", client);
+
+    expect(summary.enriched).toBe(1);
+    const [g] = await db.select().from(games).where(eq(games.id, gameId));
+    expect(g.releaseStatus).toBe("released");
+    expect(g.releaseDate).toBe("2020-01-15");
+  });
 });

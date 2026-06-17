@@ -111,12 +111,19 @@ async function upsertEnrichedGame(
   igdbHypes: number | null = null,
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    // Determine releaseStatus based on releaseDate: if future date, set "upcoming", else "released".
+    const releaseStatus =
+      data.releaseDate && data.releaseDate > new Date().toISOString().slice(0, 10)
+        ? "upcoming"
+        : "released";
+
     await tx
       .update(games)
       .set({
         igdbId: data.igdbId,
         description: data.summary,
         releaseDate: data.releaseDate,
+        releaseStatus,
         igdbRating: data.rating,
         igdbRatingCount: data.ratingCount,
         developer: data.developer,

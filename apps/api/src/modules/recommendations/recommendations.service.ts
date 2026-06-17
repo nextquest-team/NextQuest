@@ -102,7 +102,7 @@ export async function getGroupedRecommendations(
   userId: string,
   limit: number,
 ): Promise<{
-  library_unplayed: RecommendationDTO[];
+  libraryUnplayed: RecommendationDTO[];
   discovery: RecommendationDTO[];
   upcoming: RecommendationDTO[];
 }> {
@@ -128,7 +128,7 @@ export async function getGroupedRecommendations(
   ]);
 
   return {
-    library_unplayed: libraryUnplayed.items,
+    libraryUnplayed: libraryUnplayed.items,
     discovery: discovery.items,
     upcoming: upcoming.items,
   };

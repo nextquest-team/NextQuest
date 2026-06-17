@@ -136,10 +136,10 @@ describe("GET /api/recommendations", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body).toHaveProperty("library_unplayed");
+    expect(body).toHaveProperty("libraryUnplayed");
     expect(body).toHaveProperty("discovery");
     expect(body).toHaveProperty("upcoming");
-    expect(Array.isArray(body.library_unplayed)).toBe(true);
+    expect(Array.isArray(body.libraryUnplayed)).toBe(true);
     expect(Array.isArray(body.discovery)).toBe(true);
     expect(Array.isArray(body.upcoming)).toBe(true);
     // Verify swiped recos are filtered out

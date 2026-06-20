@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ratingQuality, hypeQuality, scoreCandidate, DISCOVERY_QUALITY_FLOOR } from "../scoring.js";
+import { ratingQuality, hypeQuality, scoreCandidate } from "../scoring.js";
 
 describe("ratingQuality", () => {
   it("peu de votes -> tire vers le prior bas (0.4), pas 0.5", () => {
@@ -84,24 +84,86 @@ it("un jeu de qualite inconnue ne bat pas une valeur sure a profil egal", () => 
   expect(sur.score).toBeGreaterThan(inconnu.score);
 });
 
-it("DISCOVERY_QUALITY_FLOOR est bien accessible pour le filtering", () => {
-  // Constante exportee pour filtrer les candidats discovery
-  expect(DISCOVERY_QUALITY_FLOOR).toBe(0.35);
-});
+describe("quality-gated similarity scoring", () => {
+  it("deux candidats avec similarite identique ranke different selon la qualite", () => {
+    // Profil simple : 1 genre rpg
+    const prof = new Map([["g:rpg", 1]]);
 
-describe("quality floor logic", () => {
-  it("un jeu avec rating bas et votes confirmes descend sous le plancher", () => {
-    const lowRated = ratingQuality(25, 500); // 25/100 avec confiance =1
-    expect(lowRated).toBeLessThan(DISCOVERY_QUALITY_FLOOR);
+    // Candidat A : haute qualite (0.85), similarite 0.80
+    const candA = scoreCandidate(
+      prof,
+      {
+        gameId: "a",
+        genreIds: ["rpg"],
+        tagIds: [],
+        igdbRating: 85,
+        igdbRatingCount: 1000,
+        igdbHypes: null,
+        similarVotes: 80,
+      },
+      "discovery",
+      100,
+    );
+
+    // Candidat B : basse qualite (0.40), similarite 0.80
+    const candB = scoreCandidate(
+      prof,
+      {
+        gameId: "b",
+        genreIds: ["rpg"],
+        tagIds: [],
+        igdbRating: 40,
+        igdbRatingCount: 100,
+        igdbHypes: null,
+        similarVotes: 80,
+      },
+      "discovery",
+      100,
+    );
+
+    // La contribution de similarite de A est 0.80 * 0.85 = 0.68,
+    // celle de B est 0.80 * 0.40 = 0.32. A deve scorer plus haut.
+    expect(candA.score).toBeGreaterThan(candB.score);
   });
 
-  it("un jeu avec rating moyen et votes confirmes reste au-dessus du plancher", () => {
-    const midRated = ratingQuality(50, 500); // 50/100 avec confiance = 1
-    expect(midRated).toBeGreaterThanOrEqual(DISCOVERY_QUALITY_FLOOR);
-  });
+  it("un jeu mediocre-mais-similaire rank sous un jeu haute-qualite moins similaire", () => {
+    const prof = new Map([["g:rpg", 1]]);
 
-  it("un jeu de qualite inconnue (prior 0.4) reste au-dessus du plancher", () => {
-    const unknown = ratingQuality(null, 1000);
-    expect(unknown).toBeGreaterThanOrEqual(DISCOVERY_QUALITY_FLOOR);
+    // Candidat A : basse qualite (0.40), genre match parfait, similarite haute 0.80
+    const candA = scoreCandidate(
+      prof,
+      {
+        gameId: "a",
+        genreIds: ["rpg"],
+        tagIds: [],
+        igdbRating: 40,
+        igdbRatingCount: 100,
+        igdbHypes: null,
+        similarVotes: 80,
+      },
+      "discovery",
+      100,
+    );
+
+    // Candidat B : haute qualite (0.84), genre match moins bon, similarite basse 0.20
+    const candB = scoreCandidate(
+      prof,
+      {
+        gameId: "b",
+        genreIds: ["rpg"],
+        tagIds: [],
+        igdbRating: 84,
+        igdbRatingCount: 500,
+        igdbHypes: null,
+        similarVotes: 20,
+      },
+      "discovery",
+      100,
+    );
+
+    // Meme avec similarity plus haute, la basse qualite de A ne le sauve pas :
+    // A's sim contribution = 0.80 * 0.40 = 0.32
+    // B's sim contribution = 0.20 * 0.84 = 0.168, mais la qualite brute de B (0.84 vs 0.40) domine.
+    expect(candB.score).toBeGreaterThan(candA.score);
   });
 });

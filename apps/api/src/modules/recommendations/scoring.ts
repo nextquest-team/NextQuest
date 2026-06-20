@@ -28,7 +28,6 @@ const BUCKET_WEIGHTS: Record<Bucket, { g: number; t: number; q: number; s: numbe
 const QUALITY_PRIOR = 0.4;
 const RATING_CONF_VOTES = 200;
 const HYPE_REF = Math.log(500);
-export const DISCOVERY_QUALITY_FLOOR = 0.35;
 
 const clamp = (v: number, lo: number, hi: number) =>
   Math.min(Math.max(v, lo), hi);
@@ -47,6 +46,7 @@ function cosineGroup(profileNorm: Map<string, number>, ids: string[], prefix: "g
   const denom = Math.sqrt(pSq) * Math.sqrt(ids.length);
   return denom > 0 ? clamp(dot / denom, 0, 1) : 0;
 }
+
 
 // Note joueurs ponderee par la confiance (nb de votes). Peu de votes -> prior bas,
 // pour qu'un jeu de qualite inconnue ne batte pas une valeur sure.
@@ -78,6 +78,8 @@ export function scoreCandidate(
       ? hypeQuality(c.igdbHypes)
       : ratingQuality(c.igdbRating, c.igdbRatingCount);
   const sim = maxSimilarVotes > 0 ? c.similarVotes / maxSimilarVotes : 0;
-  const score = w.g * matchG + w.t * matchT + w.q * quality + w.s * sim;
+  // La similarité ne compte que proportionnellement à la qualité du jeu :
+  // un jeu médiocre ne remonte pas juste parce qu'il ressemble à ce que l'user aime.
+  const score = w.g * matchG + w.t * matchT + w.q * quality + w.s * sim * quality;
   return { score, factors: { matchG, matchT, quality, sim } };
 }

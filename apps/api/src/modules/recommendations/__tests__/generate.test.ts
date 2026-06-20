@@ -351,8 +351,8 @@ describe("generateRecommendations", () => {
     expect(failureLogCalls[0][0].err).toContain("IGDB API unavailable");
   });
 
-  it("discovery : filtre les candidats avec qualite sous le plancher (0.35)", async () => {
-    // Seed : user + 2 jeux reels pour tester le filtering de qualite
+  it("discovery : qualite basse classe bas naturellement sans plancher d'exclusion", async () => {
+    // Seed : user + 2 jeux reels pour tester le scoring quality-gated
     const [user] = await db
       .insert(users)
       .values({
@@ -362,7 +362,7 @@ describe("generateRecommendations", () => {
       })
       .returning({ id: users.id });
 
-    // Creer 2 jeux reels : 1 bas qualite (sera filtre), 1 bon
+    // Creer 2 jeux reels : 1 bas qualite (rankera bas), 1 bon
     const [lowQualityGame] = await db
       .insert(games)
       .values({
@@ -383,12 +383,12 @@ describe("generateRecommendations", () => {
       })
       .returning({ id: games.id });
 
-    // Mock pour retourner 2 candidats discovery : 1 bas qualite (sera filtre), 1 bon
+    // Mock pour retourner 2 candidats discovery : 1 bas qualite (rankera bas), 1 bon (rankera haut)
     const lowQualityCandidate = {
       gameId: lowQualityGame.id,
       genreIds: [],
       tagIds: [],
-      igdbRating: 20, // 20/100 avec 1000 votes = confiance 1 = quality 0.2 < 0.35
+      igdbRating: 20, // 20/100 avec 1000 votes = quality 0.2
       igdbRatingCount: 1000,
       igdbHypes: null,
       similarVotes: 1,
@@ -398,7 +398,7 @@ describe("generateRecommendations", () => {
       gameId: goodQualityGame.id,
       genreIds: [],
       tagIds: [],
-      igdbRating: 75, // 75/100 avec 1000 votes = quality 0.75 > 0.35
+      igdbRating: 75, // 75/100 avec 1000 votes = quality 0.75
       igdbRatingCount: 1000,
       igdbHypes: null,
       similarVotes: 1,
@@ -418,15 +418,18 @@ describe("generateRecommendations", () => {
 
     await generateRecommendations(user.id, fakeLogger);
 
-    // Verifier que seul le bon candidat (quality > floor) a ete insere
+    // Verifier que les deux candidats sont inseres, mais le bon qualite rank plus haut
     const recos = await db
       .select()
       .from(recommendations)
       .where(eq(recommendations.userId, user.id));
 
     const discoveryRecos = recos.filter((r) => r.bucket === "discovery");
-    expect(discoveryRecos.length).toBe(1); // Seulement le bon candidat
-    expect(discoveryRecos[0].gameId).toBe(goodQualityGame.id);
+    expect(discoveryRecos.length).toBe(2); // Les deux candidats sont inseres
+    // Verifier que le bon qualite a un meilleur score
+    const lowQualityReco = discoveryRecos.find((r) => r.gameId === lowQualityGame.id);
+    const goodQualityReco = discoveryRecos.find((r) => r.gameId === goodQualityGame.id);
+    expect(Number(goodQualityReco!.score)).toBeGreaterThan(Number(lowQualityReco!.score));
   });
 
   it("concurrence : deux generations simultanees du meme user ne creent pas de doublons", async () => {

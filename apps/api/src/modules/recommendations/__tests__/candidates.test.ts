@@ -64,8 +64,10 @@ async function cleanup() {
 
 beforeEach(async () => {
   await cleanup();
-  // Configurer les variables d'environnement pour les tests
-  process.env.IGDB_CLIENT_ID = "test-client-id";
+  // Configurer les variables d'environnement pour les tests.
+  // getUpcomingCandidates lit TWITCH_CLIENT_ID (client IGDB via Twitch) ; sans elle,
+  // la fonction court-circuite et renvoie [] -> en CI cette var n'existe pas, d'ou le stub.
+  process.env.TWITCH_CLIENT_ID = "test-client-id";
 });
 
 describe("getOwnedForProfile", () => {

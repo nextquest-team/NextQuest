@@ -78,5 +78,8 @@ CLAUDE.md
 docker/docker-compose.override.yml
 docker/docker-compose.*.override.yml
 
+# Scripts E2E locaux (harnais de test reel ; contiennent SteamID + chemins locaux)
+apps/api/e2e-*.mts
+
 # Code généré — régénérer via `pnpm codegen`
 packages/shared/src/types/api.ts

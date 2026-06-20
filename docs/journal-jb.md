@@ -165,3 +165,17 @@
 **"Pas de tags" de Loreleï : pas un bug** -- Le code mappe bien Steam -> IGDB via `external_game_source` (corrigé au lot #55). Sa cause probable : un conteneur servant une image périmée -> rebuild + relance de l'enrich. Confirmé en E2E réel : vraie bibliothèque Steam -> import (13 jeux) -> enrichissement (12/13 enrichis, 30 genres et 27 tags écrits), puis toutes les routes (liste/détail/PATCH/POST/DELETE) déroulées contre Postgres + API externes réelles.
 
 **Tests & validation** -- Suite API au vert (187 tests, dont service + routes collection et games). Branche stackée sur la PR Zod (#75/#77) : à merger après elle.
+
+---
+
+## 20 juin 2026
+
+**Recommandation de jeux (lot #58)** -- Moteur de reco livré : 3 catégories (à jouer dans ta biblio / à découvrir / à venir) avec un seul algo de scoring additif paramétré par catégorie. Profil de goût construit depuis la bibliothèque (statut + heures de jeu + note), genres/tags pondérés par leur rareté (IDF), apprentissage par swipe (like/dismiss/add). Endpoints : `GET /recommendations` (groupé + filtre par catégorie, pour supporter les deux UIs possibles), `POST /recommendations/:id/feedback`, `POST /recommendations/generate` (lancé aussi en auto après un import Steam).
+
+**HowLongToBeat via IGDB** -- Pas d'API publique HLTB ; IGDB expose `game_time_to_beats` (durée "normally"). Sert à normaliser l'engagement : 20h sur un jeu de 134h (BG3) pèsent moins que 30h sur un jeu de 25h. Fallback `log(heures)` quand la donnée manque (fréquent sur les nouveautés).
+
+**Validation E2E réelle = 7 bugs que les tests mockés cachaient** -- Campagne de 50 scénarios en HTTP réel sur deux vraies bibliothèques Steam (13 et 197 jeux), 50/50 au vert sur les deux. A révélé et corrigé : mauvaise variable d'env (TWITCH_CLIENT_ID), hydratation IGDB non idempotente (doublons de catalogue), `releaseStatus` faux pour les jeux à venir, génération concurrente créant des doublons de reco (réglé par un verrou consultatif Postgres par user), et jeux médiocres remontés par la similarité.
+
+**Affinage de l'algo pendant l'E2E (écart spec assumé)** -- Le match genre/tag, d'abord une somme plafonnée, saturait à 1 sur les grosses bibliothèques (plus aucune discrimination) : remplacé par une similarité cosinus non saturante. Et plutôt qu'un seuil sur la note (inutilisable : un mauvais jeu peu noté est indiscernable d'une nouveauté), la qualité conditionne désormais la similarité -- un jeu médiocre ne remonte plus juste parce qu'il ressemble à tes goûts. Résultat : découverte pilotée par la qualité.
+
+**IA locale (Qwen) en stretch post-MVP** -- L'algo reste volontairement le pilote (déterministe, explicable au jury, ancré dans le catalogue IGDB). L'explication "pourquoi" de chaque reco est générée par règles, sans dépendance IA ; le LLM re-ranker/explicateur reste optionnel derrière une interface, pour plus tard.

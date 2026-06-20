@@ -428,4 +428,103 @@ describe("generateRecommendations", () => {
     expect(discoveryRecos.length).toBe(1); // Seulement le bon candidat
     expect(discoveryRecos[0].gameId).toBe(goodQualityGame.id);
   });
+
+  it("concurrence : deux generations simultanees du meme user ne creent pas de doublons", async () => {
+    // Seed : user + 1 jeu joue (pour les dimensions) + 1 jeu non joue (pour library_unplayed)
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "concurrency-test@example.com",
+        username: "concurrencyuser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [rpgGenre] = await db
+      .insert(genres)
+      .values({
+        name: "RPG",
+        slug: "rpg",
+      })
+      .returning({ id: genres.id });
+
+    const [playedGame] = await db
+      .insert(games)
+      .values({
+        title: "Played Game",
+        slug: "played-game",
+        avgPlaytime: 100,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db
+      .insert(gameGenres)
+      .values({
+        gameId: playedGame.id,
+        genreId: rpgGenre.id,
+      });
+
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: playedGame.id,
+        status: "completed",
+        playtimeMinutes: 150,
+        rating: 8,
+      });
+
+    const [unplayedGame] = await db
+      .insert(games)
+      .values({
+        title: "Unplayed Game",
+        slug: "unplayed-game",
+        avgPlaytime: 80,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db
+      .insert(gameGenres)
+      .values({
+        gameId: unplayedGame.id,
+        genreId: rpgGenre.id,
+      });
+
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: unplayedGame.id,
+        status: "backlog",
+        playtimeMinutes: 0,
+        rating: null,
+      });
+
+    // Declencher deux generations simultanees pour le meme user
+    const fakeLogger: RecoLogger = { info: vi.fn() };
+    await Promise.all([
+      generateRecommendations(user.id, fakeLogger),
+      generateRecommendations(user.id, fakeLogger),
+    ]);
+
+    // Verifier qu'il n'y a PAS de doublon : chaque (userId, gameId, bucket) doit apparaitre exactement une fois
+    const recos = await db
+      .select()
+      .from(recommendations)
+      .where(eq(recommendations.userId, user.id));
+
+    // Groupe par (gameId, bucket) et verifie que chaque combo n'apparait qu'une fois
+    const groupedByGameAndBucket = new Map<string, number>();
+    for (const reco of recos) {
+      const key = `${reco.gameId}:${reco.bucket}`;
+      groupedByGameAndBucket.set(key, (groupedByGameAndBucket.get(key) ?? 0) + 1);
+    }
+
+    // Chaque combo doit avoir une COUNT de 1
+    for (const [key, count] of groupedByGameAndBucket) {
+      expect(count).toBe(1, `Doublon detecte pour ${key} : count=${count}`);
+    }
+  });
 });

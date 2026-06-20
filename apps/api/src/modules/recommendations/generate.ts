@@ -1,5 +1,5 @@
 import { db, recommendations, games, gameSimilar } from "@nextquest/db";
-import { and, eq, isNull, inArray } from "drizzle-orm";
+import { and, eq, isNull, inArray, sql } from "drizzle-orm";
 import {
   getOwnedForProfile,
   getDimensionFrequencies,
@@ -165,6 +165,10 @@ export async function generateRecommendations(
   // 4. Remplace les recos NON actionnees (on garde celles avec feedback : exclusion
   //    + apprentissage). Insertion en transaction.
   const result = await db.transaction(async (tx) => {
+    // Verrou consultatif transactionnel : empeche deux generations concurrentes
+    // du meme user de creer des doublons. Le verrou est libere au COMMIT/ROLLBACK.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId})::bigint)`);
+
     await tx
       .delete(recommendations)
       .where(and(eq(recommendations.userId, userId), isNull(recommendations.feedback)));

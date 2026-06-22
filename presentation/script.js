@@ -128,7 +128,6 @@
       const isLast = el.classList.contains('roadmap-step--treasure');
       tl.fromTo(el, { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: isLast ? 0.9 : 0.5, ease: isLast ? 'elastic.out(1, 0.6)' : 'power2.out' });
     } else if (el.classList.contains('screenshot')) {
-      const rot = parseFloat(getComputedStyle(el).rotate) || 0;
       tl.fromTo(el, { opacity: 0, scale: 0.85, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.7, ease: 'back.out(1.3)' });
     } else {
       tl.to(el, { opacity: 1, y: 0, duration: 0.5 });

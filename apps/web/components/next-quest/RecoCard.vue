@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RecommendationDTO, FeedbackAction } from '~/types/recommendations'
+import type { RecommendationDTO, FeedbackAction, RecoGame } from '~/types/recommendations'
 
 const props = defineProps<{
   reco: RecommendationDTO | null
@@ -14,6 +14,14 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const isMain = computed(() => props.bucket === 'discovery')
+
+const catalogPreview = useState<RecoGame | null>('catalog-preview', () => null)
+
+function goToGame() {
+  if (!props.reco) return
+  catalogPreview.value = props.reco.game
+  navigateTo(`/games/catalog/${props.reco.game.id}`)
+}
 
 const badgeConfig = computed(() => ({
   discovery:       { icon: 'mdi-compass-rose',  labelKey: 'nextQuest.buckets.discovery',      cls: 'nq-card-badge--discovery' },
@@ -62,7 +70,7 @@ function ratingStars(rating: number | null): string {
     <div class="nq-hero-col">
       <!-- 1. Titre + tags + meta + raison -->
       <div class="nq-hero-top">
-        <span class="nq-card-title nq-card-title--hero">{{ reco.game.title }}</span>
+        <span role="link" tabindex="0" class="nq-card-title nq-card-title--hero nq-card-title--link" @click="goToGame()" @keydown.enter="goToGame()">{{ reco.game.title }}</span>
 
         <div v-if="reco.game.genres.length" class="nq-tags">
           <span v-for="g in reco.game.genres.slice(0, 3)" :key="g.id" class="nq-tag">{{ g.name }}</span>
@@ -85,13 +93,13 @@ function ratingStars(rating: number | null): string {
         </p>
       </div>
 
-      <!-- 2. Image — prend l'espace restant -->
-      <div class="nq-hero-img">
+      <!-- 2. Image — prend l'espace restant, cliquable vers la fiche -->
+      <span role="link" tabindex="0" class="nq-hero-img" @click="goToGame()" @keydown.enter="goToGame()">
         <img v-if="reco.game.coverUrl" :src="reco.game.coverUrl" :alt="reco.game.title" />
         <div v-else class="nq-card-cover-ph">
           <v-icon size="40" color="#a07850">mdi-gamepad-variant</v-icon>
         </div>
-      </div>
+      </span>
 
       <!-- 3. Boutons -->
       <div class="nq-card-actions nq-hero-actions">
@@ -114,15 +122,15 @@ function ratingStars(rating: number | null): string {
     </div>
 
     <div class="nq-card-body">
-      <div class="nq-card-cover nq-card-cover--sm">
+      <span role="link" tabindex="0" class="nq-card-cover nq-card-cover--sm" @click="goToGame()" @keydown.enter="goToGame()">
         <img v-if="reco.game.coverUrl" :src="reco.game.coverUrl" :alt="reco.game.title" />
         <div v-else class="nq-card-cover-ph">
           <v-icon size="22" color="#a07850">mdi-gamepad-variant</v-icon>
         </div>
-      </div>
+      </span>
 
       <div class="nq-card-info nq-card-info--sm">
-        <span class="nq-card-title">{{ reco.game.title }}</span>
+        <span role="link" tabindex="0" class="nq-card-title nq-card-title--link" @click="goToGame()" @keydown.enter="goToGame()">{{ reco.game.title }}</span>
 
         <div v-if="bucket !== 'upcoming' && reco.game.genres.length" class="nq-tags">
           <span v-for="g in reco.game.genres.slice(0, 2)" :key="g.id" class="nq-tag">{{ g.name }}</span>
@@ -248,6 +256,18 @@ function ratingStars(rating: number | null): string {
 }
 
 .nq-quest-card--main .nq-card-title { font-size: 1.15rem; }
+
+.nq-card-title--link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+.nq-card-title--link:hover { text-decoration: underline; }
+
+.nq-hero-img[role="link"],
+.nq-card-cover[role="link"] {
+  cursor: pointer;
+}
 
 /* ── Desktop compact (cards secondaires) ── */
 @media (min-width: 960px) {

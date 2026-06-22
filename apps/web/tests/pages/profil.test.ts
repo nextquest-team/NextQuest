@@ -4,7 +4,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { setActivePinia, createPinia } from 'pinia'
 import { ref } from 'vue'
-import ProfilPage from '~/pages/profil.vue'
+import ProfilDesktop from '~/components/profil/ProfilDesktop.vue'
 import { useAuthStore } from '~/stores/auth'
 
 // ──────────────────────────────────────────────────────────
@@ -32,8 +32,6 @@ mockNuxtImport('useI18n', () => () => ({
   locale: { value: 'fr' },
 }))
 
-// mockUser est un ref Vue : auto-unwrapped dans les templates.
-// Sa valeur est mise à jour dans beforeEach pour isoler chaque test.
 const mockUser = ref<typeof fakeUser | null>(null)
 const fetchProfileMock = vi.fn()
 const logoutMock = vi.fn()
@@ -44,12 +42,12 @@ mockNuxtImport('useAuth', () => () => ({
   fetchProfile: fetchProfileMock,
 }))
 
-// ──────────────────────────────────────────────────────────
-// Mock $fetch (import explicite depuis 'ofetch' dans profil.vue)
-// ──────────────────────────────────────────────────────────
-const $fetchMock = vi.fn()
-vi.mock('ofetch', () => ({
-  $fetch: (...args: any[]) => $fetchMock(...args),
+// useAuthFetch remplace $fetch direct dans useProfil.ts
+const authFetchMock = vi.fn()
+
+mockNuxtImport('useAuthFetch', () => () => ({
+  authFetch: authFetchMock,
+  apiBase: 'http://localhost:3000',
 }))
 
 // ──────────────────────────────────────────────────────────
@@ -59,13 +57,14 @@ const stubs = {
   NuxtLink: { template: '<a :href="to" v-bind="$attrs"><slot /></a>', props: ['to'] },
   VIcon: { template: '<span v-bind="$attrs"><slot /></span>' },
   ClientOnly: { template: '<slot />' },
+  UiPageHeader: { template: '<div><slot /></div>' },
   UiBackButton: { template: '<button v-bind="$attrs"><slot /></button>', props: ['to'] },
 }
 
 // ──────────────────────────────────────────────────────────
 // Suite
 // ──────────────────────────────────────────────────────────
-describe('ProfilPage', () => {
+describe('ProfilDesktop', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     const store = useAuthStore()
@@ -73,122 +72,121 @@ describe('ProfilPage', () => {
     mockUser.value = { ...fakeUser }
     fetchProfileMock.mockReset()
     logoutMock.mockReset().mockResolvedValue(undefined)
-    $fetchMock.mockReset()
+    authFetchMock.mockReset()
   })
 
   // ── Montage ────────────────────────────────────────────
   it('appelle fetchProfile au montage', async () => {
-    mount(ProfilPage, { global: { stubs } })
+    mount(ProfilDesktop, { global: { stubs } })
     await flushPromises()
     expect(fetchProfileMock).toHaveBeenCalledOnce()
   })
 
   // ── Affichage identité ──────────────────────────────────
   it('affiche le username quand displayName est null', async () => {
-    const wrapper = mount(ProfilPage, { global: { stubs } })
-    expect(wrapper.find('h1.profil__name').text()).toBe('lo')
+    const wrapper = mount(ProfilDesktop, { global: { stubs } })
+    expect(wrapper.find('h1.pd__name').text()).toBe('lo')
   })
 
   it('affiche le displayName et le @username quand displayName est défini', async () => {
     mockUser.value = { ...fakeUser, displayName: 'Lorelei' }
-    const wrapper = mount(ProfilPage, { global: { stubs } })
-    expect(wrapper.find('h1.profil__name').text()).toBe('Lorelei')
-    expect(wrapper.find('.profil__username').text()).toBe('@lo')
+    const wrapper = mount(ProfilDesktop, { global: { stubs } })
+    expect(wrapper.find('h1.pd__name').text()).toBe('Lorelei')
+    expect(wrapper.find('.pd__username').text()).toBe('@lo')
   })
 
   // ── Avatar ─────────────────────────────────────────────
   it('génère un avatar DiceBear quand avatarUrl est null', () => {
-    const wrapper = mount(ProfilPage, { global: { stubs } })
-    const src = wrapper.find('.profil__avatar-img').attributes('src')
+    const wrapper = mount(ProfilDesktop, { global: { stubs } })
+    const src = wrapper.find('.pd__avatar-img').attributes('src')
     expect(src).toContain('dicebear.com')
-    expect(src).toContain('lo') // seed = username encodé
+    expect(src).toContain('lo')
   })
 
   it('utilise avatarUrl quand elle est renseignée', () => {
     mockUser.value = { ...fakeUser, avatarUrl: 'https://cdn.example.com/avatar.png' }
-    const wrapper = mount(ProfilPage, { global: { stubs } })
-    expect(wrapper.find('.profil__avatar-img').attributes('src')).toBe('https://cdn.example.com/avatar.png')
+    const wrapper = mount(ProfilDesktop, { global: { stubs } })
+    expect(wrapper.find('.pd__avatar-img').attributes('src')).toBe('https://cdn.example.com/avatar.png')
   })
 
   // ── Édition de bio ─────────────────────────────────────
   describe('édition de bio', () => {
     it('ouvre le textarea au clic sur le bouton édition', async () => {
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      expect(wrapper.find('textarea.profil__bio-textarea').exists()).toBe(false)
-      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
-      expect(wrapper.find('textarea.profil__bio-textarea').exists()).toBe(true)
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      expect(wrapper.find('textarea.pd__bio-textarea').exists()).toBe(false)
+      await wrapper.find('.pd__section-header .pd__edit-btn').trigger('click')
+      expect(wrapper.find('textarea.pd__bio-textarea').exists()).toBe(true)
     })
 
-    it('ferme l\'éditeur au clic sur Annuler', async () => {
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
-      await wrapper.find('.profil__action-btn--cancel').trigger('click')
-      expect(wrapper.find('textarea.profil__bio-textarea').exists()).toBe(false)
+    it("ferme l'éditeur au clic sur Annuler", async () => {
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__section-header .pd__edit-btn').trigger('click')
+      await wrapper.find('.pd__action-btn--cancel').trigger('click')
+      expect(wrapper.find('textarea.pd__bio-textarea').exists()).toBe(false)
     })
 
     it('affiche le compteur format longueur/500', async () => {
       mockUser.value = { ...fakeUser, bio: 'Hello !' }
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
-      expect(wrapper.find('.profil__bio-count').text()).toContain('/500')
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__section-header .pd__edit-btn').trigger('click')
+      expect(wrapper.find('.pd__bio-count').text()).toContain('/500')
     })
 
-    it('appelle PATCH /api/users/me et ferme l\'éditeur si succès', async () => {
-      $fetchMock.mockResolvedValue({ bio: 'Nouvelle bio' })
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
-      await wrapper.find('textarea.profil__bio-textarea').setValue('Nouvelle bio')
-      await wrapper.find('.profil__action-btn--save').trigger('click')
+    it("appelle PATCH /api/users/me et ferme l'éditeur si succès", async () => {
+      authFetchMock.mockResolvedValue({ bio: 'Nouvelle bio' })
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__section-header .pd__edit-btn').trigger('click')
+      await wrapper.find('textarea.pd__bio-textarea').setValue('Nouvelle bio')
+      await wrapper.find('.pd__action-btn--save').trigger('click')
       await flushPromises()
 
-      expect($fetchMock).toHaveBeenCalledWith(
+      expect(authFetchMock).toHaveBeenCalledWith(
         'http://localhost:3000/api/users/me',
         expect.objectContaining({ method: 'PATCH', body: { bio: 'Nouvelle bio' } }),
       )
-      expect(wrapper.find('textarea.profil__bio-textarea').exists()).toBe(false)
+      expect(wrapper.find('textarea.pd__bio-textarea').exists()).toBe(false)
     })
 
-    it('affiche un message d\'erreur si PATCH échoue', async () => {
-      $fetchMock.mockRejectedValue(new Error('network'))
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
-      await wrapper.find('.profil__action-btn--save').trigger('click')
+    it("affiche un message d'erreur si PATCH échoue", async () => {
+      authFetchMock.mockRejectedValue(new Error('network'))
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__section-header .pd__edit-btn').trigger('click')
+      await wrapper.find('.pd__action-btn--save').trigger('click')
       await flushPromises()
 
-      expect(wrapper.find('.profil__bio-error').exists()).toBe(true)
-      expect(wrapper.find('textarea.profil__bio-textarea').exists()).toBe(true)
+      expect(wrapper.find('.pd__error').exists()).toBe(true)
+      expect(wrapper.find('textarea.pd__bio-textarea').exists()).toBe(true)
     })
 
     it('désactive le bouton Enregistrer quand la bio dépasse 500 caractères', async () => {
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
-      await wrapper.find('textarea.profil__bio-textarea').setValue('a'.repeat(501))
-      expect(wrapper.find('.profil__action-btn--save').attributes('disabled')).toBeDefined()
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__section-header .pd__edit-btn').trigger('click')
+      await wrapper.find('textarea.pd__bio-textarea').setValue('a'.repeat(501))
+      expect(wrapper.find('.pd__action-btn--save').attributes('disabled')).toBeDefined()
     })
 
     it('accepte une bio de exactement 500 caractères et envoie le PATCH', async () => {
-      $fetchMock.mockResolvedValue({ bio: 'a'.repeat(500) })
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
-      await wrapper.find('textarea.profil__bio-textarea').setValue('a'.repeat(500))
+      authFetchMock.mockResolvedValue({ bio: 'a'.repeat(500) })
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__section-header .pd__edit-btn').trigger('click')
+      await wrapper.find('textarea.pd__bio-textarea').setValue('a'.repeat(500))
 
-      // Bouton actif à la borne exacte
-      expect(wrapper.find('.profil__action-btn--save').attributes('disabled')).toBeUndefined()
+      expect(wrapper.find('.pd__action-btn--save').attributes('disabled')).toBeUndefined()
 
-      await wrapper.find('.profil__action-btn--save').trigger('click')
+      await wrapper.find('.pd__action-btn--save').trigger('click')
       await flushPromises()
-      expect($fetchMock).toHaveBeenCalled()
+      expect(authFetchMock).toHaveBeenCalled()
     })
 
     it('envoie null si la textarea est vide', async () => {
-      $fetchMock.mockResolvedValue({ bio: null })
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__section-header .profil__edit-btn').trigger('click')
-      await wrapper.find('textarea.profil__bio-textarea').setValue('')
-      await wrapper.find('.profil__action-btn--save').trigger('click')
+      authFetchMock.mockResolvedValue({ bio: null })
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__section-header .pd__edit-btn').trigger('click')
+      await wrapper.find('textarea.pd__bio-textarea').setValue('')
+      await wrapper.find('.pd__action-btn--save').trigger('click')
       await flushPromises()
 
-      expect($fetchMock).toHaveBeenCalledWith(
+      expect(authFetchMock).toHaveBeenCalledWith(
         'http://localhost:3000/api/users/me',
         expect.objectContaining({ body: { bio: null } }),
       )
@@ -198,61 +196,58 @@ describe('ProfilPage', () => {
   // ── Visibilité ─────────────────────────────────────────
   describe('visibilité', () => {
     it('ouvre les 3 options de visibilité au clic sur le bouton édition', async () => {
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      expect(wrapper.findAll('.profil__visibility-opt')).toHaveLength(0)
-      await wrapper.find('.profil__info-row--visibility .profil__edit-btn').trigger('click')
-      expect(wrapper.findAll('.profil__visibility-opt')).toHaveLength(3)
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      expect(wrapper.findAll('.pd__visibility-opt')).toHaveLength(0)
+      await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
+      expect(wrapper.findAll('.pd__visibility-opt')).toHaveLength(3)
     })
 
     it('appelle PATCH avec la nouvelle visibilité (private)', async () => {
-      $fetchMock.mockResolvedValue({})
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__info-row--visibility .profil__edit-btn').trigger('click')
-      // VISIBILITY_OPTIONS = ['private', 'friends_only', 'public'] → index 0 = 'private'
-      await wrapper.findAll('.profil__visibility-opt')[0].trigger('click')
+      authFetchMock.mockResolvedValue({})
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
+      await wrapper.findAll('.pd__visibility-opt')[0].trigger('click')
       await flushPromises()
 
-      expect($fetchMock).toHaveBeenCalledWith(
+      expect(authFetchMock).toHaveBeenCalledWith(
         'http://localhost:3000/api/users/me',
         expect.objectContaining({ method: 'PATCH', body: { visibility: 'private' } }),
       )
     })
 
-    it('ne fait pas d\'appel API si la visibilité est inchangée (public → public)', async () => {
-      // fakeUser.visibility = 'public', index 2 dans VISIBILITY_OPTIONS
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__info-row--visibility .profil__edit-btn').trigger('click')
-      await wrapper.findAll('.profil__visibility-opt')[2].trigger('click')
+    it("ne fait pas d'appel API si la visibilité est inchangée (public → public)", async () => {
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
+      await wrapper.findAll('.pd__visibility-opt')[2].trigger('click')
       await flushPromises()
 
-      expect($fetchMock).not.toHaveBeenCalled()
+      expect(authFetchMock).not.toHaveBeenCalled()
     })
 
     it('affiche une erreur si PATCH visibilité échoue', async () => {
-      $fetchMock.mockRejectedValue(new Error('network'))
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__info-row--visibility .profil__edit-btn').trigger('click')
-      // index 0 = 'private' (différent de 'public') → déclenche l'appel API
-      await wrapper.findAll('.profil__visibility-opt')[0].trigger('click')
+      authFetchMock.mockRejectedValue(new Error('network'))
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
+      await wrapper.findAll('.pd__visibility-opt')[0].trigger('click')
       await flushPromises()
 
-      expect(wrapper.find('.profil__bio-error').exists()).toBe(true)
+      expect(wrapper.find('.pd__error').exists()).toBe(true)
     })
 
     it('ferme le sélecteur sans appel API quand on clique sur la valeur identique', async () => {
-      const wrapper = mount(ProfilPage, { global: { stubs } })
-      await wrapper.find('.profil__info-row--visibility .profil__edit-btn').trigger('click')
-      await wrapper.findAll('.profil__visibility-opt')[2].trigger('click')
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
+      await wrapper.findAll('.pd__visibility-opt')[2].trigger('click')
       await flushPromises()
 
-      expect(wrapper.findAll('.profil__visibility-opt')).toHaveLength(0)
+      expect(wrapper.findAll('.pd__visibility-opt')).toHaveLength(0)
     })
   })
 
   // ── Déconnexion ────────────────────────────────────────
   it('appelle logout() au clic sur le bouton Déconnexion', async () => {
-    const wrapper = mount(ProfilPage, { global: { stubs } })
-    await wrapper.find('.profil__logout').trigger('click')
+    const wrapper = mount(ProfilDesktop, { global: { stubs } })
+    await wrapper.find('.pd__logout').trigger('click')
     await flushPromises()
     expect(logoutMock).toHaveBeenCalledOnce()
   })

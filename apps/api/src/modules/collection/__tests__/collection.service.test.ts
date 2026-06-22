@@ -212,6 +212,76 @@ describe("listCollection", () => {
     expect(res.total).toBe(0);
     expect(res.items).toEqual([]);
   });
+  it("filtre par titre et calcule le total sans planter (count joint games)", async () => {
+    // Garde-fou de regression : quand search est present, le count() doit
+    // joindre games, sinon games.title n'est pas dans le scope -> erreur SQL/500.
+    const { userId } = await seedCollection();
+    const { items, total } = await listCollection({
+      userId,
+      search: "hollow",
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(total).toBe(1);
+    expect(items).toHaveLength(1);
+    expect(items[0].game.title).toBe("Hollow Knight");
+  });
+  it("recherche insensible a la casse (ilike)", async () => {
+    const { userId } = await seedCollection();
+    const lower = await listCollection({
+      userId,
+      search: "hollow knight",
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    const upper = await listCollection({
+      userId,
+      search: "HOLLOW KNIGHT",
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(lower.total).toBe(1);
+    expect(upper.total).toBe(1);
+  });
+  it("combine recherche et statut (ET logique)", async () => {
+    const { userId } = await seedCollection();
+    // Celeste est en backlog (et masque) -> match avec includeHidden.
+    const match = await listCollection({
+      userId,
+      search: "celeste",
+      status: "backlog",
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(match.total).toBe(1);
+    expect(match.items[0].game.title).toBe("Celeste");
+    // Meme titre mais mauvais statut -> aucun resultat.
+    const noMatch = await listCollection({
+      userId,
+      search: "celeste",
+      status: "playing",
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(noMatch.total).toBe(0);
+  });
+  it("renvoie 0 resultat si aucun titre ne correspond", async () => {
+    const { userId } = await seedCollection();
+    const res = await listCollection({
+      userId,
+      search: "zelda",
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(res.total).toBe(0);
+    expect(res.items).toEqual([]);
+  });
 });
 
 describe("getCollectionItem", () => {

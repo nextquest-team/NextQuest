@@ -10,6 +10,9 @@ export default defineConfig({
   test: {
     globals: false,
     environment: "node",
+    // Preflight : echoue vite avec un message clair si Postgres est injoignable,
+    // au lieu de laisser les tests pendre 10 min sur le handshake TCP (#64).
+    globalSetup: ["./vitest.global-setup.ts"],
     // Tests partagent la meme BDD : forcer une execution sequentielle
     // pour eviter les conflits de cleanup entre fichiers
     pool: "forks",

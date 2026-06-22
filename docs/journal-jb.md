@@ -179,3 +179,9 @@
 **Affinage de l'algo pendant l'E2E (écart spec assumé)** -- Le match genre/tag, d'abord une somme plafonnée, saturait à 1 sur les grosses bibliothèques (plus aucune discrimination) : remplacé par une similarité cosinus non saturante. Et plutôt qu'un seuil sur la note (inutilisable : un mauvais jeu peu noté est indiscernable d'une nouveauté), la qualité conditionne désormais la similarité -- un jeu médiocre ne remonte plus juste parce qu'il ressemble à tes goûts. Résultat : découverte pilotée par la qualité.
 
 **IA locale (Qwen) en stretch post-MVP** -- L'algo reste volontairement le pilote (déterministe, explicable au jury, ancré dans le catalogue IGDB). L'explication "pourquoi" de chaque reco est générée par règles, sans dépendance IA ; le LLM re-ranker/explicateur reste optionnel derrière une interface, pour plus tard.
+
+---
+
+## 22 juin 2026
+
+**Fail-fast quand Postgres est injoignable (#64)** -- Les tests pendaient ~10 min sans message quand le host BDD ne répondait pas (Docker éteint / Tailscale coupé), parce que le client postgres n'avait pas de timeout de connexion. Ajout d'un `connect_timeout` court (3s) sur le client en env de test + un preflight `globalSetup` vitest (`assertDbReachable`) qui fait échouer tout le run en ~3s avec un message clair (`BDD injoignable sur <host> — lance pnpm docker:up`). Bug reproduit avant le fix (host non routable 192.0.2.1 = pend ; port fermé = échec immédiat, non concerné). Suite API au vert (269 tests).

@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Fastify from "fastify";
+import { validatorCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../../plugins/jwt.js";
 import { registerRateLimit } from "../../../../plugins/rate-limit.js";
+import { registerErrorHandler } from "../../../../lib/error-handler.js";
+import { registerSwagger } from "../../../../plugins/swagger.js";
 import { igdbRoutes } from "../igdb.routes.js";
 import * as service from "../igdb.service.js";
+import * as discovery from "../igdb.discovery.service.js";
 
 vi.spyOn(service, "enrichGames").mockResolvedValue({
   scanned: 1,
@@ -13,8 +17,27 @@ vi.spyOn(service, "enrichGames").mockResolvedValue({
   failed: 0,
 });
 
+const upcomingSample = [
+  {
+    igdbId: 1,
+    title: "Coming Soon",
+    releaseDate: "2027-01-01",
+    coverUrl: "https://img/cover.jpg",
+    hypes: 100,
+    genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
+    platforms: [{ igdbId: 6, name: "PC", abbreviation: "PC" }],
+  },
+];
+const detailSample = { igdbId: 1020, title: "GTA V" };
+
+const getUpcomingSpy = vi.spyOn(discovery, "getUpcomingGames");
+const getDetailSpy = vi.spyOn(discovery, "getGameDetail");
+
 async function buildApp() {
   const app = Fastify();
+  app.setValidatorCompiler(validatorCompiler);
+  registerErrorHandler(app);
+  await registerSwagger(app);
   await registerJwt(app);
   await registerRateLimit(app);
   await app.register(igdbRoutes, { prefix: "/api" });
@@ -22,7 +45,11 @@ async function buildApp() {
   return app;
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  getUpcomingSpy.mockResolvedValue(upcomingSample as never);
+  getDetailSpy.mockResolvedValue(detailSample as never);
+});
 
 describe("POST /api/users/me/library/enrich", () => {
   it("401 sans token", async () => {
@@ -68,5 +95,132 @@ describe("POST /api/admin/games/enrich", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(service.enrichGames).toHaveBeenCalledWith({});
+  });
+});
+
+describe("GET /api/games/upcoming", () => {
+  it("401 sans token", async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: "GET", url: "/api/games/upcoming" });
+    expect(res.statusCode).toBe(401);
+    expect(getUpcomingSpy).not.toHaveBeenCalled();
+  });
+
+  it("200 : renvoie items + pagination, defauts limit/offset/sort", async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/upcoming",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ items: upcomingSample, limit: 20, offset: 0 });
+    expect(getUpcomingSpy).toHaveBeenCalledWith({ limit: 20, offset: 0, sort: "hype" });
+  });
+
+  it("passe sort/limit/offset au service", async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/upcoming?sort=date&limit=5&offset=10",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(getUpcomingSpy).toHaveBeenCalledWith({ limit: 5, offset: 10, sort: "date" });
+  });
+
+  it("400 si sort invalide", async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/upcoming?sort=banana",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(getUpcomingSpy).not.toHaveBeenCalled();
+  });
+
+  it("400 si limit hors bornes", async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/upcoming?limit=100",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("502 si IGDB est indisponible", async () => {
+    getUpcomingSpy.mockRejectedValueOnce(new Error("IGDB games a repondu HTTP 503"));
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/upcoming",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(502);
+  });
+});
+
+describe("GET /api/games/igdb/:igdbId", () => {
+  it("401 sans token", async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: "GET", url: "/api/games/igdb/1020" });
+    expect(res.statusCode).toBe(401);
+    expect(getDetailSpy).not.toHaveBeenCalled();
+  });
+
+  it("200 : renvoie le detail et appelle le service avec l'igdbId", async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/igdb/1020",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(detailSample);
+    expect(getDetailSpy).toHaveBeenCalledWith(1020);
+  });
+
+  it("404 si le jeu est introuvable sur IGDB", async () => {
+    getDetailSpy.mockResolvedValueOnce(null);
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/igdb/999999",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("400 si igdbId n'est pas un entier positif", async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/igdb/abc",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(getDetailSpy).not.toHaveBeenCalled();
+  });
+
+  it("502 si IGDB est indisponible", async () => {
+    getDetailSpy.mockRejectedValueOnce(new Error("IGDB games a repondu HTTP 500"));
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/igdb/1020",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(502);
   });
 });

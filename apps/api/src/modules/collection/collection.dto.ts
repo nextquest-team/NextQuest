@@ -61,6 +61,10 @@ export type CollectionGameMeta = {
   developer: string | null;
   publisher: string | null;
   igdbRating: number | null;
+  // igdb_id brut : permet au front de recuperer le detail riche via
+  // GET /games/igdb/:igdbId (clic sur un jeu de la collection). null = jeu custom
+  // ou non enrichi, donc pas de detail IGDB disponible.
+  igdbId: number | null;
   // True des qu'on a un igdb_id : le jeu a ete enrichi (description, genres, tags...).
   // Permet au front de signaler les jeux qui n'ont pas encore de metadonnees.
   isEnriched: boolean;
@@ -136,6 +140,7 @@ export function toCollectionItemDTO(
       developer: row.developer,
       publisher: row.publisher,
       igdbRating: row.igdbRating,
+      igdbId: row.igdbId,
       isEnriched: row.igdbId !== null,
     },
     genres,

@@ -764,3 +764,47 @@ Détecté lors du codegen : symlinks pnpm cassés vers `fast-jwt@6.2.4` (suite a
 - Timeline (`/timeline`) : page à construire (liste des sorties de jeux)
 - JB : brancher `fastify-type-provider-zod` pour enrichir les types body/response
 
+---
+
+## 2026-06-22 — Module recommandations : page Next Quest
+
+### Résumé exécutif
+
+Session sur la branche `feat/front-reco`. Objectif : livrer la page `/next-quest` câblée sur les routes recommandations que JB avait livrées (3 buckets : `discovery`, `library_unplayed`, `upcoming`). Fix d'un bug de migration DB au passage. Mise en page desktop en `100dvh` sans scroll vertical.
+
+**Types centralisés** — Tous les types liés aux recommandations sont extraits dans `apps/web/types/recommendations.ts` : `RecoBucket`, `RecoGame`, `RecoReason`, `RecommendationDTO`, `GroupedRecommendations`, `FeedbackAction`. Aucun type inline dans la page — respect de la convention établie sur le module collection.
+
+**Page `next-quest.vue`** — Trois états principaux : chargement, vide (roue spinning + bouton de génération), recommandations disponibles.
+
+- **Hero (discovery)** : card large avec cover portrait (180px), titre, genres en tags, note IGDB en étoiles, date de sortie, raison personnalisée, boutons "Ajouter à ma liste" / "Pas pour moi".
+- **Secondaires (library_unplayed + upcoming)** : grille 2 colonnes, cards compactes avec cover miniature (72px), titre, genres, raison, boutons contextuels ("Je m'y mets" / "Me le rappeler" / "Pas pour moi"). Cards vides en pointillés si aucun jeu dans le bucket.
+- **Feedback** : `POST /api/recommendations/:id/feedback` avec action `liked | dismissed | added` — la card disparaît après confirmation.
+- **Régénération** : bouton "Nouvelles suggestions" relance `POST /api/recommendations/generate` puis re-fetch.
+
+**i18n** — Section `nextQuest` ajoutée dans `fr.json` et `en.json` : titres, sous-titres, labels de buckets, actions, libellés de date.
+
+**Fix migration DB** — `GET /api/recommendations` retournait 500 (`column recommendations.bucket does not exist`). La migration `0005_mean_hedge_knight.sql` existait mais n'avait pas été appliquée au running DB. Corrigé via `pnpm --filter @nextquest/db db:migrate`.
+
+**Layout desktop 100dvh** — Contrainte : tout doit tenir dans la fenêtre sans scroll vertical (≥960px). Solution en deux volets :
+- `.nq-page` : `height: 100dvh; overflow: hidden`
+- `.nq-hero` : `flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: flex-start` (le `align-items: flex-start` empêche le label pill de s'étirer pleine largeur)
+- `.nq-hero__card` : `flex: 1; min-height: 0; width: 100%` (le `width: 100%` compense le parent en `align-items: flex-start`)
+- `.nq-hero__actions` : `margin-top: 0` en desktop (le `margin-top: auto` du base pousse les boutons en bas du flex et `overflow: hidden` les coupe)
+- Paddings et marges réduits sur tous les éléments pour maximiser l'espace utile.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/types/recommendations.ts` | Nouveau — types DTO recommandations |
+| `apps/web/pages/next-quest.vue` | Réécriture complète de la page |
+| `apps/web/i18n/locales/fr.json` | Ajout section `nextQuest` |
+| `apps/web/i18n/locales/en.json` | Ajout section `nextQuest` |
+
+### Points ouverts
+
+- Layout desktop : en attente de confirmation visuelle finale sur le fix des boutons hero
+- Mobile : pas encore testé sur petit écran avec les nouvelles cards
+- Feedback : pas de toast de confirmation après action — à ajouter
+- Régénération : pas d'optimistic update — la page reste vide pendant le calcul (backend ~1s)
+

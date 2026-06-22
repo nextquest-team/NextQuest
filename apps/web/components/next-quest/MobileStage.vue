@@ -68,6 +68,7 @@ const { t } = useI18n()
   background: url('/images/next-quest/carte-portrait.png') center / auto 100% no-repeat;
   z-index: -1;
   pointer-events: none;
+  
 }
 
 /* Stage : colonne scrollable, z-index au-dessus du fond fixe */

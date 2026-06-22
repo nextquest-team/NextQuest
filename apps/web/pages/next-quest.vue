@@ -72,9 +72,8 @@ onMounted(() => fetchRecos())
 </script>
 
 <template>
-  <div class="nq-page">
-
-    <!-- Topbar -->
+  <!-- ── Vue Desktop ── -->
+  <div v-if="mdAndUp" class="nq-page nq-page--desktop">
     <UiPageHeader>
       <img src="/images/dashboard/turning-wheel.png" alt="" class="nq-title-wheel" />
       <div class="nq-title-text">
@@ -83,19 +82,14 @@ onMounted(() => fetchRecos())
       </div>
     </UiPageHeader>
 
-    <!-- Chargement -->
     <div v-if="loading" class="nq-state">
       <v-progress-circular indeterminate size="40" color="#5C3317" />
     </div>
-
-    <!-- Erreur -->
     <div v-else-if="error" class="nq-state">
       <v-icon size="48" color="#8B1F1F">mdi-alert-circle-outline</v-icon>
       <p class="nq-state__title">Impossible de charger les recommandations</p>
       <button class="patch-btn" @click="fetchRecos">Réessayer</button>
     </div>
-
-    <!-- Vide -->
     <div v-else-if="!hasAnyReco" class="nq-state">
       <img src="/images/dashboard/turning-wheel.png" alt="" class="nq-state__wheel" />
       <p class="nq-state__title">{{ t('nextQuest.emptyTitle') }}</p>
@@ -105,20 +99,52 @@ onMounted(() => fetchRecos())
         {{ generating ? t('nextQuest.generating') : t('nextQuest.generate') }}
       </button>
     </div>
+    <NextQuestDesktopStage
+      v-else
+      :discovery="discovery"
+      :library-unplayed="libraryUnplayed"
+      :upcoming="upcoming"
+      :feedback-pending="feedbackPending"
+      :generating="generating"
+      @feedback="sendFeedback"
+      @generate="generate"
+    />
+  </div>
 
-    <!-- Layouts -->
-    <template v-else>
+  <!-- ── Vue Mobile ── -->
+  <div v-else class="nq-page nq-page--mobile">
+
+    <!-- Header sticky (hors de la zone scrollable) -->
+    <div class="nq-mobile-header">
+      <UiPageHeader>
+        <img src="/images/dashboard/turning-wheel.png" alt="" class="nq-title-wheel" />
+        <div class="nq-title-text">
+          <h1 class="nq-title">{{ t('nextQuest.title') }}</h1>
+          <p class="nq-subtitle">{{ t('nextQuest.subtitle') }}</p>
+        </div>
+      </UiPageHeader>
+    </div>
+
+    <!-- Contenu scrollable -->
+    <div class="nq-mobile-body">
+      <div v-if="loading" class="nq-state">
+        <v-progress-circular indeterminate size="40" color="#5C3317" />
+      </div>
+      <div v-else-if="error" class="nq-state">
+        <v-icon size="48" color="#8B1F1F">mdi-alert-circle-outline</v-icon>
+        <p class="nq-state__title">Impossible de charger les recommandations</p>
+        <button class="patch-btn" @click="fetchRecos">Réessayer</button>
+      </div>
+      <div v-else-if="!hasAnyReco" class="nq-state">
+        <img src="/images/dashboard/turning-wheel.png" alt="" class="nq-state__wheel" />
+        <p class="nq-state__title">{{ t('nextQuest.emptyTitle') }}</p>
+        <p class="nq-state__hint">{{ t('nextQuest.emptyHint') }}</p>
+        <button class="patch-btn" :disabled="generating" @click="generate">
+          <v-icon size="18">mdi-compass-rose</v-icon>
+          {{ generating ? t('nextQuest.generating') : t('nextQuest.generate') }}
+        </button>
+      </div>
       <NextQuestMobileStage
-        v-if="!mdAndUp"
-        :discovery="discovery"
-        :library-unplayed="libraryUnplayed"
-        :upcoming="upcoming"
-        :feedback-pending="feedbackPending"
-        :generating="generating"
-        @feedback="sendFeedback"
-        @generate="generate"
-      />
-      <NextQuestDesktopStage
         v-else
         :discovery="discovery"
         :library-unplayed="libraryUnplayed"
@@ -128,28 +154,42 @@ onMounted(() => fetchRecos())
         @feedback="sendFeedback"
         @generate="generate"
       />
-    </template>
+    </div>
 
   </div>
 </template>
 
 <style scoped>
-/* ── Page ── */
-.nq-page {
-  min-height: 100dvh;
+/* ── Page desktop : hauteur fixe, pas de scroll body ── */
+.nq-page--desktop {
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 1rem 1.5rem;
+  padding: 0.5rem 1.25rem 0.75rem;
   font-family: var(--nq-font);
 }
 
-@media (min-width: 960px) {
-  .nq-page {
-    height: 100dvh;
-    min-height: unset;
-    overflow: hidden;
-    padding: 0.5rem 1.25rem 0.75rem;
-  }
+/* ── Page mobile : header fixe + contenu scrollable ── */
+.nq-page--mobile {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 64px); /* 64px = bottom nav */
+  overflow: hidden;
+  font-family: var(--nq-font);
+}
+
+.nq-mobile-header {
+  flex-shrink: 0;
+  padding: 0 1rem;
+  /* Le UiPageHeader gère sa propre sticky via son ::before */
+}
+
+.nq-mobile-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.5rem 1rem 1.5rem;
 }
 
 /* ── Header ── */

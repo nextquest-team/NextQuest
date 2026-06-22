@@ -39,12 +39,9 @@ html {
 html, body {
   font-family: var(--nq-font);
   background-color: var(--nq-beige);
-  background-image: url('/images/backgrounds/fond.png');
-  background-size: cover;
-  background-position: center top;
-  background-attachment: fixed;
   max-width: 100%;
 }
+
 
 /* ── Accessibilité globale ── */
 

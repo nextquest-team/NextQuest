@@ -865,3 +865,83 @@ Les headers `Authorization`, `credentials: 'include'` et la fonction `authHeader
 - Régénération : pas d'optimistic update pendant le calcul backend
 - Tests mobiles des overlays non encore validés sur petit écran physique
 
+---
+
+## 2026-06-22 — Correction background + split mobile/desktop toutes pages
+
+### Résumé exécutif
+
+Session sur `feat/front-reco`. Deux objectifs : (1) corriger l'anomalie visuelle de `fond.png` qui changeait de taille selon la hauteur de la page et se répétait verticalement sur les pages longues (profil, actualités) ; (2) appliquer systématiquement le pattern de séparation mobile/desktop à toutes les pages qui en manquaient.
+
+### Correction du background `fond.png`
+
+**Cause racine** — Dans `app.vue`, `.app-bg` avait `background-repeat: repeat` et `min-height: 100vh`. Quand le contenu dépassait la hauteur du viewport (page profil avec bio longue, game-list avec beaucoup de jeux), le div grandissait et `fond.png` se répétait verticalement, donnant l'effet "doublé". Un `body::before { position: fixed }` avait été ajouté à tort dans `main.css` — il était inutile car masqué par le fond de `v-application` (Vuetify).
+
+**Correction** — `.app-bg` devient `position: fixed; inset: 0` (élément hors du flux, ancré sur le viewport). Il ne peut plus grandir ni se répéter. `.v-application__wrap { position: relative; z-index: 0; background: transparent }` garantit que le contenu Vuetify reste au-dessus. Le `body::before` redondant a été supprimé de `main.css`.
+
+**`PageHeader` sticky mobile** — Ajout de `position: sticky; top: 0; z-index: 50` sur `.ui-page-header` via `@media (max-width: 959px)`. Un pseudo-élément `::before { left: -100vw; right: -100vw }` étend le fond semi-opaque pleine largeur malgré le padding parent (clippé par `overflow: hidden` du conteneur).
+
+### Pattern mobile/desktop — généralisation
+
+**Convention établie** : chaque page doit disposer d'un composant `FooMobile.vue` et `FooDesktop.vue` dans `components/foo/`. La page routeur (`pages/foo.vue`) se réduit à ~8 lignes : `definePageMeta` + `useDisplay` + `<ClientOnly>` + `v-if="mobile"`. La logique partagée (data fetch, état, méthodes) va dans un composable `composables/useFoo.ts`.
+
+**Layout mobile standard** : `height: calc(100dvh - 64px)` (64px = bottom nav), flex colonne, `overflow: hidden`. Zone header : `flex-shrink: 0`. Zone contenu : `flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch`.
+
+Pages splittées dans cette session :
+
+| Page | Composable | Mobile | Desktop |
+|---|---|---|---|
+| `game-list` | `useGameList.ts` | `GameListMobile.vue` | `GameListDesktop.vue` |
+| `profil` | `useProfil.ts` | `ProfilMobile.vue` | `ProfilDesktop.vue` |
+| `actualites` | — | `ActualitesMobile.vue` | `ActualitesDesktop.vue` |
+| `games/[gameId]` | `useGameDetail.ts` | `GameDetailMobile.vue` | `GameDetailDesktop.vue` |
+| `games/catalog/[gameId]` | — | `GameCatalogDetailMobile.vue` | `GameCatalogDetailDesktop.vue` |
+| `next-quest` | (existant) | restructuré | restructuré |
+
+`next-quest.vue` était déjà partiellement split (`NextQuestMobileStage` / `NextQuestDesktopStage`) mais le header était partagé. Il a été restructuré en deux blocs `v-if="mdAndUp"` / `v-else` dans la même page, avec un container mobile `height: calc(100dvh - 64px)` + zone scrollable interne.
+
+**Spécificité `GameDetailMobile`** — La cover n'est plus dans un bloc hero côte-à-côte : elle s'étend pleine largeur (`margin: 0 -1rem; width: calc(100% + 2rem); height: 220px`) pour un rendu immersif. Les screenshots utilisent le même débordement horizontal (`margin-left: -1rem; padding-left: 1rem`).
+
+### Fichiers modifiés / créés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/app.vue` | Fix — `.app-bg` position fixed, `v-application__wrap` transparent |
+| `apps/web/assets/css/main.css` | Fix — suppression `body::before` redondant |
+| `apps/web/components/ui/PageHeader.vue` | Amélioration — sticky + fond étendu sur mobile |
+| `apps/web/components/next-quest/MobileStage.vue` | Ajustement — restructuration layout mobile |
+| `apps/web/pages/next-quest.vue` | Restructuration — deux blocs mobile/desktop distincts |
+| `apps/web/composables/useGameList.ts` | Nouveau — état + logique game list |
+| `apps/web/components/game-list/GameListMobile.vue` | Nouveau — layout mobile inner-scroll |
+| `apps/web/components/game-list/GameListDesktop.vue` | Nouveau — layout desktop grille |
+| `apps/web/pages/game-list.vue` | Refactorisé — routeur thin |
+| `apps/web/composables/useProfil.ts` | Nouveau — état + logique profil |
+| `apps/web/components/profil/ProfilMobile.vue` | Nouveau |
+| `apps/web/components/profil/ProfilDesktop.vue` | Nouveau |
+| `apps/web/pages/profil.vue` | Refactorisé — routeur thin |
+| `apps/web/components/actualites/ActualitesMobile.vue` | Nouveau — placeholder mobile |
+| `apps/web/components/actualites/ActualitesDesktop.vue` | Nouveau — placeholder desktop |
+| `apps/web/pages/actualites.vue` | Refactorisé — routeur thin |
+| `apps/web/composables/useGameDetail.ts` | Nouveau — état + logique fiche jeu |
+| `apps/web/components/games/GameDetailMobile.vue` | Nouveau — cover pleine largeur mobile |
+| `apps/web/components/games/GameDetailDesktop.vue` | Nouveau |
+| `apps/web/pages/games/[gameId].vue` | Refactorisé — routeur thin |
+| `apps/web/components/games/catalog/GameCatalogDetailMobile.vue` | Nouveau |
+| `apps/web/components/games/catalog/GameCatalogDetailDesktop.vue` | Nouveau |
+| `apps/web/pages/games/catalog/[gameId].vue` | Refactorisé — routeur thin |
+
+### Vérifications
+
+| Check | Résultat |
+|-------|----------|
+| `nuxi prepare` (types) | ✅ 0 erreur |
+| Background fond.png mobile | ✅ Constant, plus de repeat sur pages longues |
+| PageHeader sticky | ✅ Reste visible au scroll sur mobile |
+| Split mobile/desktop | ✅ Pattern uniforme sur toutes les pages |
+
+### Points ouverts
+
+- Tests unitaires des nouveaux composables (`useGameList`, `useProfil`, `useGameDetail`) — à écrire
+- Actualités : contenu réel à implémenter (placeholder pour l'instant)
+- Valider le rendu sur un appareil physique iOS (Safari, bottom nav, `100dvh`)
+

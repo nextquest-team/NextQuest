@@ -179,3 +179,13 @@
 **Affinage de l'algo pendant l'E2E (écart spec assumé)** -- Le match genre/tag, d'abord une somme plafonnée, saturait à 1 sur les grosses bibliothèques (plus aucune discrimination) : remplacé par une similarité cosinus non saturante. Et plutôt qu'un seuil sur la note (inutilisable : un mauvais jeu peu noté est indiscernable d'une nouveauté), la qualité conditionne désormais la similarité -- un jeu médiocre ne remonte plus juste parce qu'il ressemble à tes goûts. Résultat : découverte pilotée par la qualité.
 
 **IA locale (Qwen) en stretch post-MVP** -- L'algo reste volontairement le pilote (déterministe, explicable au jury, ancré dans le catalogue IGDB). L'explication "pourquoi" de chaque reco est générée par règles, sans dépendance IA ; le LLM re-ranker/explicateur reste optionnel derrière une interface, pour plus tard.
+
+---
+
+## 22 juin 2026
+
+**Routes IGDB de découverte (à venir + détail), pour le front de Loreleï** -- Deux GET qui proxifient IGDB en direct avec cache Redis : `GET /games/upcoming` (jeux dont la date de sortie est future, tri par hype par défaut ou `sort=date`, items avec genres+plateformes pour les filtres timeline) et `GET /games/igdb/:igdbId` (détail riche en un seul appel IGDB : screenshots, vidéos, plateformes, modes, similaires...). Choix : proxy live plutôt qu'hydratation BDD -- notre catalogue ne contient que des jeux possédés (déjà sortis), un feed "à venir" servi depuis la base renverrait quasi rien. TTL 1h (liste) / 24h (détail).
+
+**Flux "clic sur un jeu de ma collection"** -- `igdbId` désormais exposé dans le DTO collection : le front récupère l'id dès la liste/détail et appelle `GET /games/igdb/:igdbId`. Décorrélé (pas de route collection couplée au proxy), réutilise la route de détail unique.
+
+**9 alertes Dependabot corrigées** -- Bump des transitives vulnérables (undici 6.27.0, form-data 3.0.5/4.0.6, tar 7.5.16, js-yaml 4.2.0, esbuild 0.28.1) via `pnpm update` + `pnpm.overrides` pour celles bloquées par un parent qui les pinne (js-yaml via @redocly/openapi-core).

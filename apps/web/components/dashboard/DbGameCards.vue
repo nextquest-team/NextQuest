@@ -58,15 +58,16 @@ function onKeydown(e: KeyboardEvent) {
       @keydown="onKeydown"
     >
       <div class="game-cards__track">
-        <div
+        <NuxtLink
           v-for="game in games"
           :key="game.id"
+          :to="`/games/${game.id}`"
           class="game-card"
           role="listitem"
           :aria-label="game.title"
         >
           <!-- TODO: image couverture depuis API (IGDB ou autre) -->
-        </div>
+        </NuxtLink>
       </div>
     </div>
 
@@ -142,5 +143,14 @@ function onKeydown(e: KeyboardEvent) {
   border: 3px solid #7a3e2a;
   background: #3a2e28;
   scroll-snap-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.game-card:hover {
+  transform: translateY(-3px) scale(1.03);
+  border-color: #c47a3a;
 }
 </style>

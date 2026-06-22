@@ -5,6 +5,7 @@ definePageMeta({ ssr: false })
 
 const { t } = useI18n()
 const { authFetch, apiBase } = useAuthFetch()
+const { mdAndUp } = useDisplay()
 
 // ── State ─────────────────────────────────────────────────────────────────
 const loading = ref(false)
@@ -105,68 +106,35 @@ onMounted(() => fetchRecos())
       </button>
     </div>
 
-    <!-- Stage : carte + cards overlay -->
-    <div v-else class="nq-map-stage">
-
-      <!-- Bannière portrait (mobile uniquement) -->
-      <img
-        class="nq-mobile-map"
-        src="/images/next-quest/carte-au-tresor.png"
-        alt="Carte des aventures"
+    <!-- Layouts -->
+    <template v-else>
+      <NextQuestMobileStage
+        v-if="!mdAndUp"
+        :discovery="discovery"
+        :library-unplayed="libraryUnplayed"
+        :upcoming="upcoming"
+        :feedback-pending="feedbackPending"
+        :generating="generating"
+        @feedback="sendFeedback"
+        @generate="generate"
       />
-
-      <!-- Rangée des cards (discovery hero + secondaires) -->
-      <div class="nq-cards-row">
-
-        <!-- Slot Découverte — hero -->
-        <div class="nq-slot nq-slot--discovery">
-          <NextQuestRecoCard
-            :reco="discovery"
-            bucket="discovery"
-            :feedback-pending="feedbackPending === discovery?.id"
-            @feedback="sendFeedback"
-          />
-        </div>
-
-        <!-- Slots secondaires (bibliothèque + à venir) -->
-        <div class="nq-secondary">
-          <div class="nq-slot nq-slot--library">
-            <NextQuestRecoCard
-              :reco="libraryUnplayed"
-              bucket="library_unplayed"
-              :feedback-pending="feedbackPending === libraryUnplayed?.id"
-              @feedback="sendFeedback"
-            />
-          </div>
-          <div class="nq-slot nq-slot--upcoming">
-            <NextQuestRecoCard
-              :reco="upcoming"
-              bucket="upcoming"
-              :feedback-pending="feedbackPending === upcoming?.id"
-              @feedback="sendFeedback"
-            />
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Régénérer -->
-      <div class="nq-regen">
-        <button class="patch-btn" :disabled="generating" @click="generate">
-          <v-icon size="16">mdi-refresh</v-icon>
-          {{ generating ? t('nextQuest.generating') : t('nextQuest.regenerate') }}
-        </button>
-      </div>
-
-    </div>
+      <NextQuestDesktopStage
+        v-else
+        :discovery="discovery"
+        :library-unplayed="libraryUnplayed"
+        :upcoming="upcoming"
+        :feedback-pending="feedbackPending"
+        :generating="generating"
+        @feedback="sendFeedback"
+        @generate="generate"
+      />
+    </template>
 
   </div>
 </template>
 
 <style scoped>
-/* ═══════════════════════════════════════════════════════
-   PAGE
-═══════════════════════════════════════════════════════ */
+/* ── Page ── */
 .nq-page {
   min-height: 100dvh;
   display: flex;
@@ -184,16 +152,7 @@ onMounted(() => fetchRecos())
   }
 }
 
-
-
-.nq-header {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-}
-
+/* ── Header ── */
 .nq-title-text {
   display: flex;
   flex-direction: column;
@@ -224,13 +183,11 @@ onMounted(() => fetchRecos())
 }
 
 @media (min-width: 960px) {
-.nq-title  { font-size: 2.2rem; }
+  .nq-title    { font-size: 2.2rem; }
   .nq-subtitle { font-size: 1.6rem; }
 }
 
-/* ═══════════════════════════════════════════════════════
-   ÉTATS (chargement / erreur / vide)
-═══════════════════════════════════════════════════════ */
+/* ── États (chargement / erreur / vide) ── */
 .nq-state {
   flex: 1;
   display: flex;
@@ -248,11 +205,6 @@ onMounted(() => fetchRecos())
   animation: spin-slow 8s linear infinite;
 }
 
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
 .nq-state__title {
   font-size: 1.05rem;
   font-weight: bold;
@@ -267,107 +219,8 @@ onMounted(() => fetchRecos())
   max-width: 300px;
 }
 
-/* ═══════════════════════════════════════════════════════
-   MAP STAGE
-═══════════════════════════════════════════════════════ */
-.nq-map-stage {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-@media (min-width: 960px) {
-  /* Desktop : colonne — rangée de cards en haut, regen en bas */
-  .nq-map-stage {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    padding: 5% 5% 3%;
-    background: url('/images/next-quest/carte-landscape.png') center / 100% 100% no-repeat;
-    border-radius: 16px;
-    overflow: hidden;
-  }
-
-  /* Rangée cards : hero à gauche, secondaires à droite */
-  .nq-cards-row {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════
-   BANNIÈRE PORTRAIT (mobile uniquement)
-═══════════════════════════════════════════════════════ */
-.nq-mobile-map {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  object-position: center 25%;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(58, 26, 10, 0.2);
-}
-
-@media (min-width: 960px) {
-  .nq-mobile-map { display: none; }
-}
-
-/* ═══════════════════════════════════════════════════════
-   SLOTS
-═══════════════════════════════════════════════════════ */
-@media (min-width: 960px) {
-  /* Discovery hero : colonne gauche, hauteur naturelle (centrée verticalement) */
-  .nq-slot--discovery {
-    display: flex;
-    align-self: center;
-    max-width: 320px;
-    width: 100%;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════
-   SECONDAIRES (mobile : 2 colonnes / desktop : colonne)
-═══════════════════════════════════════════════════════ */
-.nq-secondary {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  padding-left: 10%;
-}
-
-@media (max-width: 480px) {
-  .nq-secondary { grid-template-columns: 1fr; }
-}
-
-@media (min-width: 960px) {
-  /* Colonne droite : library en haut, upcoming en bas, carte visible au milieu */
-  .nq-secondary {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    max-width: 480px;
-    width: 100%;
-  }
-
-  .nq-secondary .nq-slot {
-    flex: 0 0 auto;
-    display: flex;
-    width: 100%;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════
-   RÉGÉNÉRER
-═══════════════════════════════════════════════════════ */
-.nq-regen {
-  display: flex;
-  justify-content: center;
-  padding: 0.25rem 0;
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 </style>

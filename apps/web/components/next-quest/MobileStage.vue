@@ -23,27 +23,26 @@ const { t } = useI18n()
     <!-- Fond portrait fixe -->
     <div class="nq-portrait-bg" aria-hidden="true" />
 
-    <!-- Card Découverte -->
-    <div class="nq-slot">
+    <!-- 3 cards identiques en colonne -->
+    <div class="nq-cards">
       <NextQuestRecoCard
         :reco="discovery"
         bucket="discovery"
+        compact
         :feedback-pending="feedbackPending === discovery?.id"
         @feedback="(reco, action) => emit('feedback', reco, action)"
       />
-    </div>
-
-    <!-- Cards secondaires -->
-    <div class="nq-secondary">
       <NextQuestRecoCard
         :reco="libraryUnplayed"
         bucket="library_unplayed"
+        compact
         :feedback-pending="feedbackPending === libraryUnplayed?.id"
         @feedback="(reco, action) => emit('feedback', reco, action)"
       />
       <NextQuestRecoCard
         :reco="upcoming"
         bucket="upcoming"
+        compact
         :feedback-pending="feedbackPending === upcoming?.id"
         @feedback="(reco, action) => emit('feedback', reco, action)"
       />
@@ -65,7 +64,9 @@ const { t } = useI18n()
 .nq-portrait-bg {
   position: fixed;
   inset: 0;
-  background: url('/images/next-quest/carte-portrait.png') center / auto 100% no-repeat;
+  background-image: url('/images/next-quest/carte-portrait.png');
+  background-size: contain;
+  margin-top: 30%;
   z-index: -1;
   pointer-events: none;
   
@@ -80,16 +81,11 @@ const { t } = useI18n()
   gap: 1rem;
 }
 
-/* Cards secondaires : 2 colonnes décalées */
-.nq-secondary {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* 3 cards identiques en colonne */
+.nq-cards {
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
-  padding-left: 10%;
-}
-
-@media (max-width: 480px) {
-  .nq-secondary { grid-template-columns: 1fr; }
 }
 
 /* Bouton régénérer */

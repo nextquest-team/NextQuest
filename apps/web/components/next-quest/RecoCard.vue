@@ -5,6 +5,7 @@ const props = defineProps<{
   reco: RecommendationDTO | null
   bucket: 'discovery' | 'library_unplayed' | 'upcoming'
   feedbackPending: boolean
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -61,7 +62,7 @@ function ratingStars(rating: number | null): string {
   </div>
 
   <!-- ── Card HERO (Découverte) — colonne : info → image → boutons ── -->
-  <div v-else-if="isMain" class="nq-quest-card nq-quest-card--main">
+  <div v-else-if="isMain && !compact" class="nq-quest-card nq-quest-card--main">
     <div class="nq-card-badge nq-card-badge--discovery">
       <v-icon size="13">{{ badgeConfig.icon }}</v-icon>
       {{ t(badgeConfig.labelKey) }}
@@ -214,7 +215,7 @@ function ratingStars(rating: number | null): string {
   background: rgba(92, 51, 23, 0.06);
 }
 
-.nq-card-cover--sm { width: 68px; height: 90px; }
+.nq-card-cover--sm { width: 80px; height: 108px; }
 
 .nq-card-cover img {
   width: 100%;

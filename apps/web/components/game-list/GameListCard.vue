@@ -106,7 +106,7 @@ function onDelete(e: Event) {
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
   position: relative;
-  height: 120px;
+  min-height: 110px;
 }
 
 .gl-card:hover {

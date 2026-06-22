@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
   compatibilityDate: '2026-03-31',
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   devServer: { port: 3001 },
 
   // Polling pour que le watcher détecte les nouveaux fichiers dans Docker/macOS

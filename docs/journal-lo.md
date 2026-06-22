@@ -945,3 +945,31 @@ Pages splittées dans cette session :
 - Actualités : contenu réel à implémenter (placeholder pour l'instant)
 - Valider le rendu sur un appareil physique iOS (Safari, bottom nav, `100dvh`)
 
+---
+
+## 2026-06-22 — Uniformisation cards mobile Next Quest
+
+### Résumé exécutif
+
+Affinage UI sur `feat/front-reco`. Les trois cards de recommandation Next Quest avaient des formats hétérogènes en mobile : Discovery utilisait un layout héro centré (cover 130×173px, infos centrées), Library et Upcoming utilisaient un layout compact (cover gauche + infos droite). Résultat : une grande card en haut et deux petites en grille décalée — incohérent visuellement. Les 3 cards ont été unifiées en colonne avec le même format.
+
+### Changements
+
+**`RecoCard.vue`** — Ajout prop `compact?: boolean`. Quand actif, Discovery abandonne le layout héro et adopte le layout compact. Cover compacte agrandie 68×90 → 80×108px. Desktop non impacté (prop non transmis depuis DesktopStage).
+
+**`MobileStage.vue`** — Suppression `.nq-slot` + `.nq-secondary` (grille 2 col décalée). Remplacement par `.nq-cards` flex colonne. Les 3 cards reçoivent `compact`.
+
+**`nuxt.config.ts`** — Devtools désactivé (`enabled: false`) pour ne pas polluer l'interface mobile.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/next-quest/RecoCard.vue` | Ajout prop `compact`, condition `isMain && !compact` |
+| `apps/web/components/next-quest/MobileStage.vue` | Layout colonne unique, prop compact sur les 3 cards |
+| `apps/web/nuxt.config.ts` | Devtools désactivé |
+
+### Points ouverts
+
+- Effet verre dépoli sur les cards : exploré mais non retenu. `border-image: fill` peint le centre de façon opaque et bloque tout `backdrop-filter`. Nécessite une refonte de l'approche border (SVG clip, abandon du fill) — à reprendre si besoin.
+

@@ -11,7 +11,12 @@ export function getDb() {
   if (!_db) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error("DATABASE_URL is not set");
-    const client = postgres(url);
+    // En env de test, on borne le handshake TCP (connect_timeout) pour échouer vite
+    // quand le host est injoignable plutôt que de pendre indéfiniment (#64). En prod,
+    // on garde le comportement par défaut (retry, pas de timeout court).
+    const isTest =
+      process.env.VITEST === "true" || process.env.NODE_ENV === "test";
+    const client = postgres(url, isTest ? { connect_timeout: 3 } : {});
     _db = drizzle(client, { schema });
   }
   return _db;

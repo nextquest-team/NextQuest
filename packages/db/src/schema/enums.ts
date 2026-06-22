@@ -114,3 +114,9 @@ export const recommendationFeedbackEnum = pgEnum(
   "recommendation_feedback_enum",
   ["liked", "dismissed", "added"],
 );
+
+export const recommendationBucketEnum = pgEnum("recommendation_bucket_enum", [
+  "library_unplayed", // jeu deja possede, pas encore joue
+  "discovery", // jeu sorti, non possede
+  "upcoming", // jeu pas encore sorti
+]);

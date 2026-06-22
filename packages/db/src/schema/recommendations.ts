@@ -6,7 +6,7 @@ import {
   numeric,
   index,
 } from "drizzle-orm/pg-core";
-import { recommendationFeedbackEnum } from "./enums.js";
+import { recommendationFeedbackEnum, recommendationBucketEnum } from "./enums.js";
 import { users } from "./users.js";
 import { games } from "./games.js";
 
@@ -26,6 +26,8 @@ export const recommendations = pgTable(
     score: numeric("score", { precision: 4, scale: 3 }),
     // Le feedback utilisateur sert a affiner les futures recommandations
     feedback: recommendationFeedbackEnum("feedback"),
+    // Categorie de reco : pilote la strategie de candidats et le signal qualite.
+    bucket: recommendationBucketEnum("bucket").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -33,5 +35,6 @@ export const recommendations = pgTable(
   },
   (t) => [
     index("idx_recommendations_user_id_created_at").on(t.userId, t.createdAt),
+    index("idx_recommendations_user_id_bucket").on(t.userId, t.bucket),
   ],
 );

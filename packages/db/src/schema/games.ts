@@ -46,6 +46,10 @@ export const games = pgTable(
     // exploite par la reco (#58) avec un seuil de votes minimum.
     igdbRating: real("igdb_rating"),
     igdbRatingCount: integer("igdb_rating_count"),
+    // Signal d'anticipation IGDB (nb de gens qui suivent/attendent le jeu).
+    // Sert de signal qualite pour les jeux pas encore sortis (reco bucket "upcoming"),
+    // ou la note joueurs n'existe pas encore.
+    igdbHypes: integer("igdb_hypes"),
     // Les jeux custom sont ceux ajoutes manuellement par un user (pas dans IGDB/RAWG)
     isCustom: boolean("is_custom").notNull().default(false),
     createdBy: uuid("created_by").references(() => users.id, {

@@ -13,6 +13,7 @@ import {
   igdbImageUrl,
   findGameIdsBySteamAppids,
   fetchGamesByIds,
+  fetchTimeToBeats,
   type IgdbGame,
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
@@ -39,6 +40,7 @@ export interface IgdbDeps {
   getToken(): Promise<string>;
   findGameIdsBySteamAppids(appids: number[], token: string, clientId: string): Promise<Map<number, number>>;
   fetchGamesByIds(ids: number[], token: string, clientId: string): Promise<IgdbGame[]>;
+  fetchTimeToBeats(ids: number[], token: string, clientId: string): Promise<Map<number, { normallyMinutes: number; count: number }>>;
   sleep(ms: number): Promise<void>;
 }
 
@@ -61,6 +63,7 @@ export function defaultDeps(): IgdbDeps {
     findGameIdsBySteamAppids: (appids, token, clientId) =>
       findGameIdsBySteamAppids(appids, token, clientId),
     fetchGamesByIds: (ids, token, clientId) => fetchGamesByIds(ids, token, clientId),
+    fetchTimeToBeats: (ids, token, clientId) => fetchTimeToBeats(ids, token, clientId),
     // Pacing pour rester sous 4 req/s entre deux lots.
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   };
@@ -101,20 +104,34 @@ async function selectCandidates(userId?: string) {
 }
 
 // Upsert d'un jeu enrichi + ses genres/themes/similar, dans une transaction.
-async function upsertEnrichedGame(gameId: string, data: IgdbGame): Promise<void> {
+async function upsertEnrichedGame(
+  gameId: string,
+  data: IgdbGame,
+  avgPlaytime: number | null = null,
+  igdbHypes: number | null = null,
+): Promise<void> {
   await db.transaction(async (tx) => {
+    // Determine releaseStatus based on releaseDate: if future date, set "upcoming", else "released".
+    const releaseStatus =
+      data.releaseDate && data.releaseDate > new Date().toISOString().slice(0, 10)
+        ? "upcoming"
+        : "released";
+
     await tx
       .update(games)
       .set({
         igdbId: data.igdbId,
         description: data.summary,
         releaseDate: data.releaseDate,
+        releaseStatus,
         igdbRating: data.rating,
         igdbRatingCount: data.ratingCount,
         developer: data.developer,
         publisher: data.publisher,
         coverUrl: data.coverImageId ? igdbImageUrl(data.coverImageId, "t_cover_big") : null,
         backgroundUrl: data.artworkImageId ? igdbImageUrl(data.artworkImageId, "t_1080p") : null,
+        avgPlaytime: avgPlaytime,
+        igdbHypes: igdbHypes,
         lastSyncedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -224,15 +241,22 @@ export async function enrichGames(
 
   for (const part of chunk([...igdbIdToGameIds.keys()], BATCH)) {
     let fetched: IgdbGame[];
+    let timeToBeat: Map<number, { normallyMinutes: number; count: number }>;
     try {
       fetched = await deps.fetchGamesByIds(part, token, clientId);
+      timeToBeat = await deps.fetchTimeToBeats(part, token, clientId);
     } catch {
       summary.failed += part.length;
       continue; // IGDB en panne sur ce lot : on n'ecrit rien, retente plus tard.
     }
     for (const data of fetched) {
       for (const gameId of igdbIdToGameIds.get(data.igdbId) ?? []) {
-        await upsertEnrichedGame(gameId, data);
+        await upsertEnrichedGame(
+          gameId,
+          data,
+          timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+          data.hypes,
+        );
         summary.enriched += 1;
       }
     }
@@ -240,4 +264,87 @@ export async function enrichGames(
   }
 
   return summary;
+}
+
+// Hydrate des jeux manquants dans le catalogue a partir d'igdbIds. Idempotent :
+// ne traite que les igdbIds absents. Retourne le nombre de jeux inseres.
+export async function hydrateGamesByIgdbIds(
+  igdbIds: number[],
+  clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
+  deps: IgdbDeps = defaultDeps(),
+): Promise<number> {
+  if (igdbIds.length === 0) return 0;
+
+  // Deduplication : l'input peut contenir des doublons (ex. plusieurs jeux
+  // owned qui pointent vers le meme igdbId). Set pour deduper une fois
+  // au depart.
+  const uniqueIds = [...new Set(igdbIds)];
+
+  // Filtrer les igdbIds deja presents.
+  const present = await db
+    .select({ igdbId: games.igdbId })
+    .from(games)
+    .where(inArray(games.igdbId, uniqueIds));
+  const have = new Set(present.map((p) => p.igdbId).filter((x): x is number => x != null));
+  const missing = uniqueIds.filter((id) => !have.has(id));
+  if (missing.length === 0) return 0;
+
+  const token = await deps.getToken();
+  let hydrated = 0;
+
+  // Fetcher par lots + upsert pour chaque igdbId.
+  for (const part of chunk(missing, BATCH)) {
+    let fetched: IgdbGame[];
+    let timeToBeat: Map<number, { normallyMinutes: number; count: number }>;
+    try {
+      fetched = await deps.fetchGamesByIds(part, token, clientId);
+      timeToBeat = await deps.fetchTimeToBeats(part, token, clientId);
+    } catch {
+      // Echec du lot : skip et continuer au prochain.
+      continue;
+    }
+
+    for (const data of fetched) {
+      // Generer un slug deterministe + unique avec l'igdbId.
+      const slug = `${slugify(data.name)}-igdb-${data.igdbId}`;
+      const [newGame] = await db
+        .insert(games)
+        .values({
+          igdbId: data.igdbId,
+          title: data.name,
+          slug,
+          isCustom: false,
+        })
+        // Defense-in-depth : tolérer un conflit de slug (insert concurrent ou
+        // igdbId deja present de maniere raciale). Si insert reussit, returning
+        // donne [{ id }] ; si conflict, returning donne [] et newGame.id est
+        // undefined. Ne pas appeler upsertEnrichedGame si insert a echoue.
+        .onConflictDoNothing({ target: games.slug })
+        .returning({ id: games.id });
+      // Enregistrer l'enrichissement uniquement si l'insert a reussi.
+      if (newGame) {
+        await upsertEnrichedGame(
+          newGame.id,
+          data,
+          timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+          data.hypes,
+        );
+        hydrated += 1;
+      }
+    }
+    await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
+  }
+
+  return hydrated;
+}
+
+// Slugify helper, pour garantir la coherence avec steam.service.ts.
+function slugify(input: string): string {
+  const base = input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "game";
 }

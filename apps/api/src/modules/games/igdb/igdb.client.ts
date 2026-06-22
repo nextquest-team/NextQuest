@@ -34,6 +34,7 @@ export interface IgdbGame {
   genres: IgdbTaxon[];
   themes: IgdbTaxon[];
   similarIgdbIds: number[];
+  hypes: number | null;
 }
 
 export function igdbImageUrl(imageId: string, size: string): string {
@@ -105,6 +106,7 @@ const GAME_FIELDS = [
   "involved_companies.developer",
   "involved_companies.publisher",
   "similar_games",
+  "hypes",
 ].join(",");
 
 interface RawTaxon {
@@ -129,6 +131,7 @@ interface RawGame {
     publisher?: boolean;
   }>;
   similar_games?: number[];
+  hypes?: number;
 }
 
 function mapTaxa(raw: RawTaxon[] | undefined): IgdbTaxon[] {
@@ -138,6 +141,27 @@ function mapTaxa(raw: RawTaxon[] | undefined): IgdbTaxon[] {
 function unixToDate(unix: number | undefined): string | null {
   if (unix == null) return null;
   return new Date(unix * 1000).toISOString().slice(0, 10);
+}
+
+function mapRawGame(r: RawGame): IgdbGame {
+  const dev = r.involved_companies?.find((c) => c.developer)?.company?.name ?? null;
+  const pub = r.involved_companies?.find((c) => c.publisher)?.company?.name ?? null;
+  return {
+    igdbId: r.id,
+    name: r.name,
+    summary: r.summary ?? null,
+    releaseDate: unixToDate(r.first_release_date),
+    rating: r.rating ?? null,
+    ratingCount: r.rating_count ?? null,
+    coverImageId: r.cover?.image_id ?? null,
+    artworkImageId: r.artworks?.[0]?.image_id ?? null,
+    developer: dev,
+    publisher: pub,
+    genres: mapTaxa(r.genres),
+    themes: mapTaxa(r.themes),
+    similarIgdbIds: r.similar_games ?? [],
+    hypes: r.hypes ?? null,
+  };
 }
 
 export async function fetchGamesByIds(
@@ -151,23 +175,48 @@ export async function fetchGamesByIds(
   const body = `fields ${GAME_FIELDS}; where id = (${igdbIds.join(",")}); limit 500;`;
   const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawGame[];
 
-  return rows.map((r) => {
-    const dev = r.involved_companies?.find((c) => c.developer)?.company?.name ?? null;
-    const pub = r.involved_companies?.find((c) => c.publisher)?.company?.name ?? null;
-    return {
-      igdbId: r.id,
-      name: r.name,
-      summary: r.summary ?? null,
-      releaseDate: unixToDate(r.first_release_date),
-      rating: r.rating ?? null,
-      ratingCount: r.rating_count ?? null,
-      coverImageId: r.cover?.image_id ?? null,
-      artworkImageId: r.artworks?.[0]?.image_id ?? null,
-      developer: dev,
-      publisher: pub,
-      genres: mapTaxa(r.genres),
-      themes: mapTaxa(r.themes),
-      similarIgdbIds: r.similar_games ?? [],
-    };
-  });
+  return rows.map(mapRawGame);
+}
+
+// Jeux pas encore sortis dans des genres donnes, tries par hype.
+// nowEpochSeconds = timestamp Unix en secondes (eg. Math.floor(Date.now()/1000)).
+export async function fetchUpcomingByGenres(
+  igdbGenreIds: number[],
+  nowEpochSeconds: number,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbGame[]> {
+  if (igdbGenreIds.length === 0) return [];
+  const body = `fields ${GAME_FIELDS}; where first_release_date > ${nowEpochSeconds} & genres = (${igdbGenreIds.join(",")}); sort hypes desc; limit 60;`;
+  const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawGame[];
+  return rows.map(mapRawGame);
+}
+
+// Durees de completion IGDB (game_time_to_beats). On ne garde que `normally`
+// converti en minutes, et seulement si fiable (count >= 10) : la donnee brute
+// contient des aberrations (ex. hastily 876h sur GTA Vice City).
+export async function fetchTimeToBeats(
+  igdbIds: number[],
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<Map<number, { normallyMinutes: number; count: number }>> {
+  const map = new Map<number, { normallyMinutes: number; count: number }>();
+  if (igdbIds.length === 0) return map;
+  const body = `fields game_id,normally,count; where game_id = (${igdbIds.join(",")}); limit 500;`;
+  const rows = (await igdbPost("game_time_to_beats", body, token, clientId, fetchImpl)) as Array<{
+    game_id?: number;
+    normally?: number;
+    count?: number;
+  }>;
+  for (const row of rows) {
+    if (row.game_id != null && row.normally != null && (row.count ?? 0) >= 10) {
+      map.set(row.game_id, {
+        normallyMinutes: Math.round(row.normally / 60),
+        count: row.count ?? 0,
+      });
+    }
+  }
+  return map;
 }

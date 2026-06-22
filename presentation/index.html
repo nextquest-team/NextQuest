@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>NextQuest — Jury blanc CDA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@500;600;700&family=Crimson+Pro:ital,wght@0,300..900;1,300..900&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-counter"><span id="slide-current">1</span><span class="sep">/</span><span id="slide-total">11</span></div>
+  <div class="hud-progress"><div class="hud-progress-fill" id="hud-progress-fill"></div></div>
+  <button class="hud-help-btn" id="hud-help-btn" title="Raccourcis (?)">?</button>
+</div>
+
+<div class="help-overlay" id="help-overlay" hidden>
+  <div class="help-card">
+    <h3>Raccourcis (Mac)</h3>
+    <ul>
+      <li><kbd>→</kbd> · <kbd>Espace</kbd> · <kbd>clic</kbd> — Avancer</li>
+      <li><kbd>←</kbd> — Reculer</li>
+      <li><kbd>1</kbd>–<kbd>9</kbd> · <kbd>0</kbd> — Aller à la slide N (0 = 10)</li>
+      <li><kbd>⌘</kbd>+<kbd>←</kbd> — Première slide</li>
+      <li><kbd>⌘</kbd>+<kbd>→</kbd> — Dernière slide</li>
+      <li><kbd>fn</kbd>+<kbd>←</kbd> — Première (alternative)</li>
+      <li><kbd>fn</kbd>+<kbd>→</kbd> — Dernière (alternative)</li>
+      <li><kbd>F</kbd> — Plein écran (<kbd>Échap</kbd> pour sortir)</li>
+      <li><kbd>?</kbd> — Cette aide</li>
+    </ul>
+    <p class="help-close">Appuie sur <kbd>?</kbd> ou <kbd>Échap</kbd> pour fermer</p>
+  </div>
+</div>
+
+<main class="deck" id="deck">
+
+  <!-- SLIDE 1 — Cover -->
+  <section class="slide slide--cover" data-slide="1">
+    <div class="cover-bg" aria-hidden="true">
+      <div class="cover-vignette"></div>
+      <div class="cover-stars"></div>
+    </div>
+    <div class="cover-content">
+      <div class="cover-logo-wrap">
+        <img src="assets/figma/logo.png" alt="NextQuest" class="cover-logo" />
+      </div>
+      <h1 class="cover-title">
+        <span class="cover-title-line">Le carnet de bord</span>
+        <span class="cover-title-line cover-title-line--accent">de tes quêtes vidéoludiques.</span>
+      </h1>
+      <p class="cover-meta">
+        <span>Jury blanc</span><span class="dot">·</span><span>Communication</span><span class="dot">·</span><span>CDA 2026</span>
+      </p>
+      <p class="cover-author">Jean-Baptiste Renart</p>
+    </div>
+    <div class="cover-hint">
+      <span>Appuie sur <kbd>→</kbd> ou <kbd>Espace</kbd> pour démarrer</span>
+    </div>
+  </section>
+
+  <!-- SLIDE 2 — Hook perso -->
+  <section class="slide slide--hook" data-slide="2">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <div class="hook-grid">
+      <div class="hook-left">
+        <p class="eyebrow" data-fragment="0">Confession d'un joueur</p>
+        <h2 class="hook-title" data-fragment="0">
+          J'ai des jeux <span class="brick-ink">partout</span>.<br/>
+          Et je sais plus<br/>
+          <span class="brick-ink">où j'en suis</span>.
+        </h2>
+
+        <ul class="lib-counts">
+          <li data-fragment>
+            <div class="lib-logo"><img src="assets/figma/logo-steam.png" alt="Steam" /></div>
+            <span class="lib-name">Steam</span>
+            <span class="lib-count" data-count="247">0</span>
+          </li>
+          <li data-fragment>
+            <div class="lib-logo"><img src="assets/figma/logo-epic.png" alt="Epic" /></div>
+            <span class="lib-name">Epic</span>
+            <span class="lib-count" data-count="89">0</span>
+          </li>
+          <li data-fragment>
+            <div class="lib-logo"><img src="assets/figma/logo-gog.png" alt="GOG" /></div>
+            <span class="lib-name">GOG</span>
+            <span class="lib-count" data-count="34">0</span>
+          </li>
+          <li data-fragment>
+            <div class="lib-logo"><img src="assets/figma/logo-playstation.png" alt="PlayStation" /></div>
+            <span class="lib-name">PSN</span>
+            <span class="lib-count" data-count="41">0</span>
+          </li>
+          <li data-fragment>
+            <div class="lib-logo"><img src="assets/figma/logo-nintendo.png" alt="Nintendo" /></div>
+            <span class="lib-name">Switch</span>
+            <span class="lib-count" data-count="23">0</span>
+          </li>
+        </ul>
+
+        <p class="hook-question" data-fragment>
+          Samedi soir, j'ai 2 heures.<br/>
+          <em>Je joue à quoi&nbsp;?</em>
+        </p>
+      </div>
+
+      <div class="hook-right">
+        <figure class="screenshot screenshot--lib" data-fragment>
+          <img src="assets/user/steam-recents.png" alt="Steam — Jeux récents" />
+          <figcaption>Steam &middot; Jeux récents</figcaption>
+        </figure>
+        <figure class="screenshot screenshot--game" data-fragment>
+          <img src="assets/user/monster-hunter-playtime.png" alt="Monster Hunter Wilds — 53.9h" />
+          <figcaption>Monster Hunter Wilds &middot; <strong>53,9 h</strong> &middot; mars 2025</figcaption>
+        </figure>
+        <figure class="screenshot screenshot--dock" data-fragment>
+          <img src="assets/user/launchers-dock.png" alt="Plusieurs launchers ouverts" />
+          <figcaption>4 launchers, et c'est pas fini.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3 — Problème généralisé -->
+  <section class="slide slide--problem" data-slide="3">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <header class="slide-header">
+      <p class="eyebrow" data-fragment="0">Et je suis loin d'être seul</p>
+      <h2 class="slide-title" data-fragment="0">Le bordel ludique <span class="brick-ink">généralisé</span></h2>
+    </header>
+
+    <div class="patches-row">
+      <article class="patch patch--brick" data-fragment>
+        <div class="patch-icon">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+            <rect x="6" y="10" width="20" height="14" rx="2"/>
+            <rect x="38" y="10" width="20" height="14" rx="2"/>
+            <rect x="6" y="40" width="20" height="14" rx="2"/>
+            <rect x="38" y="40" width="20" height="14" rx="2"/>
+            <circle cx="16" cy="17" r="2" fill="currentColor"/>
+            <circle cx="48" cy="17" r="2" fill="currentColor"/>
+            <circle cx="16" cy="47" r="2" fill="currentColor"/>
+            <circle cx="48" cy="47" r="2" fill="currentColor"/>
+          </g></svg>
+        </div>
+        <p class="patch-stat">65&nbsp;%</p>
+        <p class="patch-label">des gamers PC ont 3 launchers ou plus</p>
+      </article>
+
+      <article class="patch patch--wool" data-fragment>
+        <div class="patch-icon">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+            <rect x="14" y="42" width="36" height="14" rx="2"/>
+            <rect x="10" y="28" width="44" height="14" rx="2"/>
+            <rect x="16" y="14" width="32" height="14" rx="2"/>
+            <line x1="22" y1="22" x2="42" y2="22"/>
+            <line x1="18" y1="36" x2="46" y2="36"/>
+            <line x1="22" y1="50" x2="42" y2="50"/>
+          </g></svg>
+        </div>
+        <p class="patch-stat">80&nbsp;%</p>
+        <p class="patch-label">de la bibliothèque Steam moyenne&nbsp;: jamais touchée</p>
+      </article>
+
+      <article class="patch patch--moss" data-fragment>
+        <div class="patch-icon">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+            <rect x="8" y="14" width="48" height="42" rx="3"/>
+            <line x1="8" y1="26" x2="56" y2="26"/>
+            <line x1="20" y1="8" x2="20" y2="20"/>
+            <line x1="44" y1="8" x2="44" y2="20"/>
+            <circle cx="20" cy="38" r="2" fill="currentColor"/>
+            <circle cx="32" cy="38" r="2" fill="currentColor"/>
+            <circle cx="44" cy="38" r="2" fill="currentColor"/>
+            <circle cx="20" cy="48" r="2" fill="currentColor"/>
+            <circle cx="32" cy="48" r="2" fill="currentColor"/>
+          </g></svg>
+        </div>
+        <p class="patch-stat">14&nbsp;000+</p>
+        <p class="patch-label">jeux sortis chaque année. On en rate.</p>
+      </article>
+    </div>
+
+    <p class="problem-conclusion" data-fragment>
+      Steam ignore ta PS5. La PS5 ignore ta Switch.<br/>
+      <strong>Personne ne parle aux autres.</strong>
+    </p>
+  </section>
+
+  <!-- SLIDE 4 — Solution -->
+  <section class="slide slide--solution" data-slide="4">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <header class="slide-header">
+      <p class="eyebrow" data-fragment="0">Notre proposition</p>
+      <h2 class="slide-title" data-fragment="0">NextQuest, ton <span class="brick-ink">carnet de quêtes</span></h2>
+    </header>
+
+    <div class="solution-grid">
+      <div class="pillars">
+        <article class="pillar" data-fragment>
+          <div class="pillar-num">1</div>
+          <h3 class="pillar-title">Centraliser</h3>
+          <p>Steam, Epic, GOG, PSN, Xbox, Switch — toutes tes bibliothèques au même endroit.</p>
+        </article>
+        <article class="pillar" data-fragment>
+          <div class="pillar-num">2</div>
+          <h3 class="pillar-title">Suivre</h3>
+          <p>À faire, en cours, terminé, abandonné. Ton journal de progression.</p>
+        </article>
+        <article class="pillar" data-fragment>
+          <div class="pillar-num">3</div>
+          <h3 class="pillar-title">Anticiper</h3>
+          <p>Une timeline des sorties à venir, sur toutes les plateformes. Plus jamais une release manquée.</p>
+        </article>
+        <article class="pillar" data-fragment>
+          <div class="pillar-num">4</div>
+          <h3 class="pillar-title">Recommander</h3>
+          <p>Une IA qui te dit à quoi jouer ce soir, selon tes habitudes et le temps que tu as.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 5 — Équipe -->
+  <section class="slide slide--team" data-slide="5">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <header class="slide-header">
+      <p class="eyebrow" data-fragment="0">Une équipe de deux</p>
+      <h2 class="slide-title" data-fragment="0">Le binôme <span class="brick-ink">NextQuest</span></h2>
+    </header>
+
+    <div class="team-grid">
+      <article class="member" data-fragment>
+        <div class="member-avatar">
+          <img src="assets/user/avatar-lorelei.png" alt="Loreleï" />
+        </div>
+        <h3 class="member-name">Loreleï</h3>
+        <p class="member-role">Design UI&nbsp;/&nbsp;UX · Frontend</p>
+        <p class="member-detail">Direction artistique, maquettes, intégration Vue&nbsp;/&nbsp;Nuxt.</p>
+      </article>
+
+      <article class="member" data-fragment>
+        <div class="member-avatar member-avatar--jb">
+          <img src="assets/user/avatar-jb.webp" alt="Jean-Baptiste" />
+        </div>
+        <h3 class="member-name">Jean-Baptiste</h3>
+        <p class="member-role">Backend · Architecture</p>
+        <p class="member-detail">API Fastify, PostgreSQL, infrastructure, sécurité.</p>
+      </article>
+    </div>
+
+    <div class="workflow" data-fragment>
+      <p class="workflow-label">On bosse comme une équipe pro</p>
+      <div class="workflow-steps">
+        <span class="step">feature branches</span>
+        <svg class="step-arrow" viewBox="0 0 24 12"><path d="M0 6 H20 M16 2 L20 6 L16 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="step">PR review</span>
+        <svg class="step-arrow" viewBox="0 0 24 12"><path d="M0 6 H20 M16 2 L20 6 L16 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="step">CI verte</span>
+        <svg class="step-arrow" viewBox="0 0 24 12"><path d="M0 6 H20 M16 2 L20 6 L16 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="step">merge</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6 — Stack vue d'ensemble -->
+  <section class="slide slide--stack" data-slide="6">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <header class="slide-header">
+      <p class="eyebrow" data-fragment="0">L'environnement technique</p>
+      <h2 class="slide-title" data-fragment="0">L'archi en <span class="brick-ink">une carte</span></h2>
+    </header>
+
+    <div class="archi">
+      <div class="archi-row archi-row--clients">
+        <div class="archi-box" data-fragment><span class="archi-label">Web</span><span class="archi-tech">Nuxt 3 / Vue</span></div>
+        <div class="archi-box" data-fragment><span class="archi-label">Mobile</span><span class="archi-tech">React Native / Expo</span></div>
+      </div>
+
+      <div class="archi-arrows" data-fragment>↓ HTTPS / JSON ↓</div>
+
+      <div class="archi-row archi-row--api">
+        <div class="archi-box archi-box--api" data-fragment>
+          <span class="archi-label">API</span>
+          <span class="archi-tech">Node.js · Fastify 5 · Drizzle · Zod</span>
+        </div>
+      </div>
+
+      <div class="archi-arrows" data-fragment>↓ &nbsp;↓ &nbsp;↓</div>
+
+      <div class="archi-row archi-row--data">
+        <div class="archi-box" data-fragment><span class="archi-label">Données</span><span class="archi-tech">PostgreSQL 16</span></div>
+        <div class="archi-box" data-fragment><span class="archi-label">Cache</span><span class="archi-tech">Redis 7</span></div>
+        <div class="archi-box" data-fragment><span class="archi-label">IA locale</span><span class="archi-tech">Qwen 3 · Ollama</span></div>
+      </div>
+
+      <div class="archi-row archi-row--external">
+        <div class="archi-box archi-box--external" data-fragment>
+          <span class="archi-label">APIs externes</span>
+          <span class="archi-tech">Steam · PSN · Xbox · Nintendo · IGDB · RAWG</span>
+        </div>
+      </div>
+    </div>
+
+    <aside class="docker-note" data-fragment>
+      <strong>Infra dev :</strong> Docker Compose (Postgres + Redis) sur PC distant, accédé depuis le Mac via VPN privé Tailscale. Environnement isolé, reproductible, partagé avec Loreleï.
+    </aside>
+  </section>
+
+  <!-- SLIDE 7 — 3 choix défendus -->
+  <section class="slide slide--choices" data-slide="7">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <header class="slide-header">
+      <p class="eyebrow" data-fragment="0">Trois choix qu'on défend</p>
+      <h2 class="slide-title" data-fragment="0">Pourquoi <span class="brick-ink">celle-là</span> et pas une autre</h2>
+    </header>
+
+    <div class="choices">
+      <article class="choice" data-fragment>
+        <div class="choice-vs">
+          <span class="choice-pick">Vue&nbsp;/&nbsp;Nuxt 3</span>
+          <span class="choice-sep">plutôt que</span>
+          <span class="choice-alt">React&nbsp;/&nbsp;Next.js</span>
+        </div>
+        <p class="choice-why">Loreleï maîtrise Vue (enseigné chez ForEach). Nuxt 3 = Vue full-stack avec SSR et un écosystème mature. On code moins, on livre plus vite.</p>
+      </article>
+
+      <article class="choice" data-fragment>
+        <div class="choice-vs">
+          <span class="choice-pick">React Native + Expo</span>
+          <span class="choice-sep">plutôt que</span>
+          <span class="choice-alt">Flutter</span>
+        </div>
+        <p class="choice-why">Écosystème JavaScript unifié avec le web&nbsp;: même langage, types et validations partagés. Expo simplifie le build et les permissions natives.</p>
+      </article>
+
+      <article class="choice" data-fragment>
+        <div class="choice-vs">
+          <span class="choice-pick">PostgreSQL</span>
+          <span class="choice-sep">plutôt que</span>
+          <span class="choice-alt">MongoDB</span>
+        </div>
+        <p class="choice-why">Données relationnelles (users, jeux, statuts, amis). Postgres garantit l'intégrité référentielle, les transactions ACID, et JSONB quand on a besoin de flexibilité ponctuelle.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- SLIDE 8 — Sécurité -->
+  <section class="slide slide--security" data-slide="8">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <header class="slide-header">
+      <p class="eyebrow" data-fragment="0">Pris au sérieux dès le départ</p>
+      <h2 class="slide-title" data-fragment="0">Sécurité &amp; <span class="brick-ink">qualité</span></h2>
+    </header>
+
+    <div class="security-grid">
+      <article class="sec-card" data-fragment>
+        <svg class="sec-icon" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M32 6 L52 14 V32 C52 44 42 54 32 58 C22 54 12 44 12 32 V14 Z"/><path d="M22 32 L30 40 L44 24"/></g></svg>
+        <h3 class="sec-title">OWASP Top 10</h3>
+        <p>Schéma BDD audité contre les 10 vulnérabilités web les plus critiques.</p>
+      </article>
+
+      <article class="sec-card" data-fragment>
+        <svg class="sec-icon" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><circle cx="32" cy="32" r="22"/><path d="M22 32 L30 40 L44 24"/></g></svg>
+        <h3 class="sec-title">RGPD</h3>
+        <p>Suppression de compte = purge totale via cascades SQL. Droit à l'effacement automatique.</p>
+      </article>
+
+      <article class="sec-card" data-fragment>
+        <svg class="sec-icon" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><rect x="14" y="28" width="36" height="28" rx="3"/><path d="M22 28 V18 a10 10 0 0 1 20 0 V28"/><circle cx="32" cy="42" r="3" fill="currentColor"/></g></svg>
+        <h3 class="sec-title">Auth durcie</h3>
+        <p><strong>Argon2id</strong> pour les mots de passe (référence NIST 2026). JWT avec rotation et détection de vol.</p>
+      </article>
+
+      <article class="sec-card" data-fragment>
+        <svg class="sec-icon" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><circle cx="32" cy="32" r="22"/><path d="M32 18 V32 L42 38"/></g></svg>
+        <h3 class="sec-title">CI/CD industrialisée</h3>
+        <p>Lint, typecheck, tests, audit auto. CodeQL + Dependabot. <strong>32 vulnérabilités</strong> résolues.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- SLIDE 9 — Où on en est -->
+  <section class="slide slide--status" data-slide="9">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <header class="slide-header">
+      <p class="eyebrow" data-fragment="0">À date</p>
+      <h2 class="slide-title" data-fragment="0">Ce qui <span class="brick-ink">tourne</span></h2>
+    </header>
+
+    <ul class="status-list">
+      <li class="status-item status-item--done" data-fragment><span class="status-mark">✓</span><div><strong>Schéma BDD</strong><span>34 tables, 16 enums, audité OWASP&nbsp;/&nbsp;RGPD&nbsp;/&nbsp;NIST</span></div></li>
+      <li class="status-item status-item--done" data-fragment><span class="status-mark">✓</span><div><strong>Authentification complète</strong><span>email/mdp, OAuth Google + Microsoft (Apple prêt)</span></div></li>
+      <li class="status-item status-item--done" data-fragment><span class="status-mark">✓</span><div><strong>CI/CD opérationnelle</strong><span>GitHub Actions, CodeQL, Dependabot, branch protection</span></div></li>
+      <li class="status-item status-item--done" data-fragment><span class="status-mark">✓</span><div><strong>Documentation API</strong><span>Swagger interactif sur <code>/docs</code></span></div></li>
+      <li class="status-item status-item--progress" data-fragment><span class="status-mark">◐</span><div><strong>Module Users</strong><span>profil, onboarding, settings — cette semaine</span></div></li>
+      <li class="status-item status-item--soon" data-fragment><span class="status-mark">○</span><div><strong>Maquette mobile V2</strong><span>DA brodée — Loreleï finalise en parallèle</span></div></li>
+    </ul>
+
+    <p class="status-tests" data-fragment>
+      <strong>23+ tests</strong> d'intégration verrouillent les comportements critiques.
+    </p>
+  </section>
+
+  <!-- SLIDE 10 — Roadmap -->
+  <section class="slide slide--roadmap" data-slide="10">
+    <div class="paper-bg" aria-hidden="true"></div>
+    <header class="slide-header">
+      <p class="eyebrow" data-fragment="0">La suite</p>
+      <h2 class="slide-title" data-fragment="0">La <span class="brick-ink">carte</span> qui se dessine</h2>
+    </header>
+
+    <div class="roadmap">
+      <div class="roadmap-map">
+        <img src="assets/figma/carte-tresor.png" alt="Carte au trésor" class="roadmap-map-img" />
+      </div>
+
+      <ol class="roadmap-steps">
+        <li class="roadmap-step" data-fragment><span class="step-marker">×</span><span class="step-date">Mai-Juin 2026</span><span class="step-label">Import Steam &amp; plateformes</span></li>
+        <li class="roadmap-step" data-fragment><span class="step-marker">×</span><span class="step-date">Juin 2026</span><span class="step-label">MVP — IA reco + APIs jeux + timeline</span></li>
+        <li class="roadmap-step" data-fragment><span class="step-marker">×</span><span class="step-date">Automne 2026</span><span class="step-label">Social &amp; partage</span></li>
+        <li class="roadmap-step" data-fragment><span class="step-marker">×</span><span class="step-date">2027</span><span class="step-label">Scraping + IA pour dates de sorties</span></li>
+        <li class="roadmap-step roadmap-step--treasure" data-fragment><span class="step-marker">★</span><span class="step-date">Juillet 2027</span><span class="step-label">Soutenance CDA</span></li>
+      </ol>
+    </div>
+
+    <div class="roadmap-platforms" data-fragment>
+      <p class="roadmap-platforms-text">
+        <strong>Steam</strong> en premier (API publique), puis tous les autres. <strong>Nintendo</strong> en dernier — pas d'API officielle, c'est le boss final.
+      </p>
+      <div class="platform-logos">
+        <div class="platform-logo">
+          <div class="platform-logo-img"><img src="assets/figma/logo-steam.png" alt="Steam" /></div>
+          <span class="platform-logo-name">Steam</span>
+        </div>
+        <div class="platform-logo">
+          <div class="platform-logo-img"><img src="assets/figma/logo-playstation.png" alt="PSN" /></div>
+          <span class="platform-logo-name">PSN</span>
+        </div>
+        <div class="platform-logo">
+          <div class="platform-logo-img"><img src="assets/figma/logo-epic.png" alt="Epic" /></div>
+          <span class="platform-logo-name">Epic</span>
+        </div>
+        <div class="platform-logo">
+          <div class="platform-logo-img"><img src="assets/figma/logo-gog.png" alt="GOG" /></div>
+          <span class="platform-logo-name">GOG</span>
+        </div>
+        <div class="platform-logo platform-logo--last">
+          <div class="platform-logo-img"><img src="assets/figma/logo-nintendo.png" alt="Nintendo" /></div>
+          <span class="platform-logo-name">Nintendo</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 11 — Fin -->
+  <section class="slide slide--end" data-slide="11">
+    <div class="cover-bg" aria-hidden="true">
+      <div class="cover-vignette"></div>
+      <div class="cover-stars"></div>
+    </div>
+    <div class="end-content">
+      <div class="end-logo-wrap"><img src="assets/figma/logo.png" alt="NextQuest" class="end-logo" /></div>
+      <p class="end-thanks">Des questions&nbsp;?</p>
+      <p class="end-meta">Jean-Baptiste &middot; CDA 2026</p>
+    </div>
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

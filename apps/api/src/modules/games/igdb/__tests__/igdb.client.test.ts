@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import {
   findGameIdsBySteamAppids,
   fetchGamesByIds,
+  fetchTimeToBeats,
+  fetchUpcomingByGenres,
   igdbImageUrl,
 } from "../igdb.client.js";
 
@@ -102,5 +104,118 @@ describe("fetchGamesByIds", () => {
     expect(g.coverImageId).toBeNull();
     expect(g.genres).toEqual([]);
     expect(g.similarIgdbIds).toEqual([]);
+  });
+});
+
+describe("fetchUpcomingByGenres", () => {
+  it("filtre par date de sortie future, genres et ordonne par hype desc (IGDB passthrough)", async () => {
+    const nowEpoch = 1700000000;
+    const fetchMock = vi.fn().mockResolvedValue(
+      ok([
+        {
+          id: 1002,
+          name: "Upcoming Game 2",
+          summary: "Even more anticipated.",
+          first_release_date: nowEpoch + 86400 * 60,
+          rating: null,
+          rating_count: null,
+          cover: { id: 2, image_id: "upcover2" },
+          artworks: [{ id: 11, image_id: "upart2" }],
+          genres: [{ id: 12, name: "RPG", slug: "rpg" }],
+          themes: [],
+          involved_companies: [
+            { company: { name: "Dev Inc 2" }, developer: true, publisher: false },
+          ],
+          similar_games: [],
+          hypes: 800, // Rang plus haut (premiere position apres sort desc)
+        },
+        {
+          id: 1001,
+          name: "Upcoming Game 1",
+          summary: "Anticipated.",
+          first_release_date: nowEpoch + 86400 * 30, // 30 jours dans le futur
+          rating: null,
+          rating_count: null,
+          cover: { id: 1, image_id: "upcover1" },
+          artworks: [{ id: 10, image_id: "upart1" }],
+          genres: [{ id: 12, name: "RPG", slug: "rpg" }],
+          themes: [],
+          involved_companies: [
+            { company: { name: "Dev Inc" }, developer: true, publisher: false },
+          ],
+          similar_games: [],
+          hypes: 500, // Rang plus bas
+        },
+      ]),
+    );
+
+    const games = await fetchUpcomingByGenres([12], nowEpoch, "TOKEN", "CID", fetchMock);
+
+    expect(games).toHaveLength(2);
+    // Client passes IGDB response through unchanged, respecting IGDB's "sort hypes desc"
+    expect(games[0].name).toBe("Upcoming Game 2");
+    expect(games[0].hypes).toBe(800);
+    expect(games[1].name).toBe("Upcoming Game 1");
+    expect(games[1].hypes).toBe(500);
+
+    // Verifie la requete Apicalypse
+    const init = fetchMock.mock.calls[0][1];
+    expect(init.body).toContain(`first_release_date > ${nowEpoch}`);
+    expect(init.body).toContain("genres = (12)");
+    expect(init.body).toContain("sort hypes desc");
+    expect(init.body).toContain("limit 60");
+  });
+
+  it("renvoie une liste vide si aucun genre donné", async () => {
+    const fetchMock = vi.fn();
+    const games = await fetchUpcomingByGenres([], 1700000000, "TOKEN", "CID", fetchMock);
+    expect(games).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("parse les jeux a venir et gere les champs optionnels", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      ok([
+        {
+          id: 2001,
+          name: "Mystery Game",
+          // Pas de summary, rating, artworks
+          first_release_date: 1800000000,
+          genres: [],
+        },
+      ]),
+    );
+
+    const [g] = await fetchUpcomingByGenres([5, 10], 1700000000, "TOKEN", "CID", fetchMock);
+
+    expect(g.igdbId).toBe(2001);
+    expect(g.name).toBe("Mystery Game");
+    expect(g.summary).toBeNull();
+    expect(g.rating).toBeNull();
+    expect(g.artworkImageId).toBeNull();
+    expect(g.genres).toEqual([]);
+  });
+
+  it("leve si IGDB repond non-200", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(err(500));
+    await expect(
+      fetchUpcomingByGenres([12], 1700000000, "TOKEN", "CID", fetchMock),
+    ).rejects.toThrow(/500/);
+  });
+});
+
+describe("fetchTimeToBeats", () => {
+  it("convertit normally (secondes) en minutes et filtre count faible", async () => {
+    const fakeFetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => [
+        { game_id: 1, normally: 7200, count: 40 }, // 120 min
+        { game_id: 2, normally: 3600, count: 3 }, // count < 10 -> exclu
+      ],
+    });
+    const map = await fetchTimeToBeats([1, 2], "tok", "cid", fakeFetch as never);
+    expect(map.get(1)).toEqual({ normallyMinutes: 120, count: 40 });
+    expect(map.has(2)).toBe(false);
   });
 });

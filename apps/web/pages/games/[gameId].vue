@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import type { GameStatus, CollectionDetailDTO } from '~/types/game'
+import type { GameStatus, CollectionDetailDTO, IgdbGameDetail } from '~/types/game'
 
 definePageMeta({ ssr: false })
 
 const { t } = useI18n()
 const route = useRoute()
-const router = useRouter()
 const { authFetch, apiBase } = useAuthFetch()
 
 const STATUSES: { key: GameStatus; icon: string }[] = [
@@ -16,6 +15,7 @@ const STATUSES: { key: GameStatus; icon: string }[] = [
 ]
 
 const game = ref<CollectionDetailDTO | null>(null)
+const igdb = ref<IgdbGameDetail | null>(null)
 const loading = ref(true)
 
 onMounted(async () => {
@@ -23,6 +23,12 @@ onMounted(async () => {
     game.value = await authFetch<CollectionDetailDTO>(
       `${apiBase}/api/collection/${route.params.gameId}`,
     )
+    const igdbId = game.value?.game.igdbId
+    if (igdbId != null) {
+      try {
+        igdb.value = await authFetch<IgdbGameDetail>(`${apiBase}/api/games/igdb/${igdbId}`)
+      } catch { /* igdb reste null, fallback sur données BDD */ }
+    }
   } catch { /* game reste null → affiche l'écran "introuvable" */ }
   finally { loading.value = false }
 })
@@ -129,10 +135,30 @@ async function confirmRemove() {
       </div>
 
       <template v-else>
-        <!-- Synopsis -->
-        <section v-if="game.description" class="gd__section">
+        <!-- Synopsis (préférer IGDB live, fallback BDD) -->
+        <section v-if="igdb?.summary || game.description" class="gd__section">
           <h2 class="gd__section-title">{{ t('gameDetail.summary') }}</h2>
-          <p class="gd__summary">{{ game.description }}</p>
+          <p class="gd__summary">{{ igdb?.summary ?? game.description }}</p>
+        </section>
+
+        <!-- Storyline (IGDB uniquement, si différent du summary) -->
+        <section v-if="igdb?.storyline && igdb.storyline !== igdb.summary" class="gd__section">
+          <h2 class="gd__section-title">{{ t('gameDetail.storyline') }}</h2>
+          <p class="gd__summary">{{ igdb.storyline }}</p>
+        </section>
+
+        <!-- Screenshots -->
+        <section v-if="igdb?.screenshots.length" class="gd__section">
+          <h2 class="gd__section-title">{{ t('gameDetail.screenshots') }}</h2>
+          <div class="gd__screenshots">
+            <img
+              v-for="(url, i) in igdb.screenshots.slice(0, 6)"
+              :key="i"
+              :src="url"
+              :alt="`${game.game.title} screenshot ${i + 1}`"
+              class="gd__screenshot"
+            />
+          </div>
         </section>
 
         <!-- Infos IGDB -->
@@ -167,6 +193,24 @@ async function confirmRemove() {
               </dd>
             </template>
 
+            <!-- Plateformes (IGDB live uniquement) -->
+            <template v-if="igdb?.platforms.length">
+              <dt class="gd__dt">{{ t('gameDetail.platforms') }}</dt>
+              <dd class="gd__dd">
+                <span v-for="p in igdb.platforms" :key="p.igdbId" class="gd__chip gd__chip--platform">
+                  {{ p.abbreviation ?? p.name }}
+                </span>
+              </dd>
+            </template>
+
+            <!-- Modes de jeu (IGDB live uniquement) -->
+            <template v-if="igdb?.gameModes.length">
+              <dt class="gd__dt">{{ t('gameDetail.gameModes') }}</dt>
+              <dd class="gd__dd">
+                <span v-for="m in igdb.gameModes" :key="m.igdbId" class="gd__chip gd__chip--tag">{{ m.name }}</span>
+              </dd>
+            </template>
+
             <template v-if="game.game.igdbRating !== null">
               <dt class="gd__dt">{{ t('gameDetail.igdbRating') }}</dt>
               <dd class="gd__dd">
@@ -179,17 +223,28 @@ async function confirmRemove() {
           </dl>
         </section>
 
-        <!-- Jeux similaires -->
-        <section v-if="game.similarGames.length" class="gd__section">
+        <!-- Jeux similaires (IGDB live prioritaire, fallback BDD) -->
+        <section v-if="igdb?.similarGames.length || game.similarGames.length" class="gd__section">
           <h2 class="gd__section-title">{{ t('gameDetail.similarGames') }}</h2>
           <div class="gd__similar">
-            <div v-for="sim in game.similarGames" :key="sim.id" class="gd__similar-item">
-              <div class="gd__similar-cover">
-                <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
-                <v-icon v-else size="24" color="#a07850">mdi-gamepad-variant</v-icon>
+            <template v-if="igdb?.similarGames.length">
+              <div v-for="sim in igdb.similarGames" :key="sim.igdbId" class="gd__similar-item">
+                <div class="gd__similar-cover">
+                  <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
+                  <v-icon v-else size="24" color="#a07850">mdi-gamepad-variant</v-icon>
+                </div>
+                <span class="gd__similar-title">{{ sim.title }}</span>
               </div>
-              <span class="gd__similar-title">{{ sim.title }}</span>
-            </div>
+            </template>
+            <template v-else>
+              <div v-for="sim in game.similarGames" :key="sim.id" class="gd__similar-item">
+                <div class="gd__similar-cover">
+                  <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
+                  <v-icon v-else size="24" color="#a07850">mdi-gamepad-variant</v-icon>
+                </div>
+                <span class="gd__similar-title">{{ sim.title }}</span>
+              </div>
+            </template>
           </div>
         </section>
       </template>
@@ -439,6 +494,33 @@ async function confirmRemove() {
   background: rgba(92, 51, 23, 0.04);
   font-weight: 400;
   color: rgba(58, 26, 10, 0.6);
+}
+
+.gd__chip--platform {
+  background: rgba(26, 47, 72, 0.07);
+  color: #1A2F48;
+  font-weight: 500;
+}
+
+/* ── Screenshots ── */
+.gd__screenshots {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+
+.gd__screenshots::-webkit-scrollbar { display: none; }
+
+.gd__screenshot {
+  flex-shrink: 0;
+  width: 220px;
+  height: 124px;
+  border-radius: 8px;
+  object-fit: cover;
+  display: block;
+  background: rgba(92, 51, 23, 0.08);
 }
 
 /* ── Jeux similaires ── */

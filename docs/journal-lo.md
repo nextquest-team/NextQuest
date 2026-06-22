@@ -808,3 +808,60 @@ Session sur la branche `feat/front-reco`. Objectif : livrer la page `/next-quest
 - Feedback : pas de toast de confirmation après action — à ajouter
 - Régénération : pas d'optimistic update — la page reste vide pendant le calcul (backend ~1s)
 
+---
+
+## 2026-06-22 — Redesign Next Quest : carte au trésor + fix token 401
+
+### Résumé exécutif
+
+Session sur `feat/front-reco`. Deux objectifs : (1) revoir complètement le layout desktop de `/next-quest` pour mettre les cards **sur** la carte au trésor (overlay) au lieu d'à côté, et appliquer le même rendu laine que les `.patch-btn` sur les bordures ; (2) corriger le 401 silencieux causé par l'expiration du JWT access token pendant une session.
+
+**Redesign overlay** — La page desktop utilise désormais `.nq-map-stage` : un `div` avec `background: url(carte-landscape.png) center / 100% 100% no-repeat` comme fond de scène. Les cards sont positionnées en `absolute` à l'intérieur via trois `.nq-slot` (discovery : gauche centre, library : droite haut, upcoming : droite bas). Le bouton "Nouvelles suggestions" flotte en bas centre via `position: absolute; left: 50%; transform: translateX(-50%)`.
+
+Sur mobile, l'image passe en bannière horizontale (`<img class="nq-mobile-map">`, 200px de haut, `object-fit: cover`), cachée sur desktop ; les cards s'empilent normalement en dessous.
+
+**Bordures laine** — Les `.nq-quest-card` utilisent `border: 20px solid transparent; border-image: url('/images/buttons/wooly-btn-final.png') 350 fill round` — exactement le même principe que `.patch-btn`. La card principale (discovery) a `border-width: 24px`. Le fond est `transparent` pour laisser apparaître la carte derrière.
+
+**Image carte au trésor** — L'image AI (`carte-landscape.jpg`, 1376×768) avait un fond en damier blanc/gris transparent baked dans le JPEG. Nettoyé via un script PIL BFS flood fill depuis les 4 coins (critère de saturation < 18 pour isoler le fond low-saturation) → sauvegardé en RGBA PNG (`carte-landscape.png`). L'image PNG exposait ensuite un problème de crop côté droit et gauche : corrigé en remplaçant `background-size: cover` par `background-size: 100% 100%` qui étire l'image exactement dans le conteneur sans recadrage.
+
+**`useAuthFetch` composable** — Nouveau composable `apps/web/composables/useAuthFetch.ts` qui encapsule `$fetch` d'ofetch avec un mécanisme de refresh automatique :
+1. Appel API avec le token courant (Bearer depuis le store Pinia mémoire).
+2. Si 401 (`FST_JWT_AUTHORIZATION_TOKEN_EXPIRED`) → appelle `refreshTokens()` du composable `useAuth` (utilise le cookie httpOnly refresh token).
+3. Retry unique avec le nouveau token.
+4. Si le refresh échoue → redirect vers `/auth/login`.
+
+**Migration de toutes les pages** — Les 4 pages concernées remplacent `$fetch` + `authHeaders()` manuels par `useAuthFetch` :
+- `next-quest.vue` — 3 appels (`fetchRecos`, `generate`, `sendFeedback`)
+- `game-list.vue` — 6 appels (steam status, link steam, import steam, enrich, fetch games, status change, delete)
+- `profil.vue` — 2 appels (saveBio, saveVisibility)
+- `games/[gameId].vue` — 3 appels (fetch detail, status change, delete)
+
+Les headers `Authorization`, `credentials: 'include'` et la fonction `authHeaders()` locale ont été supprimés de chaque page — `useAuthFetch` les injecte systématiquement.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/composables/useAuthFetch.ts` | Nouveau — wrapper $fetch avec refresh token auto |
+| `apps/web/public/images/next-quest/carte-landscape.jpg` | Nouveau — image source AI (1376×768) |
+| `apps/web/public/images/next-quest/carte-landscape.png` | Nouveau — image nettoyée RGBA (fond transparent) |
+| `apps/web/pages/next-quest.vue` | Redesign complet — overlay map + bordures laine + useAuthFetch |
+| `apps/web/pages/game-list.vue` | Migration useAuthFetch — suppression authHeaders manuel |
+| `apps/web/pages/profil.vue` | Migration useAuthFetch — suppression authHeaders manuel |
+| `apps/web/pages/games/[gameId].vue` | Migration useAuthFetch — suppression authHeaders manuel |
+
+### Vérifications
+
+| Check | Résultat |
+|-------|----------|
+| `nuxi typecheck` | ✅ 0 erreur |
+| Rendu overlay desktop | ✅ Cards positionnées sur la carte, bordures laine visibles |
+| Fix crop image | ✅ Image affichée sans recadrage gauche/droite |
+| Fix 401 token expiré | ✅ Refresh silencieux + retry automatique |
+
+### Points ouverts
+
+- Feedback (liked/dismissed) : pas de toast de confirmation visuelle — à ajouter
+- Régénération : pas d'optimistic update pendant le calcul backend
+- Tests mobiles des overlays non encore validés sur petit écran physique
+

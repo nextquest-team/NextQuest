@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import { $fetch } from 'ofetch'
-
 definePageMeta({ ssr: false })
 
 const { t, locale } = useI18n()
 const { user, logout, fetchProfile } = useAuth()
 const store = useAuthStore()
-const config = useRuntimeConfig()
-const apiBase = config.public.apiBase
+const { authFetch, apiBase } = useAuthFetch()
 
 const BIO_MAX = 500
 
@@ -70,10 +67,8 @@ async function saveBio() {
   isSavingBio.value = true
   bioError.value = null
   try {
-    const updated = await $fetch<{ bio: string | null }>(`${apiBase}/api/users/me`, {
+    const updated = await authFetch<{ bio: string | null }>(`${apiBase}/api/users/me`, {
       method: 'PATCH',
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${store.accessToken}` },
       body: { bio: bioInput.value || null },
     })
     if (user.value) {
@@ -92,10 +87,8 @@ async function saveVisibility(v: Visibility) {
   isSavingVisibility.value = true
   visibilityError.value = null
   try {
-    await $fetch(`${apiBase}/api/users/me`, {
+    await authFetch(`${apiBase}/api/users/me`, {
       method: 'PATCH',
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${store.accessToken}` },
       body: { visibility: v },
     })
     if (user.value) {

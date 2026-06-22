@@ -48,6 +48,19 @@ describe("listCollectionQuerySchema", () => {
       listCollectionQuerySchema.parse({ status: "wishlist" }),
     ).toThrow();
   });
+  it("accepte un terme de recherche et le trim", () => {
+    expect(
+      listCollectionQuerySchema.parse({ search: "  Hollow  " }).search,
+    ).toBe("Hollow");
+  });
+  it("rejette une recherche vide ou uniquement faite d'espaces", () => {
+    expect(() => listCollectionQuerySchema.parse({ search: "   " })).toThrow();
+  });
+  it("rejette une recherche de plus de 100 caracteres", () => {
+    expect(() =>
+      listCollectionQuerySchema.parse({ search: "a".repeat(101) }),
+    ).toThrow();
+  });
 });
 
 describe("updateUserGameSchema", () => {

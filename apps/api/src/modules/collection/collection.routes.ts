@@ -60,10 +60,11 @@ export async function collectionRoutes(app: FastifyInstance) {
     },
     async (request) => {
       const userId = userIdOf(request);
-      const { status, limit, offset, includeHidden } = request.query;
+      const { status, search, limit, offset, includeHidden } = request.query;
       const { items, total } = await listCollection({
         userId,
         status,
+        search,
         limit,
         offset,
         includeHidden,

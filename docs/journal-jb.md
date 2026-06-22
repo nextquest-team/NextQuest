@@ -189,3 +189,7 @@
 **Flux "clic sur un jeu de ma collection"** -- `igdbId` désormais exposé dans le DTO collection : le front récupère l'id dès la liste/détail et appelle `GET /games/igdb/:igdbId`. Décorrélé (pas de route collection couplée au proxy), réutilise la route de détail unique.
 
 **9 alertes Dependabot corrigées** -- Bump des transitives vulnérables (undici 6.27.0, form-data 3.0.5/4.0.6, tar 7.5.16, js-yaml 4.2.0, esbuild 0.28.1) via `pnpm update` + `pnpm.overrides` pour celles bloquées par un parent qui les pinne (js-yaml via @redocly/openapi-core).
+
+**Validation E2E réelle (API locale, infra du PC)** -- API lancée sur le Mac, branchée sur Redis/Postgres du PC + vraie API IGDB (pas de déploiement PC nécessaire). `/games/upcoming` renvoie les vraies sorties à venir (GTA VI, Fable, Wolverine en tête de hype ; `sort=date` = sorties du lendemain), `/games/igdb/1020` le détail riche (GTA V : 18 screenshots, 4 vidéos, plateformes, modes, similaires, vraies URLs). 400/404/401 corrects. Flux collection validé : `igdbId` exposé puis chaînage vers le détail IGDB. Cache Redis confirmé (clés `igdb:*` + TTL 1h/24h).
+
+**Tests** -- 79 tests API au vert sur le module (client/dto/service discovery/routes IGDB + DTO collection), unitaires avec deps injectées (pas de réseau). Typecheck + lint OK après le bump de deps.

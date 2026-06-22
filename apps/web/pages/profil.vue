@@ -110,7 +110,9 @@ async function handleLogout() {
 
 <template>
   <div class="profil">
-    <UiBackButton to="/dashboard" class="profil__back" />
+    <UiPageHeader to="/dashboard">
+      <h1 class="profil__title">{{ t('profil.title') }}</h1>
+    </UiPageHeader>
 
     <ClientOnly>
     <div class="profil__card">
@@ -245,26 +247,25 @@ async function handleLogout() {
 </template>
 
 <style scoped>
+.profil__title {
+  font-family: var(--nq-font);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--nq-brown-dark, #3A1A0A);
+  margin: 0;
+}
+
 .profil {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 2rem 1rem 3rem;
+  padding: 1.25rem 1rem 3rem;
   background: transparent;
   font-family: var(--nq-font);
 }
 
-.profil__back {
-  align-self: flex-start;
-  color: var(--nq-brown-dark);
-  margin-bottom: 1.5rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  text-decoration: none;
-}
 
 .profil__card {
   width: 100%;

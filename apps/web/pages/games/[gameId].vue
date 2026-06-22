@@ -70,11 +70,7 @@ async function confirmRemove() {
 
 <template>
   <div class="gd">
-    <!-- Bouton retour -->
-    <button class="gd__back" @click="router.back()">
-      <v-icon size="20">mdi-arrow-left</v-icon>
-      {{ t('gameDetail.back') }}
-    </button>
+    <UiPageHeader />
 
     <!-- Chargement -->
     <div v-if="loading" class="gd__not-found">
@@ -231,33 +227,13 @@ async function confirmRemove() {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1rem 3rem;
+  padding: 1.25rem 1rem 3rem;
   font-family: var(--nq-font);
   max-width: 720px;
   margin: 0 auto;
   width: 100%;
 }
 
-/* ── Retour ── */
-.gd__back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--nq-brown, #5C3317);
-  font-family: var(--nq-font);
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 4px 0;
-  margin-bottom: 1.25rem;
-  opacity: 0.8;
-  transition: opacity 0.15s;
-  align-self: flex-start;
-}
-
-.gd__back:hover { opacity: 1; }
 
 /* ── Not found ── */
 .gd__not-found {

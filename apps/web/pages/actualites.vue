@@ -4,9 +4,7 @@ definePageMeta({ ssr: false })
 
 <template>
   <div class="page">
-    <NuxtLink to="/dashboard" class="page__back">
-      <v-icon>mdi-arrow-left</v-icon>
-    </NuxtLink>
+    <UiPageHeader />
     <p>Actualités — à venir</p>
   </div>
 </template>

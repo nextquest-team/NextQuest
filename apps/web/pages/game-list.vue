@@ -213,14 +213,11 @@ onMounted(() => {
 
 <template>
   <div class="gl">
-    <NuxtLink to="/dashboard" class="gl__back">
-      <v-icon size="20">mdi-arrow-left</v-icon>
-      {{ t('nav.dashboard') }}
-    </NuxtLink>
-
     <!-- En-tête -->
     <div class="gl__header">
-      <h1 class="gl__title">{{ t('gameList.title') }}</h1>
+      <UiPageHeader>
+        <h1 class="gl__title">{{ t('gameList.title') }}</h1>
+      </UiPageHeader>
 
       <div class="gl__actions">
         <!-- Lier / Importer Steam -->
@@ -427,20 +424,6 @@ onMounted(() => {
   .gl { padding: 1rem 0.75rem 3rem; }
 }
 
-.gl__back {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--nq-brown-dark, #3A1A0A);
-  font-size: 0.85rem;
-  text-decoration: none;
-  opacity: 0.7;
-  margin-bottom: 1rem;
-  transition: opacity 0.15s;
-}
-
-.gl__back:hover { opacity: 1; }
 
 /* ── En-tête ── */
 .gl__header {

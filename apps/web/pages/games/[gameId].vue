@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { $fetch } from 'ofetch'
 import type { GameStatus, CollectionDetailDTO } from '~/types/game'
 
 definePageMeta({ ssr: false })
@@ -7,13 +6,7 @@ definePageMeta({ ssr: false })
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
-const store = useAuthStore()
-const config = useRuntimeConfig()
-const apiBase = config.public.apiBase
-
-function authHeaders() {
-  return { Authorization: `Bearer ${store.accessToken}` }
-}
+const { authFetch, apiBase } = useAuthFetch()
 
 const STATUSES: { key: GameStatus; icon: string }[] = [
   { key: 'backlog',   icon: 'mdi-bookmark-outline' },
@@ -27,9 +20,8 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    game.value = await $fetch<CollectionDetailDTO>(
+    game.value = await authFetch<CollectionDetailDTO>(
       `${apiBase}/api/collection/${route.params.gameId}`,
-      { credentials: 'include', headers: authHeaders() },
     )
   } catch { /* game reste null → affiche l'écran "introuvable" */ }
   finally { loading.value = false }
@@ -52,11 +44,10 @@ async function onStatusChange(status: GameStatus) {
   const previous = game.value.status
   game.value.status = status
   try {
-    await $fetch(`${apiBase}/api/collection/${game.value.userGameId}/status`, {
+    await authFetch(`${apiBase}/api/collection/${game.value.userGameId}/status`, {
       method: 'PATCH',
       body: { status },
-      credentials: 'include',
-      headers: authHeaders(),
+
     })
   } catch {
     game.value.status = previous
@@ -68,10 +59,9 @@ const showRemoveConfirm = ref(false)
 async function confirmRemove() {
   showRemoveConfirm.value = false
   try {
-    await $fetch(`${apiBase}/api/collection/${game.value?.userGameId}`, {
+    await authFetch(`${apiBase}/api/collection/${game.value?.userGameId}`, {
       method: 'DELETE',
-      credentials: 'include',
-      headers: authHeaders(),
+
     })
   } catch { /* on navigue quand même */ }
   navigateTo('/game-list')

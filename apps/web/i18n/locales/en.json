@@ -143,10 +143,10 @@
       "upcomingHint": "An upcoming release you shouldn't miss"
     },
     "actions": {
-      "add": "Add to my list",
-      "dismiss": "Not for me",
-      "play": "Let's go",
-      "remind": "Remind me"
+      "add": "Accept the quest",
+      "dismiss": "Decline",
+      "play": "Resume the quest",
+      "remind": "Watch for it"
     },
     "rating": "IGDB rating",
     "release": "Release date",

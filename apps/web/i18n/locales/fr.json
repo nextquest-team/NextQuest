@@ -143,10 +143,10 @@
       "upcomingHint": "Une sortie à ne pas manquer"
     },
     "actions": {
-      "add": "Ajouter à ma liste",
-      "dismiss": "Pas pour moi",
-      "play": "Je m'y mets",
-      "remind": "Me le rappeler"
+      "add": "Accepter la quête",
+      "dismiss": "Décliner",
+      "play": "Reprendre la quête",
+      "remind": "Guetter la sortie"
     },
     "rating": "Note IGDB",
     "release": "Sortie prévue",

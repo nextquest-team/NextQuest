@@ -1,18 +1,11 @@
 <script setup lang="ts">
-import { $fetch } from 'ofetch'
 import type { UserGame, GameStatus, CollectionListResponse } from '~/types/game'
 import { toUserGame } from '~/types/game'
 
 definePageMeta({ ssr: false })
 
 const { t } = useI18n()
-const store = useAuthStore()
-const config = useRuntimeConfig()
-const apiBase = config.public.apiBase
-
-function authHeaders() {
-  return { Authorization: `Bearer ${store.accessToken}` }
-}
+const { authFetch, apiBase } = useAuthFetch()
 
 // ── Steam ────────────────────────────────────────────────
 const steamConnected = ref(false)
@@ -23,9 +16,8 @@ const importMessage = ref<{ type: 'success' | 'error'; text: string } | null>(nu
 
 async function fetchSteamStatus() {
   try {
-    const res = await $fetch<{ connected: boolean; personaName: string | null }>(
+    const res = await authFetch<{ connected: boolean; personaName: string | null }>(
       `${apiBase}/api/platforms/steam`,
-      { credentials: 'include', headers: authHeaders() },
     )
     steamConnected.value = res.connected
     steamPersona.value = res.personaName
@@ -35,9 +27,8 @@ async function fetchSteamStatus() {
 async function linkSteam() {
   steamLoading.value = true
   try {
-    const res = await $fetch<{ url: string }>(
+    const res = await authFetch<{ url: string }>(
       `${apiBase}/api/platforms/steam/link`,
-      { credentials: 'include', headers: authHeaders() },
     )
     window.location.href = res.url
   } catch {
@@ -49,9 +40,9 @@ async function importSteam() {
   importLoading.value = true
   importMessage.value = null
   try {
-    const res = await $fetch<{ imported: number; warning?: string }>(
+    const res = await authFetch<{ imported: number; warning?: string }>(
       `${apiBase}/api/platforms/steam/import`,
-      { method: 'POST', credentials: 'include', headers: authHeaders() },
+      { method: 'POST' },
     )
     importMessage.value = {
       type: 'success',
@@ -71,10 +62,9 @@ const enrichLoading = ref(false)
 async function enrichGames() {
   enrichLoading.value = true
   try {
-    await $fetch(`${apiBase}/api/users/me/library/enrich`, {
+    await authFetch(`${apiBase}/api/users/me/library/enrich`, {
       method: 'POST',
-      credentials: 'include',
-      headers: authHeaders(),
+
     })
     await fetchGames()
   } catch { /* erreur silencieuse — l'enrich est best-effort */ }
@@ -152,10 +142,9 @@ async function fetchGames() {
     // API supporte un seul status pour l'instant — multi-select prévu côté API
     if (selectedStatuses.value.length === 1) query.status = selectedStatuses.value[0]
 
-    const res = await $fetch<CollectionListResponse>(`${apiBase}/api/collection`, {
+    const res = await authFetch<CollectionListResponse>(`${apiBase}/api/collection`, {
       query,
-      credentials: 'include',
-      headers: authHeaders(),
+
     })
     games.value = res.items.map(toUserGame)
     total.value = res.total
@@ -170,11 +159,10 @@ async function onStatusChange(userGameId: string, status: GameStatus) {
   const previous = game.status
   game.status = status
   try {
-    await $fetch(`${apiBase}/api/collection/${userGameId}/status`, {
+    await authFetch(`${apiBase}/api/collection/${userGameId}/status`, {
       method: 'PATCH',
       body: { status },
-      credentials: 'include',
-      headers: authHeaders(),
+
     })
     // Recharge si le statut sorti du filtre actif
     if (selectedStatuses.value.length === 1 && !selectedStatuses.value.includes(status)) {
@@ -193,10 +181,9 @@ async function onDeleteGame(userGameId: string) {
     currentPage.value--
   }
   try {
-    await $fetch(`${apiBase}/api/collection/${userGameId}`, {
+    await authFetch(`${apiBase}/api/collection/${userGameId}`, {
       method: 'DELETE',
-      credentials: 'include',
-      headers: authHeaders(),
+
     })
   } catch {
     await fetchGames()

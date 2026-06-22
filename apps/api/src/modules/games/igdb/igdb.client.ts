@@ -37,6 +37,72 @@ export interface IgdbGame {
   hypes: number | null;
 }
 
+export interface IgdbPlatform {
+  igdbId: number;
+  name: string;
+  abbreviation: string | null;
+}
+
+export interface IgdbVideo {
+  name: string | null;
+  youtubeId: string; // id YouTube : le front construit l'embed
+}
+
+export interface IgdbWebsite {
+  category: number; // enum IGDB (1=official, 13=steam, ...), interprete cote front
+  url: string;
+}
+
+export interface IgdbSimilarGame {
+  igdbId: number;
+  name: string;
+  coverImageId: string | null;
+}
+
+// Item de liste "a venir" : leger, mais avec genres+plateformes pour que le front
+// construise ses filtres (timeline avec filtres, cf. feature #4).
+export interface IgdbUpcomingGame {
+  igdbId: number;
+  name: string;
+  releaseDate: string | null; // YYYY-MM-DD
+  coverImageId: string | null;
+  hypes: number | null;
+  genres: IgdbTaxon[];
+  platforms: IgdbPlatform[];
+}
+
+// Detail riche d'un jeu (page fiche). Recupere en un seul appel IGDB grace a
+// l'expansion Apicalypse imbriquee (cover, screenshots, videos, similar.cover...).
+export interface IgdbGameDetail {
+  igdbId: number;
+  name: string;
+  summary: string | null;
+  storyline: string | null;
+  releaseDate: string | null; // YYYY-MM-DD
+  rating: number | null;
+  ratingCount: number | null;
+  hypes: number | null;
+  coverImageId: string | null;
+  artworkImageId: string | null;
+  screenshotImageIds: string[];
+  videos: IgdbVideo[];
+  developer: string | null;
+  publisher: string | null;
+  genres: IgdbTaxon[];
+  themes: IgdbTaxon[];
+  gameModes: IgdbTaxon[];
+  playerPerspectives: IgdbTaxon[];
+  platforms: IgdbPlatform[];
+  websites: IgdbWebsite[];
+  similarGames: IgdbSimilarGame[];
+}
+
+export interface UpcomingQuery {
+  limit: number;
+  offset: number;
+  sort: "hype" | "date";
+}
+
 export function igdbImageUrl(imageId: string, size: string): string {
   return `https://images.igdb.com/igdb/image/upload/${size}/${imageId}.jpg`;
 }
@@ -191,6 +257,192 @@ export async function fetchUpcomingByGenres(
   const body = `fields ${GAME_FIELDS}; where first_release_date > ${nowEpochSeconds} & genres = (${igdbGenreIds.join(",")}); sort hypes desc; limit 60;`;
   const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawGame[];
   return rows.map(mapRawGame);
+}
+
+interface RawPlatform {
+  id: number;
+  name: string;
+  abbreviation?: string;
+}
+
+function mapPlatforms(raw: RawPlatform[] | undefined): IgdbPlatform[] {
+  return (raw ?? []).map((p) => ({
+    igdbId: p.id,
+    name: p.name,
+    abbreviation: p.abbreviation ?? null,
+  }));
+}
+
+const UPCOMING_FIELDS = [
+  "name",
+  "first_release_date",
+  "hypes",
+  "cover.image_id",
+  "genres.name",
+  "genres.slug",
+  "platforms.name",
+  "platforms.abbreviation",
+].join(",");
+
+interface RawUpcomingGame {
+  id: number;
+  name: string;
+  first_release_date?: number;
+  hypes?: number;
+  cover?: { image_id?: string };
+  genres?: RawTaxon[];
+  platforms?: RawPlatform[];
+}
+
+// Liste des jeux a venir (first_release_date > now). Tri par hype (anticipation,
+// defaut) ou par date (timeline chronologique). Pagination limit/offset. Le proxy
+// applicatif (igdb.discovery.service) cache la reponse en Redis.
+export async function fetchUpcoming(
+  opts: UpcomingQuery,
+  nowEpochSeconds: number,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbUpcomingGame[]> {
+  const sort = opts.sort === "date" ? "first_release_date asc" : "hypes desc";
+  const body =
+    `fields ${UPCOMING_FIELDS}; ` +
+    `where first_release_date > ${nowEpochSeconds}; ` +
+    `sort ${sort}; limit ${opts.limit}; offset ${opts.offset};`;
+  const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawUpcomingGame[];
+  return rows.map((r) => ({
+    igdbId: r.id,
+    name: r.name,
+    releaseDate: unixToDate(r.first_release_date),
+    coverImageId: r.cover?.image_id ?? null,
+    hypes: r.hypes ?? null,
+    genres: mapTaxa(r.genres),
+    platforms: mapPlatforms(r.platforms),
+  }));
+}
+
+const DETAIL_FIELDS = [
+  "name",
+  "summary",
+  "storyline",
+  "first_release_date",
+  "rating",
+  "rating_count",
+  "hypes",
+  "cover.image_id",
+  "artworks.image_id",
+  "screenshots.image_id",
+  "videos.video_id",
+  "videos.name",
+  "genres.name",
+  "genres.slug",
+  "themes.name",
+  "themes.slug",
+  "game_modes.name",
+  "game_modes.slug",
+  "player_perspectives.name",
+  "player_perspectives.slug",
+  "platforms.name",
+  "platforms.abbreviation",
+  "websites.category",
+  "websites.url",
+  "involved_companies.company.name",
+  "involved_companies.developer",
+  "involved_companies.publisher",
+  "similar_games.name",
+  "similar_games.cover.image_id",
+].join(",");
+
+interface RawVideo {
+  video_id?: string;
+  name?: string;
+}
+interface RawWebsite {
+  category?: number;
+  url?: string;
+}
+interface RawSimilar {
+  id: number;
+  name: string;
+  cover?: { image_id?: string };
+}
+interface RawGameDetail {
+  id: number;
+  name: string;
+  summary?: string;
+  storyline?: string;
+  first_release_date?: number;
+  rating?: number;
+  rating_count?: number;
+  hypes?: number;
+  cover?: { image_id?: string };
+  artworks?: Array<{ image_id?: string }>;
+  screenshots?: Array<{ image_id?: string }>;
+  videos?: RawVideo[];
+  genres?: RawTaxon[];
+  themes?: RawTaxon[];
+  game_modes?: RawTaxon[];
+  player_perspectives?: RawTaxon[];
+  platforms?: RawPlatform[];
+  websites?: RawWebsite[];
+  involved_companies?: Array<{
+    company?: { name?: string };
+    developer?: boolean;
+    publisher?: boolean;
+  }>;
+  // Expanded (similar_games.name, .cover) -> objets, pas des ids bruts.
+  similar_games?: RawSimilar[];
+}
+
+function mapGameDetail(r: RawGameDetail): IgdbGameDetail {
+  const dev = r.involved_companies?.find((c) => c.developer)?.company?.name ?? null;
+  const pub = r.involved_companies?.find((c) => c.publisher)?.company?.name ?? null;
+  return {
+    igdbId: r.id,
+    name: r.name,
+    summary: r.summary ?? null,
+    storyline: r.storyline ?? null,
+    releaseDate: unixToDate(r.first_release_date),
+    rating: r.rating ?? null,
+    ratingCount: r.rating_count ?? null,
+    hypes: r.hypes ?? null,
+    coverImageId: r.cover?.image_id ?? null,
+    artworkImageId: r.artworks?.[0]?.image_id ?? null,
+    screenshotImageIds: (r.screenshots ?? [])
+      .map((s) => s.image_id)
+      .filter((x): x is string => x != null),
+    videos: (r.videos ?? [])
+      .filter((v): v is { video_id: string; name?: string } => v.video_id != null)
+      .map((v) => ({ name: v.name ?? null, youtubeId: v.video_id })),
+    developer: dev,
+    publisher: pub,
+    genres: mapTaxa(r.genres),
+    themes: mapTaxa(r.themes),
+    gameModes: mapTaxa(r.game_modes),
+    playerPerspectives: mapTaxa(r.player_perspectives),
+    platforms: mapPlatforms(r.platforms),
+    websites: (r.websites ?? [])
+      .filter((w): w is { category: number; url: string } => w.category != null && w.url != null)
+      .map((w) => ({ category: w.category, url: w.url })),
+    similarGames: (r.similar_games ?? []).map((s) => ({
+      igdbId: s.id,
+      name: s.name,
+      coverImageId: s.cover?.image_id ?? null,
+    })),
+  };
+}
+
+// Detail riche d'un jeu par son IGDB id. null si l'id est introuvable cote IGDB.
+export async function fetchGameDetail(
+  igdbId: number,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbGameDetail | null> {
+  const body = `fields ${DETAIL_FIELDS}; where id = ${igdbId}; limit 1;`;
+  const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawGameDetail[];
+  const row = rows[0];
+  return row ? mapGameDetail(row) : null;
 }
 
 // Durees de completion IGDB (game_time_to_beats). On ne garde que `normally`

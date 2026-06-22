@@ -36,6 +36,8 @@ describe("toCollectionItemDTO", () => {
     );
     expect(dto.userGameId).toBe("ug1");
     expect(dto.game.isEnriched).toBe(true);
+    // igdbId expose : permet au front d'appeler GET /games/igdb/:igdbId au clic.
+    expect(dto.game.igdbId).toBe(123);
     expect(dto.addedAt).toBe("2026-01-01T10:00:00.000Z");
     expect(dto.genres).toHaveLength(1);
     expect(dto.tags[0].name).toBe("Action");
@@ -43,6 +45,7 @@ describe("toCollectionItemDTO", () => {
   it("isEnriched=false quand igdbId est null", () => {
     const dto = toCollectionItemDTO({ ...baseRow, igdbId: null }, [], []);
     expect(dto.game.isEnriched).toBe(false);
+    expect(dto.game.igdbId).toBeNull();
   });
 });
 

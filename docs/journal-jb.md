@@ -184,4 +184,14 @@
 
 ## 22 juin 2026
 
+**Routes IGDB de découverte (à venir + détail), pour le front de Loreleï** -- Deux GET qui proxifient IGDB en direct avec cache Redis : `GET /games/upcoming` (jeux dont la date de sortie est future, tri par hype par défaut ou `sort=date`, items avec genres+plateformes pour les filtres timeline) et `GET /games/igdb/:igdbId` (détail riche en un seul appel IGDB : screenshots, vidéos, plateformes, modes, similaires...). Choix : proxy live plutôt qu'hydratation BDD -- notre catalogue ne contient que des jeux possédés (déjà sortis), un feed "à venir" servi depuis la base renverrait quasi rien. TTL 1h (liste) / 24h (détail).
+
+**Flux "clic sur un jeu de ma collection"** -- `igdbId` désormais exposé dans le DTO collection : le front récupère l'id dès la liste/détail et appelle `GET /games/igdb/:igdbId`. Décorrélé (pas de route collection couplée au proxy), réutilise la route de détail unique.
+
+**9 alertes Dependabot corrigées** -- Bump des transitives vulnérables (undici 6.27.0, form-data 3.0.5/4.0.6, tar 7.5.16, js-yaml 4.2.0, esbuild 0.28.1) via `pnpm update` + `pnpm.overrides` pour celles bloquées par un parent qui les pinne (js-yaml via @redocly/openapi-core).
+
+**Validation E2E réelle (API locale, infra du PC)** -- API lancée sur le Mac, branchée sur Redis/Postgres du PC + vraie API IGDB (pas de déploiement PC nécessaire). `/games/upcoming` renvoie les vraies sorties à venir (GTA VI, Fable, Wolverine en tête de hype ; `sort=date` = sorties du lendemain), `/games/igdb/1020` le détail riche (GTA V : 18 screenshots, 4 vidéos, plateformes, modes, similaires, vraies URLs). 400/404/401 corrects. Flux collection validé : `igdbId` exposé puis chaînage vers le détail IGDB. Cache Redis confirmé (clés `igdb:*` + TTL 1h/24h).
+
+**Tests** -- 79 tests API au vert sur le module (client/dto/service discovery/routes IGDB + DTO collection), unitaires avec deps injectées (pas de réseau). Typecheck + lint OK après le bump de deps.
+
 **Fail-fast quand Postgres est injoignable (#64)** -- Les tests pendaient ~10 min sans message quand le host BDD ne répondait pas (Docker éteint / Tailscale coupé), parce que le client postgres n'avait pas de timeout de connexion. Ajout d'un `connect_timeout` court (3s) sur le client en env de test + un preflight `globalSetup` vitest (`assertDbReachable`) qui fait échouer tout le run en ~3s avec un message clair (`BDD injoignable sur <host> — lance pnpm docker:up`). Bug reproduit avant le fix (host non routable 192.0.2.1 = pend ; port fermé = échec immédiat, non concerné). Suite API au vert (269 tests).

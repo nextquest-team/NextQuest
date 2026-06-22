@@ -28,6 +28,14 @@
   --nq-font: 'Knights Quest', 'Georgia', serif;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
 html, body {
   font-family: var(--nq-font);
   background-color: var(--nq-beige);
@@ -35,6 +43,7 @@ html, body {
   background-size: cover;
   background-position: center top;
   background-attachment: fixed;
+  max-width: 100%;
 }
 
 /* ── Accessibilité globale ── */

@@ -429,11 +429,15 @@ onMounted(() => {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1.5rem 3rem;
+  padding: 1.25rem 1.25rem 3rem;
   font-family: var(--nq-font);
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+}
+
+@media (max-width: 600px) {
+  .gl { padding: 1rem 0.75rem 3rem; }
 }
 
 .gl__back {
@@ -462,7 +466,7 @@ onMounted(() => {
 }
 
 .gl__title {
-  font-size: clamp(1.2rem, 3vw, 1.5rem);
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
   font-weight: bold;
   color: var(--nq-brown-dark, #3A1A0A);
   margin: 0;
@@ -473,6 +477,11 @@ onMounted(() => {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .gl__header { flex-direction: column; align-items: flex-start; }
+  .gl__actions { width: 100%; }
 }
 
 .gl__btn {
@@ -523,12 +532,18 @@ onMounted(() => {
   background: rgba(92, 51, 23, 0.07);
   border-radius: 8px;
   padding: 6px 10px;
+  flex-wrap: wrap;
 }
 
 .gl__steam-name {
   font-size: 0.8rem;
   color: var(--nq-brown, #5C3317);
   font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .gl__btn { font-size: 0.78rem; padding: 7px 12px; }
+  .gl__steam-name { display: none; }
 }
 
 /* ── Message import ── */
@@ -806,14 +821,8 @@ onMounted(() => {
 /* ── Grille ── */
 .gl__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 14px;
-}
-
-@media (max-width: 480px) {
-  .gl__grid {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
 }
 
 /* ── Pagination ── */

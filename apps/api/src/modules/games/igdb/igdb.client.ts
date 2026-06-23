@@ -287,6 +287,53 @@ export async function fetchAcclaimedByGenres(
   return requestIgdbGames(body, token, clientId, fetchImpl);
 }
 
+// Jeux developpes par un studio donne (resout la societe par nom puis interroge ses jeux).
+// Sert a proposer "du meme studio" (ex. Larian -> Divinity) que le graphe similar IGDB ne donne pas.
+export async function fetchGamesByDeveloper(
+  developerName: string,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbGame[]> {
+  if (!developerName?.trim()) return [];
+
+  // Echapper les guillemets dans le nom du dev pour que la requete IGDB soit valide.
+  const safe = developerName.replace(/"/g, '\\"');
+
+  // 1. Resoudre la societe par nom exact, avec fallback : contient le texte.
+  const companyRows = (await igdbPost(
+    "companies",
+    `fields id; where name = "${safe}"; limit 1;`,
+    token,
+    clientId,
+    fetchImpl,
+  )) as Array<{ id?: number }>;
+
+  let companyId = companyRows?.[0]?.id;
+  if (companyId == null) {
+    // Fallback : recherche "contient"
+    const alt = (await igdbPost(
+      "companies",
+      `fields id; where name ~ *"${safe}"*; limit 1;`,
+      token,
+      clientId,
+      fetchImpl,
+    )) as Array<{ id?: number }>;
+    companyId = alt?.[0]?.id;
+  }
+
+  // Societe introuvable => retourner tableau vide sans appeler /games.
+  if (companyId == null) return [];
+
+  // 2. Jeux developpes par cette societe, sortis (rating_count >= 10), tries par note.
+  const body =
+    `fields ${GAME_FIELDS}; ` +
+    `where involved_companies.company = ${companyId} & involved_companies.developer = true & rating_count >= 10; ` +
+    `sort rating desc; limit 20;`;
+
+  return requestIgdbGames(body, token, clientId, fetchImpl);
+}
+
 interface RawPlatform {
   id: number;
   name: string;

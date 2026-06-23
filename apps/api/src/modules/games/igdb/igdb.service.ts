@@ -1,5 +1,6 @@
 import {
   db,
+  withDbRetry,
   games,
   userGames,
   genres,
@@ -225,10 +226,12 @@ export async function enrichGames(
     .map((c) => c.id);
   summary.notFound = unresolvedIds.length;
   if (unresolvedIds.length > 0) {
-    await db
-      .update(games)
-      .set({ lastSyncedAt: new Date() })
-      .where(inArray(games.id, unresolvedIds));
+    await withDbRetry(() =>
+      db
+        .update(games)
+        .set({ lastSyncedAt: new Date() })
+        .where(inArray(games.id, unresolvedIds)),
+    );
   }
 
   // 2) Fetch metadonnees en lots, puis upsert.
@@ -251,11 +254,13 @@ export async function enrichGames(
     }
     for (const data of fetched) {
       for (const gameId of igdbIdToGameIds.get(data.igdbId) ?? []) {
-        await upsertEnrichedGame(
-          gameId,
-          data,
-          timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
-          data.hypes,
+        await withDbRetry(() =>
+          upsertEnrichedGame(
+            gameId,
+            data,
+            timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+            data.hypes,
+          ),
         );
         summary.enriched += 1;
       }
@@ -307,27 +312,31 @@ export async function hydrateGamesByIgdbIds(
     for (const data of fetched) {
       // Generer un slug deterministe + unique avec l'igdbId.
       const slug = `${slugify(data.name)}-igdb-${data.igdbId}`;
-      const [newGame] = await db
-        .insert(games)
-        .values({
-          igdbId: data.igdbId,
-          title: data.name,
-          slug,
-          isCustom: false,
-        })
-        // Defense-in-depth : tolérer un conflit de slug (insert concurrent ou
-        // igdbId deja present de maniere raciale). Si insert reussit, returning
-        // donne [{ id }] ; si conflict, returning donne [] et newGame.id est
-        // undefined. Ne pas appeler upsertEnrichedGame si insert a echoue.
-        .onConflictDoNothing({ target: games.slug })
-        .returning({ id: games.id });
+      const [newGame] = await withDbRetry(() =>
+        db
+          .insert(games)
+          .values({
+            igdbId: data.igdbId,
+            title: data.name,
+            slug,
+            isCustom: false,
+          })
+          // Defense-in-depth : tolérer un conflit de slug (insert concurrent ou
+          // igdbId deja present de maniere raciale). Si insert reussit, returning
+          // donne [{ id }] ; si conflict, returning donne [] et newGame.id est
+          // undefined. Ne pas appeler upsertEnrichedGame si insert a echoue.
+          .onConflictDoNothing({ target: games.slug })
+          .returning({ id: games.id }),
+      );
       // Enregistrer l'enrichissement uniquement si l'insert a reussi.
       if (newGame) {
-        await upsertEnrichedGame(
-          newGame.id,
-          data,
-          timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
-          data.hypes,
+        await withDbRetry(() =>
+          upsertEnrichedGame(
+            newGame.id,
+            data,
+            timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+            data.hypes,
+          ),
         );
         hydrated += 1;
       }

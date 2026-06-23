@@ -14,7 +14,7 @@ import type { Candidate } from "./scoring.js";
 import { fetchUpcomingByGenres, fetchAcclaimedByGenres, fetchGamesByDeveloper } from "../games/igdb/igdb.client.js";
 import { defaultDeps } from "../games/igdb/igdb.service.js";
 import { hydrateMissingGames } from "./hydrate.js";
-import { contentSimilarity, sharesGenreOrTheme, type GameForSimilarity } from "./similarity.js";
+import { contentSimilarity, sharesGenreOrTheme, normalizeGameTitle, type GameForSimilarity } from "./similarity.js";
 
 // Genres/tags groupes par gameId (1 requete IN), pour eviter le N+1.
 async function genreTagIdsByGame(gameIds: string[]) {
@@ -239,6 +239,7 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
   // SOURCE 3 : jeux du même studio que les jeux possédés
   // Limiter le nombre de studios interrogés pour éviter N+1 calls IGDB.
   // On prend les studios distincts des jeux possédés, up to 5.
+  // Plafond : max 3 jeux par studio apres le filtre genre/theme.
   let sameDevByIgdb: number[] = [];
   if (owned.length > 0) {
     const distinctDevelopers = [
@@ -270,6 +271,11 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
       }
     }
   }
+
+  // Plafond par studio : map {developer -> [igdbIds]}
+  // Sera appliquée apres le filtre genre/theme (voir plus bas).
+  const maxSameDevPerStudio = 3;
+  const sameDevByStudio = new Map<string | null, number[]>();
 
   // Exclusions : deja swipes
   const swiped = await db
@@ -308,16 +314,22 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
 
   // Filtrer les candidats du graphe similaire par similarite de contenu.
   // Si peu d'info (genres manquants sur le jeu ou l'user), passer le seuil.
-  // Pour les candidats meme-studio, appliquer un plancher genre/theme.
-  const filtered = resolved.filter((r) => {
+  // Pour les candidats meme-studio, appliquer un plancher genre/theme ET un plafond (max 3 par studio).
+  const filtered: typeof resolved = [];
+  const sameDevCountByStudio = new Map<string | null, number>(); // compter les meme-studio acceptes par studio
+
+  for (const r of resolved) {
     const isFromSimilarGraph = similarVotesByIgdb.has(r.igdbId!);
     const isFromAcclaimed = acclaimedByIgdb.includes(r.igdbId!);
     const isFromSameDev = sameDevByIgdb.includes(r.igdbId!);
 
     // Les acclaimed passent toujours
-    if (isFromAcclaimed) return true;
+    if (isFromAcclaimed) {
+      filtered.push(r);
+      continue;
+    }
 
-    // Pour les meme-studio, appliquer un plancher genre/theme
+    // Pour les meme-studio, appliquer un plancher genre/theme ET un plafond par studio
     if (isFromSameDev) {
       const candidateContent: GameForSimilarity = {
         gameId: r.gameId,
@@ -327,7 +339,9 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
         publisher: r.publisher,
         igdbRating: r.igdbRating,
       };
+
       // Verifier que le candidat partage au moins 1 genre OU 1 theme avec un jeu possede
+      let hasGenreThemeMatch = false;
       for (const ownedGame of ownedWithContent) {
         const ownedContent: GameForSimilarity = {
           gameId: ownedGame.gameId,
@@ -338,14 +352,24 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
           igdbRating: ownedGame.igdbRating,
         };
         if (sharesGenreOrTheme(ownedContent, candidateContent)) {
-          return true;
+          hasGenreThemeMatch = true;
+          break;
         }
       }
-      // Aucun jeu possede n'a un genre/theme commun : exclure ce candidat meme-studio
-      return false;
+
+      // Exclure si pas de genre/theme commun
+      if (!hasGenreThemeMatch) continue;
+
+      // Plafond : max 3 par studio
+      const currentCountForStudio = sameDevCountByStudio.get(r.developer) ?? 0;
+      if (currentCountForStudio >= maxSameDevPerStudio) continue;
+
+      sameDevCountByStudio.set(r.developer, currentCountForStudio + 1);
+      filtered.push(r);
+      continue;
     }
 
-    if (!isFromSimilarGraph) return false; // Ne devrait pas arriver ici
+    if (!isFromSimilarGraph) continue; // Ne devrait pas arriver ici
 
     // Filtrer le similaire : verifier sa similarite avec le jeu possede le plus proche
     const candidateContent: GameForSimilarity = {
@@ -378,9 +402,12 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
     }
 
     // Si peu d'info (genres manquants), laisser passer. Sinon appliquer le seuil.
-    if (!hasEnoughInfo) return true;
-    return maxSim >= SIM_CONTENT_THRESHOLD;
-  });
+    if (!hasEnoughInfo) {
+      filtered.push(r);
+    } else if (maxSim >= SIM_CONTENT_THRESHOLD) {
+      filtered.push(r);
+    }
+  }
 
   return filtered
     .filter((r) => !ownedGameIds.has(r.gameId) && !swipedGameIds.has(r.gameId))

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { contentSimilarity, rankBySimilarity, sharesGenreOrTheme, type GameForSimilarity } from "../similarity.js";
+import { contentSimilarity, rankBySimilarity, sharesGenreOrTheme, normalizeGameTitle, type GameForSimilarity } from "../similarity.js";
 
 const bg3: GameForSimilarity = { gameId: "bg3", genreIds: ["rpg","turn"], themeIds: ["fantasy"], developer: "Larian Studios", publisher: "Larian Studios", igdbRating: 96 };
 const divinity: GameForSimilarity = { gameId: "dos2", genreIds: ["rpg","turn"], themeIds: ["fantasy"], developer: "Larian Studios", publisher: "Larian Studios", igdbRating: 94 };
@@ -54,5 +54,42 @@ describe("sharesGenreOrTheme", () => {
       igdbRating: null,
     };
     expect(sharesGenreOrTheme(bg3, noGenres)).toBe(false);
+  });
+});
+
+describe("normalizeGameTitle", () => {
+  it("retire les suffixes apres ' - ' (edition markers)", () => {
+    expect(normalizeGameTitle("Divinity: Original Sin 2 - Definitive Edition")).toBe(
+      "divinity: original sin 2"
+    );
+    expect(normalizeGameTitle("Baldur's Gate - Enhanced Edition")).toBe("baldur's gate");
+  });
+
+  it("normalise la casse en minuscule", () => {
+    expect(normalizeGameTitle("DIVINITY: ORIGINAL SIN 2")).toBe("divinity: original sin 2");
+  });
+
+  it("trim les espaces", () => {
+    expect(normalizeGameTitle("  Divinity: Original Sin 2  ")).toBe("divinity: original sin 2");
+  });
+
+  it("detecte correctement les re-editions du meme titre de base", () => {
+    const base = "Divinity: Original Sin 2";
+    const definitive = "Divinity: Original Sin 2 - Definitive Edition";
+    const enhanced = "Divinity: Original Sin 2 - Enhanced Edition";
+
+    const baseNorm = normalizeGameTitle(base);
+    const defNorm = normalizeGameTitle(definitive);
+    const enhNorm = normalizeGameTitle(enhanced);
+
+    // Tous les trois doivent normaliser au meme titre de base
+    expect(baseNorm).toBe(defNorm);
+    expect(baseNorm).toBe(enhNorm);
+  });
+
+  it("distingue les differents titres de base", () => {
+    const divinity2 = normalizeGameTitle("Divinity: Original Sin 2");
+    const divinity3 = normalizeGameTitle("Divinity: Original Sin 3");
+    expect(divinity2).not.toBe(divinity3);
   });
 });

@@ -1,3 +1,16 @@
+// Normalise le titre d'un jeu pour detecter les re-editions du meme titre de base.
+// Heuristique : minuscule, trim, retirer apres " - " (suffixes comme " - Definitive Edition",
+// " - Enhanced Edition"), et normaliser les variantes type "II:" -> "II".
+// Exemple : "Divinity: Original Sin 2 - Definitive Edition" -> "divinity: original sin 2"
+export function normalizeGameTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .split(" - ")[0] // Retirer tout apres " - " (edition suffixes)
+    .replace(/:\s+The\s+/, ": ") // Normaliser "II: The ..." -> "II: ..."
+    .trim();
+}
+
 // Similarité de contenu entre deux jeux, rule-based (pas de LLM).
 // Base : recouvrement genres + thèmes. Bonus (non filtrant) : même studio/éditeur.
 export type GameForSimilarity = {

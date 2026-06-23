@@ -139,6 +139,52 @@ const planescarpeOne: IgdbGame = {
   hypes: 15,
 };
 
+// Divinity: Original Sin 2 - Definitive Edition (re-edition du meme jeu de base)
+const divinityDefinitiveEdition: IgdbGame = {
+  igdbId: 2005,
+  name: "Divinity: Original Sin 2 - Definitive Edition",
+  summary: "Enhanced version of Original Sin 2",
+  releaseDate: "2018-08-31",
+  rating: 94,
+  ratingCount: 1600,
+  coverImageId: "dos2-de-cover",
+  artworkImageId: null,
+  developer: "Larian Studios",
+  publisher: "Larian Studios",
+  genres: [
+    { igdbId: 12, name: "RPG", slug: "rpg" },
+    { igdbId: 5, name: "Adventure", slug: "adventure" },
+  ],
+  themes: [
+    { igdbId: 1, name: "Fantasy", slug: "fantasy" },
+  ],
+  similarIgdbIds: [],
+  hypes: 60,
+};
+
+// Divinity II: The Dragon Knight Saga (re-edition)
+const divinity2DKSaga: IgdbGame = {
+  igdbId: 2006,
+  name: "Divinity II: The Dragon Knight Saga",
+  summary: "Enhanced version of Divinity II",
+  releaseDate: "2010-10-19",
+  rating: 80,
+  ratingCount: 500,
+  coverImageId: "div2-dks-cover",
+  artworkImageId: null,
+  developer: "Larian Studios",
+  publisher: "Larian Studios",
+  genres: [
+    { igdbId: 12, name: "RPG", slug: "rpg" },
+    { igdbId: 5, name: "Adventure", slug: "adventure" },
+  ],
+  themes: [
+    { igdbId: 1, name: "Fantasy", slug: "fantasy" },
+  ],
+  similarIgdbIds: [],
+  hypes: 5,
+};
+
 describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
   it("ajoute les jeux du meme studio qui ne sont pas dans la liste IGDB", async () => {
     const cache = fakeCache();
@@ -262,6 +308,73 @@ describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
     expect(similarGameIds).toContain(2001);
 
     // Baldur's Fate NE DOIT PAS être présent (même studio mais ZÉRO genre/theme commun)
+    expect(similarGameIds).not.toContain(2004);
+  });
+
+  it("plafonne la contribution meme-studio a 3 jeux et dedup les re-editions", async () => {
+    const cache = fakeCache();
+
+    const fetchGameDetail = vi.fn(async (igdbId: number) => {
+      if (igdbId === baldursGate3.igdbId) {
+        return baldursGate3;
+      }
+      return null;
+    });
+
+    const fetchGamesByIds = vi.fn(async (ids: number[]) => {
+      const games: Record<number, IgdbGame> = {
+        2002: baldursGateClassic,
+        2003: planescarpeOne,
+      };
+      return ids.map((id) => games[id]).filter((g) => g);
+    });
+
+    // Mock fetchGamesByDeveloper pour retourner 6 jeux Larian (dont 2 re-editions du meme titre de base)
+    const fetchGamesByDeveloper = vi.fn(async (developerName: string) => {
+      if (developerName === "Larian Studios") {
+        // Retourner 6 jeux : Divinity OS 2, Divinity OS 2 DE (re-edition), Divinity II DKS (re-edition),
+        // et 3 autres pour tester le plafond
+        return [divinity, divinityDefinitiveEdition, divinity2DKSaga, baldursFate];
+      }
+      return [];
+    });
+
+    const deps = {
+      getToken: vi.fn(async () => "TOKEN"),
+      fetchGameDetail,
+      fetchGamesByIds,
+      fetchGamesByDeveloper,
+      cache,
+      now: () => FIXED_NOW,
+    } as unknown as DiscoveryDeps;
+
+    const detail = await getGameDetail(baldursGate3.igdbId, "CID", deps);
+
+    expect(detail).not.toBeNull();
+    if (!detail) return;
+
+    const similarGameIds = detail.similarGames.map((g) => g.igdbId);
+    const similarGameTitles = detail.similarGames.map((g) => g.title);
+
+    // Maximum 3 jeux du meme studio doivent etre presents
+    const sameDeveloperIds = new Set([2001, 2005, 2006]); // Divinity OS 2, Divinity OS 2 DE, Divinity II DKS
+    const sameDevInResult = similarGameIds.filter((id) => sameDeveloperIds.has(id));
+    expect(sameDevInResult.length).toBeLessThanOrEqual(3);
+
+    // Les deux re-editions du meme titre de base (Divinity OS 2 et Divinity OS 2 DE) ne doivent pas apparaitre ensemble
+    // Seul le mieux note (Divinity OS 2 - Definitive Edition, rating 94) doit etre garde
+    const hasDivinity = similarGameIds.includes(2001);
+    const hasDefinitiveEdition = similarGameIds.includes(2005);
+    if (hasDivinity && hasDefinitiveEdition) {
+      // Les deux ne devraient PAS coexister
+      expect.fail("Both Divinity: Original Sin 2 and its Definitive Edition should not coexist in results");
+    }
+
+    // Les autres genre-similaires (BG classic, Planescape) doivent etre presents
+    expect(similarGameTitles).toContain("Baldur's Gate");
+    expect(similarGameTitles).toContain("Planescape: Torment");
+
+    // Baldur's Fate (meme studio mais sans genre commun) ne doit PAS etre present
     expect(similarGameIds).not.toContain(2004);
   });
 });

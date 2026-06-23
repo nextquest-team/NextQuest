@@ -451,4 +451,180 @@ describe("getDiscoveryCandidates - source 3: mêmes studios", () => {
     // BG3 (possédé) ne doit pas être inclus
     expect(candidates.every((c) => c.gameId !== gameA.id)).toBe(true);
   });
+
+  it("plafonne la contribution du même studio a 3 jeux par studio", async () => {
+    // Seed : user + BG3 (Larian) possédé
+    // + 6 autres jeux Larian du même studio via fetchGamesByDeveloper
+    // => seul top 3 par similarité doivent être ajoutés aux candidats
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "samedev-ceiling@example.com",
+        username: "samedevceiling",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [rpgGenre] = await db
+      .insert(genres)
+      .values({
+        name: "RPG",
+        slug: "rpg",
+        igdbId: 12,
+      })
+      .returning({ id: genres.id });
+
+    const [adventureGenre] = await db
+      .insert(genres)
+      .values({
+        name: "Adventure",
+        slug: "adventure",
+        igdbId: 5,
+      })
+      .returning({ id: genres.id });
+
+    // BG3 possédé (Larian, RPG + Adventure)
+    const [gameA] = await db
+      .insert(games)
+      .values({
+        title: "Baldur's Gate 3",
+        slug: "baldurs-gate-3",
+        igdbId: 1000,
+        developer: "Larian Studios",
+        publisher: "Larian Studios",
+        igdbRating: 92,
+        igdbRatingCount: 5000,
+        igdbHypes: 1000,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db.insert(gameGenres).values([
+      { gameId: gameA.id, genreId: rpgGenre.id },
+      { gameId: gameA.id, genreId: adventureGenre.id },
+    ]);
+
+    await db.insert(userGames).values({
+      userId: user.id,
+      gameId: gameA.id,
+      status: "completed",
+    });
+
+    // Créer 6 jeux Larian candidates non possédés avec genres communs
+    const liarianCandidates = [];
+    for (let i = 0; i < 6; i++) {
+      const [game] = await db
+        .insert(games)
+        .values({
+          title: `Larian Game ${i + 1}`,
+          slug: `larian-game-${i + 1}`,
+          igdbId: 2000 + i,
+          developer: "Larian Studios",
+          publisher: "Larian Studios",
+          igdbRating: 85 - i,
+          igdbRatingCount: 3000,
+          igdbHypes: 500,
+          isCustom: false,
+        })
+        .returning({ id: games.id });
+
+      await db.insert(gameGenres).values({
+        gameId: game.id,
+        genreId: rpgGenre.id,
+      });
+
+      liarianCandidates.push(game);
+    }
+
+    const { fetchGamesByDeveloper, fetchAcclaimedByGenres } = await import(
+      "../../games/igdb/igdb.client.js"
+    );
+
+    // Mock fetchGamesByDeveloper pour retourner tous les jeux Larian (6 candidates)
+    vi.mocked(fetchGamesByDeveloper).mockImplementation(async (devName) => {
+      if (devName === "Larian Studios") {
+        return [
+          {
+            igdbId: 2000,
+            name: "Larian Game 1",
+            rating: 85,
+            ratingCount: 3000,
+            hypes: 500,
+            genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
+            themes: [],
+            developer: "Larian Studios",
+            publisher: "Larian Studios",
+          } as IgdbGame,
+          {
+            igdbId: 2001,
+            name: "Larian Game 2",
+            rating: 84,
+            ratingCount: 3000,
+            hypes: 500,
+            genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
+            themes: [],
+            developer: "Larian Studios",
+            publisher: "Larian Studios",
+          } as IgdbGame,
+          {
+            igdbId: 2002,
+            name: "Larian Game 3",
+            rating: 83,
+            ratingCount: 3000,
+            hypes: 500,
+            genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
+            themes: [],
+            developer: "Larian Studios",
+            publisher: "Larian Studios",
+          } as IgdbGame,
+          {
+            igdbId: 2003,
+            name: "Larian Game 4",
+            rating: 82,
+            ratingCount: 3000,
+            hypes: 500,
+            genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
+            themes: [],
+            developer: "Larian Studios",
+            publisher: "Larian Studios",
+          } as IgdbGame,
+          {
+            igdbId: 2004,
+            name: "Larian Game 5",
+            rating: 81,
+            ratingCount: 3000,
+            hypes: 500,
+            genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
+            themes: [],
+            developer: "Larian Studios",
+            publisher: "Larian Studios",
+          } as IgdbGame,
+          {
+            igdbId: 2005,
+            name: "Larian Game 6",
+            rating: 80,
+            ratingCount: 3000,
+            hypes: 500,
+            genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
+            themes: [],
+            developer: "Larian Studios",
+            publisher: "Larian Studios",
+          } as IgdbGame,
+        ];
+      }
+      return [];
+    });
+
+    vi.mocked(fetchAcclaimedByGenres).mockResolvedValue([]);
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    // Compter les candidats issus de Larian (comparant les gameIds)
+    const liarianCandidatesCount = candidates.filter((c) =>
+      liarianCandidates.some((lg) => lg.id === c.gameId),
+    ).length;
+
+    // Maximum 3 jeux du studio Larian doivent etre dans les candidats discovery
+    expect(liarianCandidatesCount).toBeLessThanOrEqual(3);
+  });
 });

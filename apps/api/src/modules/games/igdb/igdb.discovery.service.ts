@@ -17,7 +17,7 @@ import {
   type UpcomingGameDTO,
   type GameDetailDTO,
 } from "./igdb.dto.js";
-import { sharesGenreOrTheme, type GameForSimilarity } from "../../recommendations/similarity.js";
+import { sharesGenreOrTheme, contentSimilarity, normalizeGameTitle, type GameForSimilarity } from "../../recommendations/similarity.js";
 
 // TTL : la liste "a venir" bouge peu (1h) ; le detail d'un jeu encore moins (24h).
 const UPCOMING_TTL = 3600;
@@ -105,6 +105,8 @@ export async function getGameDetail(
   // Enrichir avec les jeux du meme developpeur (surfacer des pepites que IGDB ne liste pas).
   // Appliquer un plancher genre/theme : ne retenir un candidat meme-studio que s'il partage
   // au moins 1 genre OU 1 theme avec le jeu courant, pour exclure les cas "meme studio mais genre totalement different".
+  // Appliquer un plafond : ne garder que top 3 par contentSimilarity au jeu courant,
+  // apres dedup des re-editions (meme titre de base normalisé).
   // Fallback robuste : si l'appel échoue, garder la liste IGDB re-classée.
   if (game.developer) {
     try {
@@ -121,22 +123,62 @@ export async function getGameDetail(
         publisher: game.publisher,
         igdbRating: game.rating,
       };
+
+      // Etape 1 : filtrer par plancher genre/theme et dedup re-editions
+      const filteredByGenre: GameForSimilarity[] = [];
+      const dedupByTitle = new Map<string, IgdbGame>(); // titre normalisé -> meilleur jeu de ce titre
+
       for (const sameDevGame of sameDeveloperGames) {
-        // Exclure le jeu courant lui-même et eviter les doublons.
-        if (sameDevGame.igdbId !== game.igdbId && !similarGameDetails.has(sameDevGame.igdbId)) {
-          // Appliquer le plancher genre/theme
-          const candidateForFiltering: GameForSimilarity = {
-            gameId: String(sameDevGame.igdbId),
-            genreIds: sameDevGame.genres.map((g) => String(g.igdbId)),
-            themeIds: sameDevGame.themes.map((t) => String(t.igdbId)),
-            developer: sameDevGame.developer,
-            publisher: sameDevGame.publisher,
-            igdbRating: sameDevGame.rating,
-          };
-          if (sharesGenreOrTheme(targetForFiltering, candidateForFiltering)) {
-            similarGameDetails.set(sameDevGame.igdbId, sameDevGame);
-          }
+        // Exclure le jeu courant lui-même et eviter les doublons IGDB.
+        if (sameDevGame.igdbId === game.igdbId || similarGameDetails.has(sameDevGame.igdbId)) {
+          continue;
         }
+
+        // Appliquer le plancher genre/theme
+        const candidateForFiltering: GameForSimilarity = {
+          gameId: String(sameDevGame.igdbId),
+          genreIds: sameDevGame.genres.map((g) => String(g.igdbId)),
+          themeIds: sameDevGame.themes.map((t) => String(t.igdbId)),
+          developer: sameDevGame.developer,
+          publisher: sameDevGame.publisher,
+          igdbRating: sameDevGame.rating,
+        };
+
+        if (!sharesGenreOrTheme(targetForFiltering, candidateForFiltering)) {
+          continue;
+        }
+
+        // Dedup re-editions par titre normalisé : garder le mieux noté
+        const normalizedTitle = normalizeGameTitle(sameDevGame.name);
+        const existing = dedupByTitle.get(normalizedTitle);
+        if (!existing || (sameDevGame.rating ?? 0) > (existing.rating ?? 0)) {
+          dedupByTitle.set(normalizedTitle, sameDevGame);
+        }
+
+        filteredByGenre.push(candidateForFiltering);
+      }
+
+      // Etape 2 : plafonner a top 3 par contentSimilarity au jeu courant
+      const uniqueByTitle = Array.from(dedupByTitle.values()).map((game) => ({
+        game,
+        similarity: contentSimilarity(targetForFiltering, {
+          gameId: String(game.igdbId),
+          genreIds: game.genres.map((g) => String(g.igdbId)),
+          themeIds: game.themes.map((t) => String(t.igdbId)),
+          developer: game.developer,
+          publisher: game.publisher,
+          igdbRating: game.rating,
+        }),
+      }));
+
+      const topByGenreAndSim = uniqueByTitle
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 3)
+        .map((item) => item.game);
+
+      // Ajouter au map des similarites
+      for (const sameDevGame of topByGenreAndSim) {
+        similarGameDetails.set(sameDevGame.igdbId, sameDevGame);
       }
     } catch {
       // Echec silencieux : continuer avec la liste IGDB re-classée.

@@ -5,6 +5,7 @@
 import {
   fetchUpcoming,
   fetchGameDetail,
+  fetchGamesByIds,
   type UpcomingQuery,
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
@@ -29,6 +30,7 @@ export interface DiscoveryDeps {
   getToken(): Promise<string>;
   fetchUpcoming: typeof fetchUpcoming;
   fetchGameDetail: typeof fetchGameDetail;
+  fetchGamesByIds: typeof fetchGamesByIds;
   cache: CacheStore;
   now(): Date;
 }
@@ -48,6 +50,7 @@ export function defaultDiscoveryDeps(): DiscoveryDeps {
       ),
     fetchUpcoming,
     fetchGameDetail,
+    fetchGamesByIds,
     cache: redisStore,
     now: () => new Date(),
   };
@@ -84,8 +87,19 @@ export async function getGameDetail(
   // On ne cache pas l'absence : un jeu peut apparaitre plus tard dans IGDB.
   if (!game) return null;
 
+  // Charger les détails des similarGames pour permettre le re-ranking par similarité.
+  // Si la requête échoue, on garde l'ordre IGDB en fallback.
+  const similarGameDetails = new Map(
+    (await deps.fetchGamesByIds(
+      game.similarGames.map((s) => s.igdbId),
+      token,
+      clientId,
+    ).catch(() => []))
+      .map((g) => [g.igdbId, g]),
+  );
+
   const today = deps.now().toISOString().slice(0, 10);
-  const dto = toGameDetailDTO(game, today);
+  const dto = toGameDetailDTO(game, today, similarGameDetails);
   await deps.cache.set(key, JSON.stringify(dto), "EX", DETAIL_TTL);
   return dto;
 }

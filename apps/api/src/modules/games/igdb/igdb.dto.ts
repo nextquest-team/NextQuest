@@ -6,7 +6,9 @@ import {
   igdbImageUrl,
   type IgdbUpcomingGame,
   type IgdbGameDetail,
+  type IgdbGame,
 } from "./igdb.client.js";
+import { rankBySimilarity, type GameForSimilarity } from "../../recommendations/similarity.js";
 
 export type TaxonRef = { igdbId: number; name: string; slug: string };
 export type PlatformRef = {
@@ -70,10 +72,82 @@ export function toUpcomingGameDTO(g: IgdbUpcomingGame): UpcomingGameDTO {
   };
 }
 
+// Re-classe les similarGames par similarité de contenu au jeu cible.
+// Si les détails des similarGames sont disponibles, utilise rankBySimilarity.
+// Sinon, garde l'ordre IGDB d'origine en fallback.
+function rerankSimilarGames(
+  target: IgdbGameDetail,
+  similarGames: typeof target.similarGames,
+  enrichedDetails: Map<number, IgdbGame>,
+): typeof target.similarGames {
+  // Si pas de détails enrichis, garder l'ordre IGDB brut.
+  if (enrichedDetails.size === 0) return similarGames;
+
+  // Construire des GameForSimilarity pour le target et les candidats.
+  const targetForRanking: GameForSimilarity = {
+    gameId: String(target.igdbId),
+    genreIds: target.genres.map((g) => String(g.igdbId)),
+    themeIds: target.themes.map((t) => String(t.igdbId)),
+    developer: target.developer,
+    publisher: target.publisher,
+    igdbRating: target.rating,
+  };
+
+  // Construire une liste parallèle de candidats rangés avec leurs données brutes IGDB.
+  const candidatesWithOriginal: Array<{ game: GameForSimilarity; original: typeof similarGames[0] }> = [];
+  for (const sim of similarGames) {
+    const details = enrichedDetails.get(sim.igdbId);
+    if (!details) continue; // Passer si pas de détails enrichis.
+
+    candidatesWithOriginal.push({
+      game: {
+        gameId: String(details.igdbId),
+        genreIds: details.genres.map((g) => String(g.igdbId)),
+        themeIds: details.themes.map((t) => String(t.igdbId)),
+        developer: details.developer,
+        publisher: details.publisher,
+        igdbRating: details.rating,
+      },
+      original: sim,
+    });
+  }
+
+  // Pas de candidats avec détails : garder l'ordre brut.
+  if (candidatesWithOriginal.length === 0) return similarGames;
+
+  // Re-ranger les candidats par similarité.
+  const ranked = rankBySimilarity(
+    targetForRanking,
+    candidatesWithOriginal.map((c) => c.game),
+  );
+
+  // Mapper l'ordre rangé vers les données brutes IGDB.
+  const rankedGameIds = new Set(ranked.map((g) => g.gameId));
+  return candidatesWithOriginal
+    .filter((c) => rankedGameIds.has(c.game.gameId))
+    .sort((a, b) => {
+      const indexA = ranked.findIndex((g) => g.gameId === a.game.gameId);
+      const indexB = ranked.findIndex((g) => g.gameId === b.game.gameId);
+      return indexA - indexB;
+    })
+    .map((c) => c.original);
+}
+
 // `today` (YYYY-MM-DD) injecte par l'appelant pour rester deterministe/testable.
-export function toGameDetailDTO(g: IgdbGameDetail, today: string): GameDetailDTO {
+// `enrichedSimilarGameDetails` optionnel : map des détails des similarGames pour re-ranking.
+export function toGameDetailDTO(
+  g: IgdbGameDetail,
+  today: string,
+  enrichedSimilarGameDetails?: Map<number, IgdbGame>,
+): GameDetailDTO {
   const releaseStatus =
     g.releaseDate && g.releaseDate > today ? "upcoming" : "released";
+
+  // Re-ranger les similarGames si les détails enrichis sont disponibles.
+  const similarGames = enrichedSimilarGameDetails
+    ? rerankSimilarGames(g, g.similarGames, enrichedSimilarGameDetails)
+    : g.similarGames;
+
   return {
     igdbId: g.igdbId,
     title: g.name,
@@ -98,7 +172,7 @@ export function toGameDetailDTO(g: IgdbGameDetail, today: string): GameDetailDTO
     playerPerspectives: g.playerPerspectives,
     platforms: g.platforms,
     websites: g.websites,
-    similarGames: g.similarGames.map((s) => ({
+    similarGames: similarGames.map((s) => ({
       igdbId: s.igdbId,
       title: s.name,
       coverUrl: s.coverImageId ? igdbImageUrl(s.coverImageId, "t_cover_big") : null,

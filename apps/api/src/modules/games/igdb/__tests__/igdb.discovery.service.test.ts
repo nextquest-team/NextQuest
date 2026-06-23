@@ -61,6 +61,7 @@ describe("getUpcomingGames", () => {
       getToken: vi.fn(async () => "TOKEN"),
       fetchUpcoming,
       fetchGameDetail: vi.fn(),
+      fetchGamesByIds: vi.fn(),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
@@ -95,6 +96,7 @@ describe("getUpcomingGames", () => {
       getToken: vi.fn(),
       fetchUpcoming,
       fetchGameDetail: vi.fn(),
+      fetchGamesByIds: vi.fn(),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
@@ -113,6 +115,7 @@ describe("getUpcomingGames", () => {
         throw new Error("IGDB 503");
       }),
       fetchGameDetail: vi.fn(),
+      fetchGamesByIds: vi.fn(),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
@@ -128,10 +131,12 @@ describe("getGameDetail", () => {
   it("cache miss: appelle IGDB, mappe en DTO riche, ecrit le cache 24h", async () => {
     const cache = fakeCache();
     const fetchGameDetail = vi.fn(async () => detailSample);
+    const fetchGamesByIds = vi.fn(async () => []); // Pas de détails pour les similarGames
     const deps = {
       getToken: vi.fn(async () => "TOKEN"),
       fetchUpcoming: vi.fn(),
       fetchGameDetail,
+      fetchGamesByIds,
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
@@ -160,6 +165,7 @@ describe("getGameDetail", () => {
       getToken: vi.fn(),
       fetchUpcoming: vi.fn(),
       fetchGameDetail,
+      fetchGamesByIds: vi.fn(),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
@@ -176,6 +182,7 @@ describe("getGameDetail", () => {
       getToken: vi.fn(async () => "T"),
       fetchUpcoming: vi.fn(),
       fetchGameDetail: vi.fn(async () => null),
+      fetchGamesByIds: vi.fn(),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;

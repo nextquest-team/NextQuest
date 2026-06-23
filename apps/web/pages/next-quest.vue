@@ -10,6 +10,7 @@ const { mdAndUp } = useDisplay()
 // ── State ─────────────────────────────────────────────────────────────────
 const loading = ref(false)
 const generating = ref(false)
+const refreshing = ref(false)
 const error = ref(false)
 const feedbackPending = ref<string | null>(null)
 
@@ -47,6 +48,25 @@ async function generate() {
     error.value = true
   } finally {
     generating.value = false
+  }
+}
+
+async function refresh() {
+  refreshing.value = true
+  error.value = false
+  try {
+    const skip = [discovery.value?.id, libraryUnplayed.value?.id, upcoming.value?.id].filter(Boolean) as string[]
+    const res = await authFetch<GroupedRecommendations>(`${apiBase}/api/recommendations/refresh`, {
+      method: 'POST',
+      body: { skip },
+    })
+    discovery.value = res.discovery[0] ?? null
+    libraryUnplayed.value = res.libraryUnplayed[0] ?? null
+    upcoming.value = res.upcoming[0] ?? null
+  } catch {
+    error.value = true
+  } finally {
+    refreshing.value = false
   }
 }
 
@@ -105,9 +125,9 @@ onMounted(() => fetchRecos())
       :library-unplayed="libraryUnplayed"
       :upcoming="upcoming"
       :feedback-pending="feedbackPending"
-      :generating="generating"
+      :refreshing="refreshing"
       @feedback="sendFeedback"
-      @generate="generate"
+      @refresh="refresh"
     />
   </div>
 
@@ -150,9 +170,9 @@ onMounted(() => fetchRecos())
         :library-unplayed="libraryUnplayed"
         :upcoming="upcoming"
         :feedback-pending="feedbackPending"
-        :generating="generating"
+        :refreshing="refreshing"
         @feedback="sendFeedback"
-        @generate="generate"
+        @refresh="refresh"
       />
     </div>
 

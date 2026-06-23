@@ -24,7 +24,7 @@ const defaultProps = {
   libraryUnplayed: null,
   upcoming: null,
   feedbackPending: null,
-  generating: false,
+  refreshing: false,
 }
 
 describe('MobileStage', () => {
@@ -41,15 +41,15 @@ describe('MobileStage', () => {
     expect(cards.findAll('.nq-slot-empty')).toHaveLength(3)
   })
 
-  it('émet generate au clic sur le bouton régénérer', async () => {
+  it('émet refresh au clic sur le bouton régénérer', async () => {
     const wrapper = mount(MobileStage, { props: defaultProps, global: { stubs } })
     await wrapper.find('.patch-btn').trigger('click')
-    expect(wrapper.emitted('generate')).toBeTruthy()
+    expect(wrapper.emitted('refresh')).toBeTruthy()
   })
 
-  it('le bouton régénérer est désactivé si generating=true', () => {
+  it('le bouton régénérer est désactivé si refreshing=true', () => {
     const wrapper = mount(MobileStage, {
-      props: { ...defaultProps, generating: true },
+      props: { ...defaultProps, refreshing: true },
       global: { stubs },
     })
     expect(wrapper.find('.patch-btn').attributes('disabled')).toBeDefined()

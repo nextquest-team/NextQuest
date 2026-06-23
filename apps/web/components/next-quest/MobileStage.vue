@@ -6,12 +6,12 @@ defineProps<{
   libraryUnplayed: RecommendationDTO | null
   upcoming: RecommendationDTO | null
   feedbackPending: string | null
-  generating: boolean
+  refreshing: boolean
 }>()
 
 const emit = defineEmits<{
   feedback: [reco: RecommendationDTO, action: FeedbackAction]
-  generate: []
+  refresh: []
 }>()
 
 const { t } = useI18n()
@@ -50,9 +50,9 @@ const { t } = useI18n()
 
     <!-- Régénérer -->
     <div class="nq-regen">
-      <button class="patch-btn" :disabled="generating" @click="emit('generate')">
+      <button class="patch-btn" :disabled="refreshing" @click="emit('refresh')">
         <v-icon size="16">mdi-refresh</v-icon>
-        {{ generating ? t('nextQuest.generating') : t('nextQuest.regenerate') }}
+        {{ refreshing ? t('nextQuest.generating') : t('nextQuest.regenerate') }}
       </button>
     </div>
 

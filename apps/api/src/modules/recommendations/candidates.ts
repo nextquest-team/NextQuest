@@ -11,7 +11,7 @@ import {
 import { and, eq, count, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { OwnedGameForProfile, SwipeDelta } from "./profile.js";
 import type { Candidate } from "./scoring.js";
-import { fetchUpcomingByGenres, fetchAcclaimedByGenres } from "../games/igdb/igdb.client.js";
+import { fetchUpcomingByGenres, fetchAcclaimedByGenres, fetchGamesByDeveloper } from "../games/igdb/igdb.client.js";
 import { defaultDeps } from "../games/igdb/igdb.service.js";
 import { hydrateMissingGames } from "./hydrate.js";
 import { contentSimilarity, type GameForSimilarity } from "./similarity.js";
@@ -143,9 +143,10 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
 }
 
 // Candidats du bucket "discovery" : jeux similaires aux jeux possedes via le graphe
-// game_similar (source 1) + jeux acclaimed dans les top genres de l'user (source 2).
+// game_similar (source 1) + jeux acclaimed dans les top genres de l'user (source 2) +
+// jeux du même studio que les jeux possédés (source 3).
 // La source graphe est re-classee par similarite de contenu pour filtrer le bruit.
-// Les deux sources sont fusionnees, deduplicates, et exclues si deja possedes/swipes.
+// Les trois sources sont fusionnees, deduplicates, et exclues si deja possedes/swipes.
 export async function getDiscoveryCandidates(userId: string): Promise<Candidate[]> {
   // Jeux possedes et leurs infos (igdbId, genres, developpeur, editeur, note)
   const owned = await db
@@ -235,6 +236,41 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
     }
   }
 
+  // SOURCE 3 : jeux du même studio que les jeux possédés
+  // Limiter le nombre de studios interrogés pour éviter N+1 calls IGDB.
+  // On prend les studios distincts des jeux possédés, up to 5.
+  let sameDevByIgdb: number[] = [];
+  if (owned.length > 0) {
+    const distinctDevelopers = [
+      ...new Set(owned.map((o) => o.developer).filter((d): d is string => d != null)),
+    ].slice(0, 5);
+
+    if (distinctDevelopers.length > 0) {
+      const deps = defaultDeps();
+      const token = await deps.getToken();
+      const clientId = process.env.TWITCH_CLIENT_ID;
+      if (clientId) {
+        try {
+          // Appeler fetchGamesByDeveloper pour chaque studio
+          const sameDevGames = await Promise.all(
+            distinctDevelopers.map((devName) =>
+              fetchGamesByDeveloper(devName, token, clientId).catch(() => []),
+            ),
+          );
+
+          // Aplatir et hydrater les jeux manquants
+          const allSameDevGames = sameDevGames.flat();
+          if (allSameDevGames.length > 0) {
+            await hydrateMissingGames(allSameDevGames.map((g) => g.igdbId));
+            sameDevByIgdb = allSameDevGames.map((g) => g.igdbId);
+          }
+        } catch {
+          // Si l'appel IGDB échoue, continuer sans cette source
+        }
+      }
+    }
+  }
+
   // Exclusions : deja swipes
   const swiped = await db
     .select({ gameId: recommendations.gameId })
@@ -242,10 +278,11 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
     .where(and(eq(recommendations.userId, userId), isNotNull(recommendations.feedback)));
   const swipedGameIds = new Set(swiped.map((s) => s.gameId));
 
-  // Fusionner les deux sources (igdbIds)
+  // Fusionner les trois sources (igdbIds)
   const allCandidateIgdbIds = new Set([
     ...[...similarVotesByIgdb.keys()],
     ...acclaimedByIgdb,
+    ...sameDevByIgdb,
   ]);
   const candidateIgdbIds = [...allCandidateIgdbIds].filter((id) => !ownedIgdbIds.includes(id));
 
@@ -274,9 +311,10 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
   const filtered = resolved.filter((r) => {
     const isFromSimilarGraph = similarVotesByIgdb.has(r.igdbId!);
     const isFromAcclaimed = acclaimedByIgdb.includes(r.igdbId!);
+    const isFromSameDev = sameDevByIgdb.includes(r.igdbId!);
 
-    // Les acclaimed passent toujours ; les similaires sont filtres
-    if (isFromAcclaimed) return true;
+    // Les acclaimed et samedev passent toujours ; les similaires sont filtres
+    if (isFromAcclaimed || isFromSameDev) return true;
 
     if (!isFromSimilarGraph) return false; // Ne devrait pas arriver ici
 

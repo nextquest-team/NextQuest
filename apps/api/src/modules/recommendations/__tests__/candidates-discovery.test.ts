@@ -22,6 +22,7 @@ vi.mock("../../games/igdb/igdb.client.js", async () => {
   return {
     ...actual,
     fetchAcclaimedByGenres: vi.fn(),
+    fetchGamesByDeveloper: vi.fn(),
   };
 });
 
@@ -63,6 +64,8 @@ async function cleanup() {
 beforeEach(async () => {
   await cleanup();
   process.env.TWITCH_CLIENT_ID = "test-client-id";
+  const { fetchGamesByDeveloper } = await import("../../games/igdb/igdb.client.js");
+  vi.mocked(fetchGamesByDeveloper).mockResolvedValue([]);
 });
 
 describe("getDiscoveryCandidates (multi-source)", () => {

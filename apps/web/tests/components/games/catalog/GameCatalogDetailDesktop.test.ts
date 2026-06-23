@@ -13,9 +13,8 @@ mockNuxtImport('useI18n', () => () => ({
 const catalogPreviewRef = ref<RecoGame | null>(null)
 
 mockNuxtImport('useState', () => (key: string, init?: () => unknown) => {
-  const { ref: r } = require('vue')
   if (key === 'catalog-preview') return catalogPreviewRef
-  return r(init?.() ?? null)
+  return ref(init?.() ?? null)
 })
 
 const fakeGame: RecoGame = {

@@ -1,6 +1,7 @@
 // @vitest-environment nuxt
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import MobileStage from '~/components/next-quest/MobileStage.vue'
 
@@ -9,7 +10,6 @@ mockNuxtImport('useI18n', () => () => ({
 }))
 
 mockNuxtImport('useState', () => (_key: string, init?: () => unknown) => {
-  const { ref } = require('vue')
   return ref(init?.() ?? null)
 })
 

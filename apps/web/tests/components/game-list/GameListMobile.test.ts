@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import GameListMobile from '~/components/game-list/GameListMobile.vue'
 import type { UserGame } from '~/types/game'
 

@@ -6,6 +6,7 @@ import {
   fetchUpcoming,
   fetchGameDetail,
   fetchGamesByIds,
+  fetchGamesByDeveloper,
   type UpcomingQuery,
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
@@ -31,6 +32,7 @@ export interface DiscoveryDeps {
   fetchUpcoming: typeof fetchUpcoming;
   fetchGameDetail: typeof fetchGameDetail;
   fetchGamesByIds: typeof fetchGamesByIds;
+  fetchGamesByDeveloper: typeof fetchGamesByDeveloper;
   cache: CacheStore;
   now(): Date;
 }
@@ -51,6 +53,7 @@ export function defaultDiscoveryDeps(): DiscoveryDeps {
     fetchUpcoming,
     fetchGameDetail,
     fetchGamesByIds,
+    fetchGamesByDeveloper,
     cache: redisStore,
     now: () => new Date(),
   };
@@ -87,7 +90,7 @@ export async function getGameDetail(
   // On ne cache pas l'absence : un jeu peut apparaitre plus tard dans IGDB.
   if (!game) return null;
 
-  // Charger les détails des similarGames pour permettre le re-ranking par similarité.
+  // Charger les détails des similarGames IGDB pour permettre le re-ranking par similarité.
   // Si la requête échoue, on garde l'ordre IGDB en fallback.
   const similarGameDetails = new Map(
     (await deps.fetchGamesByIds(
@@ -97,6 +100,26 @@ export async function getGameDetail(
     ).catch(() => []))
       .map((g) => [g.igdbId, g]),
   );
+
+  // Enrichir avec les jeux du meme developpeur (surfacer des pepites que IGDB ne liste pas).
+  // Fallback robuste : si l'appel échoue, garder la liste IGDB re-classée.
+  if (game.developer) {
+    try {
+      const sameDeveloperGames = await deps.fetchGamesByDeveloper(
+        game.developer,
+        token,
+        clientId,
+      );
+      for (const sameDevGame of sameDeveloperGames) {
+        // Exclure le jeu courant lui-même et eviter les doublons.
+        if (sameDevGame.igdbId !== game.igdbId && !similarGameDetails.has(sameDevGame.igdbId)) {
+          similarGameDetails.set(sameDevGame.igdbId, sameDevGame);
+        }
+      }
+    } catch {
+      // Echec silencieux : continuer avec la liste IGDB re-classée.
+    }
+  }
 
   const today = deps.now().toISOString().slice(0, 10);
   const dto = toGameDetailDTO(game, today, similarGameDetails);

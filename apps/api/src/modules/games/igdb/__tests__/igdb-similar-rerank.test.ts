@@ -152,6 +152,7 @@ describe("Similaires de fiche re-classés par similarité de contenu", () => {
       getToken: vi.fn(async () => "TOKEN"),
       fetchGameDetail,
       fetchGamesByIds,
+      fetchGamesByDeveloper: vi.fn(async () => []),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
@@ -234,6 +235,7 @@ describe("Similaires de fiche re-classés par similarité de contenu", () => {
       getToken: vi.fn(async () => "TOKEN"),
       fetchGameDetail,
       fetchGamesByIds,
+      fetchGamesByDeveloper: vi.fn(async () => []),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;

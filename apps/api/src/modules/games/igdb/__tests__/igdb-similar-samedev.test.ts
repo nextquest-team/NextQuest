@@ -1,0 +1,197 @@
+import { describe, it, expect, vi } from "vitest";
+import { getGameDetail, type DiscoveryDeps } from "../igdb.discovery.service.js";
+import type { IgdbGameDetail, IgdbGame } from "../igdb.client.js";
+
+function fakeCache() {
+  const store = new Map<string, string>();
+  return {
+    store,
+    get: vi.fn(async (k: string) => store.get(k) ?? null),
+    set: vi.fn(async (k: string, v: string) => {
+      store.set(k, v);
+    }),
+  };
+}
+
+const FIXED_NOW = new Date("2026-06-22T00:00:00Z");
+
+// Baldur's Gate 3 : dev Larian Studios, genres RPG/Fantasy
+const baldursGate3: IgdbGameDetail = {
+  igdbId: 1000,
+  name: "Baldur's Gate 3",
+  summary: "Epic CRPG",
+  storyline: null,
+  releaseDate: "2023-08-03",
+  rating: 95,
+  ratingCount: 2000,
+  hypes: 500,
+  coverImageId: "bg3-cover",
+  artworkImageId: "bg3-art",
+  screenshotImageIds: [],
+  videos: [],
+  developer: "Larian Studios",
+  publisher: "Larian Studios",
+  genres: [
+    { igdbId: 12, name: "RPG", slug: "rpg" },
+    { igdbId: 5, name: "Adventure", slug: "adventure" },
+  ],
+  themes: [
+    { igdbId: 1, name: "Fantasy", slug: "fantasy" },
+  ],
+  gameModes: [],
+  playerPerspectives: [],
+  platforms: [],
+  websites: [],
+  // Similaires IGDB bruts (ne contiennent PAS Divinity OS 2, absent du graphe IGDB de BG3)
+  similarGames: [
+    { igdbId: 2002, name: "Baldur's Gate", coverImageId: "bg-cover" },
+    { igdbId: 2003, name: "Planescape: Torment", coverImageId: "pst-cover" },
+  ],
+};
+
+// Divinity: Original Sin 2 (même studio que BG3, genres similaires)
+// Cet jeu DOIT apparaître dans les similarGames après enrichissement par studio
+const divinity: IgdbGame = {
+  igdbId: 2001,
+  name: "Divinity: Original Sin 2",
+  summary: "CRPG like BG3",
+  releaseDate: "2017-09-21",
+  rating: 93,
+  ratingCount: 1500,
+  coverImageId: "dos2-cover",
+  artworkImageId: null,
+  developer: "Larian Studios",
+  publisher: "Larian Studios",
+  genres: [
+    { igdbId: 12, name: "RPG", slug: "rpg" },
+    { igdbId: 5, name: "Adventure", slug: "adventure" },
+  ],
+  themes: [
+    { igdbId: 1, name: "Fantasy", slug: "fantasy" },
+  ],
+  similarIgdbIds: [],
+  hypes: 50,
+};
+
+// Détails des jeux de similarGames IGDB pour enrichissement
+const baldursGateClassic: IgdbGame = {
+  igdbId: 2002,
+  name: "Baldur's Gate",
+  summary: "Classic CRPG",
+  releaseDate: "1998-11-30",
+  rating: 90,
+  ratingCount: 800,
+  coverImageId: "bg-cover",
+  artworkImageId: null,
+  developer: "BioWare",
+  publisher: "Black Isle Studios",
+  genres: [
+    { igdbId: 12, name: "RPG", slug: "rpg" },
+    { igdbId: 5, name: "Adventure", slug: "adventure" },
+  ],
+  themes: [
+    { igdbId: 1, name: "Fantasy", slug: "fantasy" },
+  ],
+  similarIgdbIds: [],
+  hypes: 20,
+};
+
+const planescarpeOne: IgdbGame = {
+  igdbId: 2003,
+  name: "Planescape: Torment",
+  summary: "Classic CRPG",
+  releaseDate: "1999-12-30",
+  rating: 92,
+  ratingCount: 600,
+  coverImageId: "pst-cover",
+  artworkImageId: null,
+  developer: "Black Isle Studios",
+  publisher: "Black Isle Studios",
+  genres: [
+    { igdbId: 12, name: "RPG", slug: "rpg" },
+    { igdbId: 5, name: "Adventure", slug: "adventure" },
+  ],
+  themes: [
+    { igdbId: 1, name: "Fantasy", slug: "fantasy" },
+  ],
+  similarIgdbIds: [],
+  hypes: 15,
+};
+
+describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
+  it("ajoute les jeux du meme studio qui ne sont pas dans la liste IGDB", async () => {
+    const cache = fakeCache();
+
+    // Mock fetchGameDetail pour retourner le jeu principal
+    const fetchGameDetail = vi.fn(async (igdbId: number) => {
+      if (igdbId === baldursGate3.igdbId) {
+        return baldursGate3;
+      }
+      return null;
+    });
+
+    // Mock fetchGamesByIds appelé par getGameDetail pour charger les détails
+    // des similarGames IGDB (Baldur's Gate classic + Planescape)
+    const fetchGamesByIds = vi.fn(async (ids: number[]) => {
+      const games: Record<number, IgdbGame> = {
+        2001: divinity,
+        2002: baldursGateClassic,
+        2003: planescarpeOne,
+      };
+      return ids.map((id) => games[id]).filter((g) => g);
+    });
+
+    // Mock fetchGamesByDeveloper pour retourner les jeux Larian
+    const fetchGamesByDeveloper = vi.fn(async (developerName: string) => {
+      if (developerName === "Larian Studios") {
+        return [divinity];
+      }
+      return [];
+    });
+
+    const deps = {
+      getToken: vi.fn(async () => "TOKEN"),
+      fetchGameDetail,
+      fetchGamesByIds,
+      fetchGamesByDeveloper,
+      cache,
+      now: () => FIXED_NOW,
+    } as unknown as DiscoveryDeps;
+
+    const detail = await getGameDetail(baldursGate3.igdbId, "CID", deps);
+
+    expect(detail).not.toBeNull();
+    if (!detail) return;
+
+    // Verifications :
+    // 1. Divinity: Original Sin 2 DOIT maintenant apparaître dans similarGames
+    const similarGameIds = detail.similarGames.map((g) => g.igdbId);
+    expect(similarGameIds).toContain(2001);
+
+    // 2. Divinity DOIT être classé en tête (même studio + mêmes genres = score maximal)
+    // Score contentSimilarity pour Divinity:
+    //   - Genres communs (RPG, Adventure) avec BG3 : Jaccard = 2/2 = 1.0
+    //   - Thèmes communs (Fantasy) avec BG3 : Jaccard = 1/1 = 1.0
+    //   - Même studio (Larian) : 1.0
+    //   Score = 0.45*1.0 + 0.30*1.0 + 0.20*1.0 = 0.95
+    //
+    // Score pour Baldur's Gate classic:
+    //   - Genres communs (RPG, Adventure) avec BG3 : Jaccard = 2/2 = 1.0
+    //   - Thèmes communs (Fantasy) : Jaccard = 1/1 = 1.0
+    //   - Pas même studio : 0
+    //   Score = 0.45*1.0 + 0.30*1.0 + 0 = 0.75
+    //
+    // Score pour Planescape:
+    //   - Genres communs (RPG, Adventure) : Jaccard = 2/2 = 1.0
+    //   - Thèmes communs (Fantasy) : Jaccard = 1/1 = 1.0
+    //   - Pas même studio : 0
+    //   Score = 0.45*1.0 + 0.30*1.0 + 0 = 0.75 (même que BG classic)
+    //   Départage par rating : Planescape (92) > BG (90)
+    //
+    // Ordre attendu : Divinity (0.95), Planescape (0.75, rating 92), Baldur's Gate (0.75, rating 90)
+
+    expect(detail.similarGames[0]?.title).toBe("Divinity: Original Sin 2");
+    expect(detail.similarGames[1]?.title).toBe("Planescape: Torment");
+    expect(detail.similarGames[2]?.title).toBe("Baldur's Gate");
+  });
+});

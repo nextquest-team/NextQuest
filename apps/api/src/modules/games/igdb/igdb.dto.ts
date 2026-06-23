@@ -7,6 +7,7 @@ import {
   type IgdbUpcomingGame,
   type IgdbGameDetail,
   type IgdbGame,
+  type IgdbSimilarGame,
 } from "./igdb.client.js";
 import { rankBySimilarity, type GameForSimilarity } from "../../recommendations/similarity.js";
 
@@ -73,8 +74,9 @@ export function toUpcomingGameDTO(g: IgdbUpcomingGame): UpcomingGameDTO {
 }
 
 // Re-classe les similarGames par similarité de contenu au jeu cible.
-// Si les détails des similarGames sont disponibles, utilise rankBySimilarity.
-// Sinon, garde l'ordre IGDB d'origine en fallback.
+// Utilise enrichedDetails comme source de verité : peut inclure jeux similaires IGDB
+// + jeux du même studio (fusion faite en amont par le service).
+// Si les détails sont disponibles, utilise rankBySimilarity. Sinon, garde l'ordre IGDB.
 // Limite toujours le résultat à 12 jeux pour maintenir une performance acceptable
 // et une UX sans surcharge d'options.
 function rerankSimilarGames(
@@ -97,11 +99,15 @@ function rerankSimilarGames(
     igdbRating: target.rating,
   };
 
-  // Construire une liste parallèle de candidats rangés avec leurs données brutes IGDB.
-  const candidatesWithOriginal: Array<{ game: GameForSimilarity; original: typeof similarGames[0] }> = [];
-  for (const sim of similarGames) {
-    const details = enrichedDetails.get(sim.igdbId);
-    if (!details) continue; // Passer si pas de détails enrichis.
+  // Construire une liste parallèle de candidats rangés avec leurs données brutes.
+  // enrichedDetails peut contenir :
+  // 1. Les détails des similarGames IGDB (chargés par fetchGamesByIds)
+  // 2. Les détails des jeux du même studio (chargés par fetchGamesByDeveloper)
+  // On traite TOUS les candidats de enrichedDetails (pas seulement similarGames).
+  const candidatesWithOriginal: Array<{ game: GameForSimilarity; original: IgdbSimilarGame }> = [];
+  for (const [igdbId, details] of enrichedDetails) {
+    // Exclure le jeu courant lui-même.
+    if (details.igdbId === target.igdbId) continue;
 
     candidatesWithOriginal.push({
       game: {
@@ -112,7 +118,11 @@ function rerankSimilarGames(
         publisher: details.publisher,
         igdbRating: details.rating,
       },
-      original: sim,
+      original: {
+        igdbId: details.igdbId,
+        name: details.name,
+        coverImageId: details.coverImageId,
+      },
     });
   }
 
@@ -125,7 +135,7 @@ function rerankSimilarGames(
     candidatesWithOriginal.map((c) => c.game),
   );
 
-  // Mapper l'ordre rangé vers les données brutes IGDB et capper à 12.
+  // Mapper l'ordre rangé vers les données brutes et capper à 12.
   const rankedGameIds = new Set(ranked.map((g) => g.gameId));
   return candidatesWithOriginal
     .filter((c) => rankedGameIds.has(c.game.gameId))

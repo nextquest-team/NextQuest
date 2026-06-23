@@ -13,6 +13,8 @@ import {
   type GenreRef,
   type RecommendationRow,
 } from "./recommendations.dto.js";
+import { replenishRecommendations } from "./replenish.js";
+import type { Bucket } from "./scoring.js";
 
 type RecoBucket = (typeof RECO_BUCKETS)[number];
 
@@ -101,6 +103,7 @@ export async function listRecommendations(params: {
 }
 
 // Retourne les recos groupees par bucket (3 calls a listRecommendations, une par bucket).
+// Si un bucket est vide (0 recos sans feedback), appelle replenish pour l'approvisionner.
 export async function getGroupedRecommendations(
   userId: string,
   limit: number,
@@ -129,6 +132,46 @@ export async function getGroupedRecommendations(
       offset: 0,
     }),
   ]);
+
+  // Appliquer le replenish si un bucket est vide (refresh-when-dry)
+  const bucketResults = [
+    { bucket: "library_unplayed" as const, result: libraryUnplayed },
+    { bucket: "discovery" as const, result: discovery },
+    { bucket: "upcoming" as const, result: upcoming },
+  ];
+  const emptyBuckets = bucketResults.filter(({ result }) => result.total === 0);
+
+  // Replenish les buckets vides en parallèle
+  if (emptyBuckets.length > 0) {
+    await Promise.all(
+      emptyBuckets.map(({ bucket }) => replenishRecommendations(userId, bucket)),
+    );
+
+    // Re-query les buckets qui ont été replenish
+    const refetched = await Promise.all(
+      emptyBuckets.map(({ bucket }) =>
+        listRecommendations({
+          userId,
+          bucket,
+          limit,
+          offset: 0,
+        }),
+      ),
+    );
+
+    // Mettre à jour les résultats avec les données refetch
+    for (let i = 0; i < emptyBuckets.length; i++) {
+      const { bucket } = emptyBuckets[i];
+      const refetchedData = refetched[i];
+      if (bucket === "library_unplayed") {
+        Object.assign(libraryUnplayed, refetchedData);
+      } else if (bucket === "discovery") {
+        Object.assign(discovery, refetchedData);
+      } else if (bucket === "upcoming") {
+        Object.assign(upcoming, refetchedData);
+      }
+    }
+  }
 
   return {
     libraryUnplayed: libraryUnplayed.items,

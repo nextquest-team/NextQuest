@@ -1,6 +1,7 @@
 // @vitest-environment nuxt
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import RecoCard from '~/components/next-quest/RecoCard.vue'
 import type { RecommendationDTO } from '~/types/recommendations'
@@ -9,8 +10,7 @@ mockNuxtImport('useI18n', () => () => ({
   t: (key: string) => key.split('.').pop() ?? key,
 }))
 
-mockNuxtImport('useState', () => (key: string, init?: () => unknown) => {
-  const { ref } = require('vue')
+mockNuxtImport('useState', () => (_key: string, init?: () => unknown) => {
   return ref(init?.() ?? null)
 })
 

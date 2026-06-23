@@ -17,6 +17,7 @@ import {
   type UpcomingGameDTO,
   type GameDetailDTO,
 } from "./igdb.dto.js";
+import { sharesGenreOrTheme, type GameForSimilarity } from "../../recommendations/similarity.js";
 
 // TTL : la liste "a venir" bouge peu (1h) ; le detail d'un jeu encore moins (24h).
 const UPCOMING_TTL = 3600;
@@ -102,6 +103,8 @@ export async function getGameDetail(
   );
 
   // Enrichir avec les jeux du meme developpeur (surfacer des pepites que IGDB ne liste pas).
+  // Appliquer un plancher genre/theme : ne retenir un candidat meme-studio que s'il partage
+  // au moins 1 genre OU 1 theme avec le jeu courant, pour exclure les cas "meme studio mais genre totalement different".
   // Fallback robuste : si l'appel échoue, garder la liste IGDB re-classée.
   if (game.developer) {
     try {
@@ -110,10 +113,29 @@ export async function getGameDetail(
         token,
         clientId,
       );
+      const targetForFiltering: GameForSimilarity = {
+        gameId: String(game.igdbId),
+        genreIds: game.genres.map((g) => String(g.igdbId)),
+        themeIds: game.themes.map((t) => String(t.igdbId)),
+        developer: game.developer,
+        publisher: game.publisher,
+        igdbRating: game.rating,
+      };
       for (const sameDevGame of sameDeveloperGames) {
         // Exclure le jeu courant lui-même et eviter les doublons.
         if (sameDevGame.igdbId !== game.igdbId && !similarGameDetails.has(sameDevGame.igdbId)) {
-          similarGameDetails.set(sameDevGame.igdbId, sameDevGame);
+          // Appliquer le plancher genre/theme
+          const candidateForFiltering: GameForSimilarity = {
+            gameId: String(sameDevGame.igdbId),
+            genreIds: sameDevGame.genres.map((g) => String(g.igdbId)),
+            themeIds: sameDevGame.themes.map((t) => String(t.igdbId)),
+            developer: sameDevGame.developer,
+            publisher: sameDevGame.publisher,
+            igdbRating: sameDevGame.rating,
+          };
+          if (sharesGenreOrTheme(targetForFiltering, candidateForFiltering)) {
+            similarGameDetails.set(sameDevGame.igdbId, sameDevGame);
+          }
         }
       }
     } catch {

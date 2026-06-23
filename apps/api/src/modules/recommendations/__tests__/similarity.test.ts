@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { contentSimilarity, rankBySimilarity, type GameForSimilarity } from "../similarity.js";
+import { contentSimilarity, rankBySimilarity, sharesGenreOrTheme, type GameForSimilarity } from "../similarity.js";
 
 const bg3: GameForSimilarity = { gameId: "bg3", genreIds: ["rpg","turn"], themeIds: ["fantasy"], developer: "Larian Studios", publisher: "Larian Studios", igdbRating: 96 };
 const divinity: GameForSimilarity = { gameId: "dos2", genreIds: ["rpg","turn"], themeIds: ["fantasy"], developer: "Larian Studios", publisher: "Larian Studios", igdbRating: 94 };
@@ -22,5 +22,37 @@ describe("rankBySimilarity", () => {
   it("classe Divinity avant Pillars avant Doom pour BG3", () => {
     const ranked = rankBySimilarity(bg3, [doom, pillars, divinity]).map((g) => g.gameId);
     expect(ranked).toEqual(["dos2", "poe", "doom"]);
+  });
+});
+
+describe("sharesGenreOrTheme", () => {
+  it("retourne true si les deux jeux partagent un genre", () => {
+    expect(sharesGenreOrTheme(bg3, divinity)).toBe(true);
+    expect(sharesGenreOrTheme(bg3, pillars)).toBe(true);
+  });
+  it("retourne true si les deux jeux partagent un theme", () => {
+    expect(sharesGenreOrTheme(bg3, pillars)).toBe(true);
+  });
+  it("retourne false si aucun genre ni theme commun", () => {
+    const racingGame: GameForSimilarity = {
+      gameId: "racing",
+      genreIds: ["racing"],
+      themeIds: [],
+      developer: null,
+      publisher: null,
+      igdbRating: null,
+    };
+    expect(sharesGenreOrTheme(bg3, racingGame)).toBe(false);
+  });
+  it("retourne false si l'un des deux a des genres/themes vides", () => {
+    const noGenres: GameForSimilarity = {
+      gameId: "empty",
+      genreIds: [],
+      themeIds: [],
+      developer: null,
+      publisher: null,
+      igdbRating: null,
+    };
+    expect(sharesGenreOrTheme(bg3, noGenres)).toBe(false);
   });
 });

@@ -73,6 +73,27 @@ const divinity: IgdbGame = {
   hypes: 50,
 };
 
+// Baldur's Fate (Larian Studios, mais jeu de course, pas de genre/theme commun avec BG3)
+// Ce jeu NE DOIT PAS apparaître dans les similarGames (filtre plancher genre/theme)
+const baldursFate: IgdbGame = {
+  igdbId: 2004,
+  name: "Baldur's Fate",
+  summary: "Racing game",
+  releaseDate: "2020-05-15",
+  rating: 70,
+  ratingCount: 500,
+  coverImageId: "bf-cover",
+  artworkImageId: null,
+  developer: "Larian Studios",
+  publisher: "Larian Studios",
+  genres: [
+    { igdbId: 9, name: "Racing", slug: "racing" },
+  ],
+  themes: [],
+  similarIgdbIds: [],
+  hypes: 10,
+};
+
 // Détails des jeux de similarGames IGDB pour enrichissement
 const baldursGateClassic: IgdbGame = {
   igdbId: 2002,
@@ -193,5 +214,54 @@ describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
     expect(detail.similarGames[0]?.title).toBe("Divinity: Original Sin 2");
     expect(detail.similarGames[1]?.title).toBe("Planescape: Torment");
     expect(detail.similarGames[2]?.title).toBe("Baldur's Gate");
+  });
+
+  it("filtre les jeux du meme studio sans genre/theme commun avec le jeu courant", async () => {
+    const cache = fakeCache();
+
+    const fetchGameDetail = vi.fn(async (igdbId: number) => {
+      if (igdbId === baldursGate3.igdbId) {
+        return baldursGate3;
+      }
+      return null;
+    });
+
+    const fetchGamesByIds = vi.fn(async (ids: number[]) => {
+      const games: Record<number, IgdbGame> = {
+        2002: baldursGateClassic,
+        2003: planescarpeOne,
+      };
+      return ids.map((id) => games[id]).filter((g) => g);
+    });
+
+    // Mock fetchGamesByDeveloper pour retourner Divinity (genre commun) ET Baldur's Fate (sans genre commun)
+    const fetchGamesByDeveloper = vi.fn(async (developerName: string) => {
+      if (developerName === "Larian Studios") {
+        return [divinity, baldursFate];
+      }
+      return [];
+    });
+
+    const deps = {
+      getToken: vi.fn(async () => "TOKEN"),
+      fetchGameDetail,
+      fetchGamesByIds,
+      fetchGamesByDeveloper,
+      cache,
+      now: () => FIXED_NOW,
+    } as unknown as DiscoveryDeps;
+
+    const detail = await getGameDetail(baldursGate3.igdbId, "CID", deps);
+
+    expect(detail).not.toBeNull();
+    if (!detail) return;
+
+    const similarGameIds = detail.similarGames.map((g) => g.igdbId);
+
+    // Divinity DOIT être présent (même studio + genre RPG commun)
+    expect(similarGameIds).toContain(2001);
+
+    // Baldur's Fate NE DOIT PAS être présent (même studio mais ZÉRO genre/theme commun)
+    expect(similarGameIds).not.toContain(2004);
   });
 });

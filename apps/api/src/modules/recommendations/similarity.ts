@@ -18,6 +18,12 @@ function jaccard(a: string[], b: string[]): number {
   return union > 0 ? inter / union : 0;
 }
 
+// Verifie si deux jeux partagent au moins un genre OU un theme.
+// Utilise Jaccard : une intersection non-vide => retourne true.
+export function sharesGenreOrTheme(a: GameForSimilarity, b: GameForSimilarity): boolean {
+  return jaccard(a.genreIds, b.genreIds) > 0 || jaccard(a.themeIds, b.themeIds) > 0;
+}
+
 const W_GENRE = 0.45;
 const W_THEME = 0.30;
 const W_SAME_DEV = 0.20;

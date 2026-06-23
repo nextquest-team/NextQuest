@@ -14,7 +14,7 @@ import type { Candidate } from "./scoring.js";
 import { fetchUpcomingByGenres, fetchAcclaimedByGenres, fetchGamesByDeveloper } from "../games/igdb/igdb.client.js";
 import { defaultDeps } from "../games/igdb/igdb.service.js";
 import { hydrateMissingGames } from "./hydrate.js";
-import { contentSimilarity, type GameForSimilarity } from "./similarity.js";
+import { contentSimilarity, sharesGenreOrTheme, type GameForSimilarity } from "./similarity.js";
 
 // Genres/tags groupes par gameId (1 requete IN), pour eviter le N+1.
 async function genreTagIdsByGame(gameIds: string[]) {
@@ -308,13 +308,42 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
 
   // Filtrer les candidats du graphe similaire par similarite de contenu.
   // Si peu d'info (genres manquants sur le jeu ou l'user), passer le seuil.
+  // Pour les candidats meme-studio, appliquer un plancher genre/theme.
   const filtered = resolved.filter((r) => {
     const isFromSimilarGraph = similarVotesByIgdb.has(r.igdbId!);
     const isFromAcclaimed = acclaimedByIgdb.includes(r.igdbId!);
     const isFromSameDev = sameDevByIgdb.includes(r.igdbId!);
 
-    // Les acclaimed et samedev passent toujours ; les similaires sont filtres
-    if (isFromAcclaimed || isFromSameDev) return true;
+    // Les acclaimed passent toujours
+    if (isFromAcclaimed) return true;
+
+    // Pour les meme-studio, appliquer un plancher genre/theme
+    if (isFromSameDev) {
+      const candidateContent: GameForSimilarity = {
+        gameId: r.gameId,
+        genreIds: candidateGenres.get(r.gameId) ?? [],
+        themeIds: candidateTags.get(r.gameId) ?? [],
+        developer: r.developer,
+        publisher: r.publisher,
+        igdbRating: r.igdbRating,
+      };
+      // Verifier que le candidat partage au moins 1 genre OU 1 theme avec un jeu possede
+      for (const ownedGame of ownedWithContent) {
+        const ownedContent: GameForSimilarity = {
+          gameId: ownedGame.gameId,
+          genreIds: ownedGame.genreIds,
+          themeIds: ownedGame.tagIds,
+          developer: ownedGame.developer,
+          publisher: ownedGame.publisher,
+          igdbRating: ownedGame.igdbRating,
+        };
+        if (sharesGenreOrTheme(ownedContent, candidateContent)) {
+          return true;
+        }
+      }
+      // Aucun jeu possede n'a un genre/theme commun : exclure ce candidat meme-studio
+      return false;
+    }
 
     if (!isFromSimilarGraph) return false; // Ne devrait pas arriver ici
 

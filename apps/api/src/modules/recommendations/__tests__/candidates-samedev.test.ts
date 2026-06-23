@@ -171,6 +171,149 @@ describe("getDiscoveryCandidates - source 3: mêmes studios", () => {
     expect(candidates.every((c) => c.gameId !== gameA.id)).toBe(true);
   });
 
+  it("filtre les jeux du même studio sans genre/theme commun avec le jeu possédé", async () => {
+    // Seed : user + Baldur's Gate 3 (Larian, RPG) possédé
+    // + Divinity (Larian, RPG) => doit être inclus (genre commun)
+    // + Baldur's Fate (Larian, Racing, pas de genre commun) => doit être exclu (pas de genre/theme commun)
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "samedev-filter@example.com",
+        username: "samedevfilteruser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [rpgGenre] = await db
+      .insert(genres)
+      .values({
+        name: "RPG",
+        slug: "rpg",
+        igdbId: 12,
+      })
+      .returning({ id: genres.id });
+
+    const [racingGenre] = await db
+      .insert(genres)
+      .values({
+        name: "Racing",
+        slug: "racing",
+        igdbId: 9,
+      })
+      .returning({ id: genres.id });
+
+    // Jeu A : Baldur's Gate 3 (Larian Studios, RPG, igdbId 1000)
+    const [gameA] = await db
+      .insert(games)
+      .values({
+        title: "Baldur's Gate 3",
+        slug: "baldurs-gate-3",
+        igdbId: 1000,
+        developer: "Larian Studios",
+        publisher: "Larian Studios",
+        igdbRating: 92,
+        igdbRatingCount: 5000,
+        igdbHypes: 1000,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db.insert(gameGenres).values({
+      gameId: gameA.id,
+      genreId: rpgGenre.id,
+    });
+
+    await db.insert(userGames).values({
+      userId: user.id,
+      gameId: gameA.id,
+      status: "completed",
+    });
+
+    // Jeu B : Divinity (Larian, RPG, igdbId 2000) => genre commun avec A => inclus
+    const [gameB] = await db
+      .insert(games)
+      .values({
+        title: "Divinity: Original Sin 2",
+        slug: "divinity-original-sin-2",
+        igdbId: 2000,
+        developer: "Larian Studios",
+        publisher: "Larian Studios",
+        igdbRating: 88,
+        igdbRatingCount: 4000,
+        igdbHypes: 800,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db.insert(gameGenres).values({
+      gameId: gameB.id,
+      genreId: rpgGenre.id,
+    });
+
+    // Jeu C : Baldur's Fate (Larian, Racing, igdbId 3000) => AUCUN genre commun => exclu
+    const [gameC] = await db
+      .insert(games)
+      .values({
+        title: "Baldur's Fate",
+        slug: "baldurs-fate",
+        igdbId: 3000,
+        developer: "Larian Studios",
+        publisher: "Larian Studios",
+        igdbRating: 70,
+        igdbRatingCount: 2000,
+        igdbHypes: 300,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db.insert(gameGenres).values({
+      gameId: gameC.id,
+      genreId: racingGenre.id,
+    });
+
+    const { fetchGamesByDeveloper, fetchAcclaimedByGenres } = await import(
+      "../../games/igdb/igdb.client.js"
+    );
+    vi.mocked(fetchGamesByDeveloper).mockImplementation(async (devName) => {
+      if (devName === "Larian Studios") {
+        return [
+          {
+            igdbId: 2000,
+            name: "Divinity: Original Sin 2",
+            rating: 88,
+            ratingCount: 4000,
+            hypes: 800,
+            genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
+            themes: [],
+            developer: "Larian Studios",
+            publisher: "Larian Studios",
+          } as IgdbGame,
+          {
+            igdbId: 3000,
+            name: "Baldur's Fate",
+            rating: 70,
+            ratingCount: 2000,
+            hypes: 300,
+            genres: [{ igdbId: 9, name: "Racing", slug: "racing" }],
+            themes: [],
+            developer: "Larian Studios",
+            publisher: "Larian Studios",
+          } as IgdbGame,
+        ];
+      }
+      return [];
+    });
+
+    vi.mocked(fetchAcclaimedByGenres).mockResolvedValue([]);
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    // Divinity DOIT être inclus (même studio + genre RPG commun avec BG3)
+    expect(candidates.some((c) => c.gameId === gameB.id)).toBe(true);
+    // Baldur's Fate NE DOIT PAS être inclus (même studio mais ZÉRO genre/theme commun)
+    expect(candidates.every((c) => c.gameId !== gameC.id)).toBe(true);
+  });
+
   it("exclut les jeux du même studio qui ont déjà été swipés", async () => {
     // Seed : user + Baldur's Gate 3 (Larian) possédé
     // + Divinity (Larian) swipé dismissed

@@ -13,6 +13,7 @@ export interface SteamOwnedGame {
   appid: number;
   name: string;
   playtimeMinutes: number;
+  playtimeRecentMinutes: number;
 }
 
 export interface SteamPlayerSummary {
@@ -41,7 +42,7 @@ export async function getOwnedGames(
   }
   const data = (await res.json()) as {
     response?: {
-      games?: Array<{ appid: number; name: string; playtime_forever: number }>;
+      games?: Array<{ appid: number; name: string; playtime_forever: number; playtime_2weeks?: number }>;
     };
   };
 
@@ -49,6 +50,7 @@ export async function getOwnedGames(
     appid: g.appid,
     name: g.name,
     playtimeMinutes: g.playtime_forever ?? 0,
+    playtimeRecentMinutes: g.playtime_2weeks ?? 0,
   }));
 }
 

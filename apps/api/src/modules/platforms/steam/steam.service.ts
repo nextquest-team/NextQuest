@@ -9,6 +9,14 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import type { SteamOwnedGame } from "./steam.client.js";
 
+// Statut initial à l'import : joué dans les 2 dernières semaines => en cours, sinon à faire.
+// On ne se base PAS sur le temps total (un jeu avec 200h l'an dernier n'est pas "en cours").
+export function mapSteamStatus(
+  playtimeRecentMinutes: number,
+): "playing" | "backlog" {
+  return playtimeRecentMinutes > 0 ? "playing" : "backlog";
+}
+
 export interface SteamConnection {
   steamId: string;
   personaName: string | null;
@@ -183,9 +191,7 @@ export async function importSteamLibrary(
           // "en cours", un jeu jamais lance reste "a faire". L'user n'ajuste que
           // les exceptions (termines / abandonnes). Steam n'expose pas de date
           // de premiere partie, donc pas de started_at ici.
-          status: (g.playtimeMinutes > 0 ? "playing" : "backlog") as
-            | "playing"
-            | "backlog",
+          status: mapSteamStatus(g.playtimeRecentMinutes),
         })),
       )
       .onConflictDoUpdate({

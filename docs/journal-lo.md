@@ -1,5 +1,45 @@
 # Journal de bord — Lorelei
 
+## 2026-06-23 — Session 3 : Dashboard desktop — données réelles
+
+### Résumé exécutif
+
+Remplacement de toutes les données mock du dashboard desktop par des appels API réels. La zone sac à dos affiche une grille 3×3 des 9 derniers jeux ajoutés à la collection (avec miniatures cliquables). La zone game cards affiche le feed "jeux à venir" trié par hype depuis IGDB.
+
+### Ce qui a été fait
+
+#### `DashboardDesktop.vue`
+- Suppression de l'array mock `games`
+- Ajout de `fetchBagGames()` : appel `GET /api/collection?limit=9&offset=0` au montage — l'API trie déjà par `createdAt DESC`, les 9 premiers = les 9 derniers ajoutés
+- Grille 3×3 de miniatures carrées dans la div sac (`dd__bag-grid`) : chaque vignette affiche `coverUrl` ou une icône fallback, et link vers `/games/{userGameId}` (fiche de la collection)
+- `v-for` du parchemin migré sur `bagGames` (suppression de la référence à l'ancien mock)
+
+#### `DbGameCards.vue`
+- Suppression du mock
+- Ajout de `fetchUpcoming()` : appel `GET /api/games/upcoming?limit=20&sort=hype` au montage (endpoint PR #83, cache Redis 1h)
+- Chaque carte affiche `coverUrl` IGDB (`t_cover_big`) + link vers `/games/catalog/{igdbId}`
+- Fallback icône manette si `coverUrl` null
+- `position: relative + overflow: hidden` ajouté à `.game-card` pour que la cover remplisse la carte
+
+#### `types/game.ts`
+- Ajout de `UpcomingGameDTO` (`igdbId`, `title`, `coverUrl`) — interface extraite du composant vers le fichier de types (correction de convention)
+
+### Décisions techniques
+
+**Pas de composable dédié pour ces deux fetches.** Les appels sont simples (un seul endpoint, pas de pagination, pas de filtres) — un composable aurait été une abstraction prématurée. Si le dashboard devient plus complexe (refresh, filtres, état partagé), on extrait à ce moment-là.
+
+**`bagGames` réutilisé pour le parchemin.** Le parchemin listait aussi les jeux via l'ancien mock `games`. Plutôt que de dupliquer un fetch, il consomme `bagGames` en attendant sa propre logique métier (actualités/recos).
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/dashboard/DashboardDesktop.vue` | Fetch réel collection, grille sac 3×3 |
+| `apps/web/components/dashboard/DbGameCards.vue` | Fetch réel upcoming IGDB, covers + liens |
+| `apps/web/types/game.ts` | Ajout `UpcomingGameDTO` |
+
+---
+
 ## 2026-04-29 — Session 1 : Setup frontend auth
 
 ### Ce qui a été fait

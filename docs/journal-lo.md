@@ -973,3 +973,72 @@ Affinage UI sur `feat/front-reco`. Les trois cards de recommandation Next Quest 
 
 - Effet verre dépoli sur les cards : exploré mais non retenu. `border-image: fill` peint le centre de façon opaque et bloque tout `backdrop-filter`. Nécessite une refonte de l'approche border (SVG clip, abandon du fill) — à reprendre si besoin.
 
+---
+
+## 2026-06-23 — Tests unitaires PR feat/front-reco
+
+### Résumé exécutif
+
+Écriture de la couverture de tests unitaires complète pour tous les composants et composables introduits dans la PR `feat/front-reco`. 14 fichiers de tests créés, 203 tests passants, 0 régression. La CI passe.
+
+### Ce qui a été fait
+
+**Composables** (`tests/composables/`)
+- `useGameDetail.test.ts` — 17 tests : `formatPlaytime` (null, 0, 90 min, 150 min), `formatReleaseDate`, `GAME_STATUSES` (4 entrées, ordre, icônes mdi), `onStatusChange` (optimiste + revert sur erreur, no-op si game=null)
+- `useGameList.test.ts` — 18 tests : `STATUS_OPTIONS` (4 options), `toggleStatus` (ajout/suppression), `activeFilterCount`, `resetFilters` (vide statuts + remet page à 1), `goToPage`, `onDeleteGame` (suppression optimiste, décrement total), `totalPages` (calcul ceil)
+
+**Composants profil** (`tests/components/profil/`)
+- `ProfilMobile.test.ts` — 11 tests : montage (`fetchProfile`), affichage nom/displayName/@username, avatar DiceBear vs custom, édition bio (ouverture textarea, annuler, compteur 500, PATCH succès, PATCH erreur, désactivation > 500 chars), visibilité (3 options, PATCH private), logout
+
+**Composants actualités** (`tests/components/actualites/`)
+- `ActualitesMobile.test.ts` + `ActualitesDesktop.test.ts` — placeholder title + zone placeholder
+
+**Composants game-list** (`tests/components/game-list/`)
+- `GameListMobile.test.ts` / `GameListDesktop.test.ts` — 10–11 tests chacun : `init()` au montage, bouton Steam Lier / steam-row quand connecté, loader, état vide, grille avec GameListCard, champ recherche, badge filtre, pagination conditionnelle, clic Steam
+
+**Composants game-detail** (`tests/components/games/`)
+- `GameDetailMobile.test.ts` / `GameDetailDesktop.test.ts` — 9 tests chacun : `load()` au montage, loader, not-found, titre, 4 boutons de statut, statut actif (.--active), `onStatusChange` au clic, modale de confirmation (ouverture + `confirmRemove`)
+
+**Composants catalog** (`tests/components/games/catalog/`)
+- `GameCatalogDetailMobile.test.ts` / `GameCatalogDetailDesktop.test.ts` — 5–6 tests chacun : not-found si state null, titre, cover, note IGDB, genres (chips)
+
+**Composants next-quest** (`tests/components/next-quest/`)
+- `MobileStage.test.ts` — 4 tests : 3 zones rendues (nq-slot-empty), structure nq-cards, émission `generate`, bouton disabled si generating
+- `RecoCard.test.ts` — 13 tests : slot vide (reco=null), layout compact (library, upcoming, discovery+compact), layout héro (discovery sans compact), titre, badges (discovery/library/upcoming), feedback CTA (added/liked), dismiss, disabled si feedbackPending
+
+**Composant UI** (`tests/components/ui/`)
+- `PageHeader.test.ts` — 4 tests : montage, rendu slot, prop `to` transmise à UiBackButton, wrapper content
+
+### Décisions techniques
+
+**`global.stubs` ne fonctionne pas pour les composants auto-importés par Nuxt.** Dans l'environnement `@vitest-environment nuxt`, Nuxt injecte les composants comme des imports statiques au moment de la compilation Vite. `global.stubs` n'intercepte que les composants résolus via le registre global Vue, pas les imports statiques. Solution adoptée : tester le comportement réel plutôt que de mocker les enfants. Ex : MobileStage testé avec `reco: null` → 3 `.nq-slot-empty` rendus.
+
+**`shallowMount` pour PageHeader.** Le composant `UiBackButton` utilise Vuetify en interne ; sans plugin Vuetify dans l'environnement de test, le montage profond échoue. `shallowMount` stub automatiquement tous les enfants et permet d'inspecter les props transmises.
+
+**Stub avec `name` = conflit.** Ajouter `name: 'NextQuestRecoCard'` à un stub provoque un conflit avec le composant déjà enregistré globalement par Nuxt — le composant réel reprend la priorité. Il faut soit laisser le stub sans `name`, soit tester le comportement réel.
+
+### Fichiers créés
+
+| Fichier | Tests |
+|---|---|
+| `tests/composables/useGameDetail.test.ts` | 17 |
+| `tests/composables/useGameList.test.ts` | 18 |
+| `tests/components/profil/ProfilMobile.test.ts` | 11 |
+| `tests/components/actualites/ActualitesMobile.test.ts` | 3 |
+| `tests/components/actualites/ActualitesDesktop.test.ts` | 3 |
+| `tests/components/game-list/GameListMobile.test.ts` | 11 |
+| `tests/components/game-list/GameListDesktop.test.ts` | 10 |
+| `tests/components/games/GameDetailMobile.test.ts` | 9 |
+| `tests/components/games/GameDetailDesktop.test.ts` | 9 |
+| `tests/components/games/catalog/GameCatalogDetailMobile.test.ts` | 6 |
+| `tests/components/games/catalog/GameCatalogDetailDesktop.test.ts` | 5 |
+| `tests/components/next-quest/MobileStage.test.ts` | 4 |
+| `tests/components/next-quest/RecoCard.test.ts` | 13 |
+| `tests/components/ui/PageHeader.test.ts` | 4 |
+| **Total** | **203** |
+
+### TODOs en attente
+
+- Aucun blocker. La PR est prête pour review.
+
+

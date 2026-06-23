@@ -177,4 +177,82 @@ describe("Similaires de fiche re-classés par similarité de contenu", () => {
     // Top 3 devrait être Doom (hors-genre)
     expect(detail.similarGames[2]?.title).toBe("Doom");
   });
+
+  it("limite les similarGames à 12 après re-ranking", async () => {
+    // Crée une liste de 20 jeux similaires (dépassant le cap de 12).
+    // Vérifie que le détail renvoyé ne contient que les 12 premiers après re-ranking.
+
+    const bg3WithManySimilar: IgdbGameDetail = {
+      ...baldursGate3,
+      similarGames: Array.from({ length: 20 }, (_, i) => ({
+        igdbId: 3000 + i,
+        name: `Similar Game ${i + 1}`,
+        coverImageId: `cover-${i}`,
+      })),
+    };
+
+    // Enrichir avec les détails de tous les 20 jeux pour re-ranking.
+    const enrichedGames: Record<number, IgdbGame> = {};
+    for (let i = 0; i < 20; i++) {
+      enrichedGames[3000 + i] = {
+        igdbId: 3000 + i,
+        name: `Similar Game ${i + 1}`,
+        summary: null,
+        releaseDate: "2020-01-01",
+        rating: 80 - i, // Décroissant pour avoir une variation de score
+        ratingCount: 100,
+        coverImageId: `cover-${i}`,
+        artworkImageId: null,
+        developer: i % 2 === 0 ? "Larian Studios" : "Other Studio", // Quelques avec même studio
+        publisher: "Some Publisher",
+        genres: [
+          { igdbId: 12, name: "RPG", slug: "rpg" }, // Genres partagés avec le jeu cible
+          { igdbId: 5, name: "Adventure", slug: "adventure" },
+        ],
+        themes: [
+          { igdbId: 1, name: "Fantasy", slug: "fantasy" },
+        ],
+        similarIgdbIds: [],
+        hypes: 100 - i,
+      };
+    }
+
+    const cache = fakeCache();
+
+    const fetchGameDetail = vi.fn(async (igdbId: number) => {
+      if (igdbId === bg3WithManySimilar.igdbId) {
+        return bg3WithManySimilar;
+      }
+      return null;
+    });
+
+    const fetchGamesByIds = vi.fn(async (ids: number[]) => {
+      return ids.map((id) => enrichedGames[id]).filter((g) => g);
+    });
+
+    const deps = {
+      getToken: vi.fn(async () => "TOKEN"),
+      fetchGameDetail,
+      fetchGamesByIds,
+      cache,
+      now: () => FIXED_NOW,
+    } as unknown as DiscoveryDeps;
+
+    const detail = await getGameDetail(bg3WithManySimilar.igdbId, "CID", deps);
+
+    expect(detail).not.toBeNull();
+    if (!detail) return;
+
+    // Vérifications du cap à 12 :
+    // - La liste de similarGames doit contenir EXACTEMENT 12 jeux
+    expect(detail.similarGames).toHaveLength(12);
+
+    // - Les 12 jeux retournés doivent être les 12 premiers après re-ranking
+    // (classés par similarité, pas forcément par ordre IGDB d'origine).
+    // On vérifie qu'ils sont dans l'intervalle [3000, 3019] et uniques.
+    const returnedIds = detail.similarGames.map((g) => g.igdbId);
+    expect(returnedIds).toHaveLength(12);
+    expect(new Set(returnedIds).size).toBe(12); // Pas de doublons
+    expect(returnedIds.every((id) => id >= 3000 && id <= 3019)).toBe(true); // Tous dans la plage
+  });
 });

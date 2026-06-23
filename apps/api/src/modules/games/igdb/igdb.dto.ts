@@ -75,13 +75,17 @@ export function toUpcomingGameDTO(g: IgdbUpcomingGame): UpcomingGameDTO {
 // Re-classe les similarGames par similarité de contenu au jeu cible.
 // Si les détails des similarGames sont disponibles, utilise rankBySimilarity.
 // Sinon, garde l'ordre IGDB d'origine en fallback.
+// Limite toujours le résultat à 12 jeux pour maintenir une performance acceptable
+// et une UX sans surcharge d'options.
 function rerankSimilarGames(
   target: IgdbGameDetail,
   similarGames: typeof target.similarGames,
   enrichedDetails: Map<number, IgdbGame>,
 ): typeof target.similarGames {
-  // Si pas de détails enrichis, garder l'ordre IGDB brut.
-  if (enrichedDetails.size === 0) return similarGames;
+  const MAX_SIMILAR_GAMES = 12;
+
+  // Si pas de détails enrichis, garder l'ordre IGDB brut (capé à 12).
+  if (enrichedDetails.size === 0) return similarGames.slice(0, MAX_SIMILAR_GAMES);
 
   // Construire des GameForSimilarity pour le target et les candidats.
   const targetForRanking: GameForSimilarity = {
@@ -112,8 +116,8 @@ function rerankSimilarGames(
     });
   }
 
-  // Pas de candidats avec détails : garder l'ordre brut.
-  if (candidatesWithOriginal.length === 0) return similarGames;
+  // Pas de candidats avec détails : garder l'ordre brut (capé à 12).
+  if (candidatesWithOriginal.length === 0) return similarGames.slice(0, MAX_SIMILAR_GAMES);
 
   // Re-ranger les candidats par similarité.
   const ranked = rankBySimilarity(
@@ -121,7 +125,7 @@ function rerankSimilarGames(
     candidatesWithOriginal.map((c) => c.game),
   );
 
-  // Mapper l'ordre rangé vers les données brutes IGDB.
+  // Mapper l'ordre rangé vers les données brutes IGDB et capper à 12.
   const rankedGameIds = new Set(ranked.map((g) => g.gameId));
   return candidatesWithOriginal
     .filter((c) => rankedGameIds.has(c.game.gameId))
@@ -130,7 +134,8 @@ function rerankSimilarGames(
       const indexB = ranked.findIndex((g) => g.gameId === b.game.gameId);
       return indexA - indexB;
     })
-    .map((c) => c.original);
+    .map((c) => c.original)
+    .slice(0, MAX_SIMILAR_GAMES);
 }
 
 // `today` (YYYY-MM-DD) injecte par l'appelant pour rester deterministe/testable.

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { RecoGame } from '~/types/recommendations'
-
 const { t } = useI18n()
 
-const game = useState<RecoGame | null>('catalog-preview', () => null)
+const { game, loading, load } = useGameCatalogDetail()
+onMounted(load)
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -21,13 +20,17 @@ function ratingStars(rating: number | null): string {
   <div class="cdd">
     <UiPageHeader />
 
-    <div v-if="!game" class="cdd__not-found">
+    <div v-if="loading" class="cdd__not-found">
+      <v-progress-circular indeterminate size="32" color="#5C3317" />
+    </div>
+
+    <div v-else-if="!game" class="cdd__not-found">
       <v-icon size="56" color="#a07850">mdi-help-circle-outline</v-icon>
       <p class="cdd__nf-title">{{ t('gameDetail.notFound') }}</p>
       <p class="cdd__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
     </div>
 
-    <template v-else>
+    <template v-else-if="game">
       <div class="cdd__hero">
         <div class="cdd__cover">
           <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="cdd__cover-img" />

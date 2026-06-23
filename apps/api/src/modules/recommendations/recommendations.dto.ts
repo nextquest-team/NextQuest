@@ -1,15 +1,19 @@
 import type { Bucket, ScoreFactors } from "./scoring.js";
 import type { RECO_BUCKETS } from "./recommendations.schemas.js";
 
-// Explication "pourquoi" rule-based, sans LLM. Texte court a partir des facteurs.
-export function buildReason(bucket: Bucket, f: ScoreFactors): string {
+// Explication "pourquoi" rule-based, sans LLM. Texte court à partir des facteurs.
+// matchedGenres = noms des 1-2 genres réellement matchés dans le profil (fournis par generate.ts).
+export function buildReason(bucket: Bucket, f: ScoreFactors, matchedGenres: string[] = []): string {
   const parts: string[] = [];
-  if (f.matchG > 0.3) parts.push("correspond a tes genres preferes");
-  if (f.quality > 0.7) parts.push("tres bien note");
+  if (f.matchG > 0.3) {
+    const top = matchedGenres.slice(0, 2);
+    parts.push(top.length ? `parce que tu aimes ${top.join(" et ")}` : "correspond à tes genres préférés");
+  }
+  if (f.quality > 0.7) parts.push("très bien noté");
   if (f.sim > 0.3) parts.push("proche de plusieurs de tes jeux");
-  if (bucket === "library_unplayed") parts.push("dans ta biblio, jamais lance");
-  if (bucket === "upcoming") parts.push("sortie a venir tres attendue");
-  return parts.length ? parts.join(", ") : "suggestion basee sur tes gouts";
+  if (bucket === "library_unplayed") parts.push("dans ta biblio, jamais lancé");
+  if (bucket === "upcoming") parts.push("sortie à venir très attendue");
+  return parts.length ? parts.join(", ") : "suggestion basée sur tes goûts";
 }
 
 // --- DTO de lecture des recommandations ---

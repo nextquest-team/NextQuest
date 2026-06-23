@@ -1,4 +1,4 @@
-import { db, recommendations, games, gameSimilar } from "@nextquest/db";
+import { db, recommendations, games, gameSimilar, gameGenres, genres } from "@nextquest/db";
 import { and, eq, isNull, inArray, sql } from "drizzle-orm";
 import {
   getOwnedForProfile,
@@ -100,6 +100,7 @@ export async function generateRecommendations(
     discovery: 0,
     upcoming: 0,
   };
+  const allScoredGameIds: string[] = []; // Pour charger les genres après
 
   for (const { bucket, candidates } of buckets) {
     const maxSim = Math.max(1, ...candidates.map((c) => c.similarVotes));
@@ -117,8 +118,47 @@ export async function generateRecommendations(
         score: s.score.toFixed(3),
         reason: { text: buildReason(bucket, s.factors), factors: s.factors },
       });
+      allScoredGameIds.push(s.c.gameId);
       bucketCounts[bucket]++;
     }
+  }
+
+  // Charger les genres des jeux scorés et construire une map gameId -> genres matchés.
+  // Un genre est "matché" s'il a un poids positif dans le profil normalisé.
+  const matchedGenreNamesByGame = new Map<string, string[]>();
+  if (allScoredGameIds.length > 0) {
+    const gameGenresRows = await db
+      .select({
+        gameId: gameGenres.gameId,
+        genreId: gameGenres.genreId,
+        name: genres.name,
+      })
+      .from(gameGenres)
+      .innerJoin(genres, eq(gameGenres.genreId, genres.id))
+      .where(inArray(gameGenres.gameId, allScoredGameIds));
+
+    // Grouper par gameId et filtrer par poids positif dans le profil.
+    const genresByGame = new Map<string, Array<{ genreId: string; name: string; weight: number }>>();
+    for (const row of gameGenresRows) {
+      const weight = profile.get(`g:${row.genreId}`) ?? 0;
+      if (weight > 0) {
+        if (!genresByGame.has(row.gameId)) genresByGame.set(row.gameId, []);
+        genresByGame.get(row.gameId)!.push({ genreId: row.genreId, name: row.name, weight });
+      }
+    }
+
+    // Trier par poids décroissant et garder les noms.
+    for (const [gameId, genreList] of genresByGame) {
+      const sorted = genreList.sort((a, b) => b.weight - a.weight);
+      matchedGenreNamesByGame.set(gameId, sorted.map((g) => g.name));
+    }
+  }
+
+  // Mettre à jour les raisons avec les genres matchés.
+  for (const row of toInsert) {
+    const matchedNames = matchedGenreNamesByGame.get(row.gameId) ?? [];
+    const reasonObj = row.reason as { text: string; factors: ScoreFactors };
+    reasonObj.text = buildReason(row.bucket as Bucket, reasonObj.factors, matchedNames);
   }
 
   // Recuperer les titres des jeux recommandes pour le logging.

@@ -5,7 +5,7 @@ import {
   genres,
   gameGenres,
 } from "@nextquest/db";
-import { and, eq, isNull, inArray, desc, count } from "drizzle-orm";
+import { and, eq, isNull, inArray, desc, count, sql } from "drizzle-orm";
 import type { RECO_BUCKETS, FeedbackBody } from "./recommendations.schemas.js";
 import {
   toRecommendationDTO,
@@ -77,12 +77,15 @@ export async function listRecommendations(params: {
     .where(where);
   if (total === 0) return { items: [], total: 0 };
 
+  // Tri rotation : jamais-passes d'abord (skipped_at NULL), par score ; puis les
+  // passes du plus ancien au plus recent. Quand tout le pool a ete passe, le plus
+  // anciennement passe revient en tete -- il revient, mais pas tout de suite.
   const rows = await db
     .select(RECO_FIELDS)
     .from(recommendations)
     .innerJoin(games, eq(recommendations.gameId, games.id))
     .where(where)
-    .orderBy(desc(recommendations.score))
+    .orderBy(sql`${recommendations.skippedAt} asc nulls first`, desc(recommendations.score))
     .limit(limit)
     .offset(offset);
 
@@ -147,4 +150,27 @@ export async function recordFeedback(
     .where(and(eq(recommendations.id, recoId), eq(recommendations.userId, userId)))
     .returning({ id: recommendations.id });
   return updated.length > 0;
+}
+
+// Refresh : passe les recos affichees (skip) sans les decider, puis renvoie le set
+// groupe a jour. 1 id = refresh d'une carte, plusieurs = refresh groupe. Ne stampe
+// que les recos du user encore sans feedback (une reco deja decidee n'est pas "passable").
+export async function refreshRecommendations(
+  userId: string,
+  skipIds: string[],
+  limit: number,
+): Promise<Awaited<ReturnType<typeof getGroupedRecommendations>>> {
+  if (skipIds.length > 0) {
+    await db
+      .update(recommendations)
+      .set({ skippedAt: new Date() })
+      .where(
+        and(
+          eq(recommendations.userId, userId),
+          inArray(recommendations.id, skipIds),
+          isNull(recommendations.feedback),
+        ),
+      );
+  }
+  return getGroupedRecommendations(userId, limit);
 }

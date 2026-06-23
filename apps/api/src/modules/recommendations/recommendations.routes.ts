@@ -1,10 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { listRecoQuerySchema, recoParamsSchema, feedbackBodySchema } from "./recommendations.schemas.js";
+import {
+  listRecoQuerySchema,
+  recoParamsSchema,
+  feedbackBodySchema,
+  refreshBodySchema,
+  refreshQuerySchema,
+} from "./recommendations.schemas.js";
 import {
   listRecommendations,
   getGroupedRecommendations,
   recordFeedback,
+  refreshRecommendations,
 } from "./recommendations.service.js";
 import { generateRecommendations } from "./generate.js";
 import { requireAuth, userIdOf } from "../../lib/guards.js";
@@ -56,6 +63,29 @@ export async function recommendationsRoutes(app: FastifyInstance) {
     },
     async (request) => {
       return generateRecommendations(userIdOf(request), request.log);
+    },
+  );
+
+  // Refresh : passe les jeux affiches (1 ou plusieurs) et renvoie les suivants.
+  // Rotation, pas de regeneration : les jeux passes reviendront apres le tour du pool.
+  r.post(
+    "/recommendations/refresh",
+    {
+      onRequest: [requireAuth],
+      schema: {
+        tags: ["Recommendations"],
+        summary: "Passer les jeux affiches et recuperer les suivants (rotation)",
+        security: [{ bearerAuth: [] }],
+        body: refreshBodySchema,
+        querystring: refreshQuerySchema,
+      },
+    },
+    async (request) => {
+      return refreshRecommendations(
+        userIdOf(request),
+        request.body.skip,
+        request.query.limit,
+      );
     },
   );
 

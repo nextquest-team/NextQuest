@@ -658,3 +658,270 @@ describe("POST /api/recommendations/generate", () => {
     expect(preserved?.feedback).toBe("liked");
   });
 });
+
+describe("ordre de rotation (skipped_at)", () => {
+  it("place les jeux jamais passes (skipped_at NULL) avant les passes", async () => {
+    const app = await buildApp();
+    const [user] = await db
+      .insert(users)
+      .values({ email: "rot1@test.com", username: "rot1", passwordHash: "x" })
+      .returning({ id: users.id });
+    const [gA] = await db.insert(games).values({ title: "A", slug: "a" }).returning({ id: games.id });
+    const [gB] = await db.insert(games).values({ title: "B", slug: "b" }).returning({ id: games.id });
+
+    // gA a un meilleur score mais a deja ete passe ; gB n'a jamais ete passe.
+    await db.insert(recommendations).values([
+      {
+        userId: user.id,
+        gameId: gA.id,
+        bucket: "discovery",
+        score: "0.90",
+        reason: { text: "A", factors: {} },
+        skippedAt: new Date(),
+      },
+      {
+        userId: user.id,
+        gameId: gB.id,
+        bucket: "discovery",
+        score: "0.50",
+        reason: { text: "B", factors: {} },
+        skippedAt: null,
+      },
+    ]);
+
+    const token = app.jwt.sign({ sub: user.id });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/recommendations?bucket=discovery",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const items = res.json().items;
+    // gB (jamais passe, score plus bas) doit passer devant gA (passe, score plus haut).
+    expect(items[0].game.id).toBe(gB.id);
+    expect(items[1].game.id).toBe(gA.id);
+  });
+
+  it("parmi les jeux passes, ressort le plus ancien d'abord (meme si score plus bas)", async () => {
+    const app = await buildApp();
+    const [user] = await db
+      .insert(users)
+      .values({ email: "rot2@test.com", username: "rot2", passwordHash: "x" })
+      .returning({ id: users.id });
+    const [gOld] = await db.insert(games).values({ title: "Old", slug: "old" }).returning({ id: games.id });
+    const [gNew] = await db.insert(games).values({ title: "New", slug: "new" }).returning({ id: games.id });
+
+    const older = new Date(Date.now() - 60_000);
+    const newer = new Date();
+    // gOld : score plus bas mais passe il y a plus longtemps -> doit revenir en premier.
+    await db.insert(recommendations).values([
+      {
+        userId: user.id,
+        gameId: gOld.id,
+        bucket: "discovery",
+        score: "0.40",
+        reason: { text: "Old", factors: {} },
+        skippedAt: older,
+      },
+      {
+        userId: user.id,
+        gameId: gNew.id,
+        bucket: "discovery",
+        score: "0.95",
+        reason: { text: "New", factors: {} },
+        skippedAt: newer,
+      },
+    ]);
+
+    const token = app.jwt.sign({ sub: user.id });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/recommendations?bucket=discovery",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const items = res.json().items;
+    expect(items[0].game.id).toBe(gOld.id);
+    expect(items[1].game.id).toBe(gNew.id);
+  });
+});
+
+describe("POST /api/recommendations/refresh", () => {
+  // Deux recos discovery sans feedback : g1 (meilleur score) puis g2.
+  async function seedTwoDiscovery() {
+    const [user] = await db
+      .insert(users)
+      .values({ email: "refresh@test.com", username: "refreshu", passwordHash: "x" })
+      .returning({ id: users.id });
+    const [g1] = await db.insert(games).values({ title: "R1", slug: "r1" }).returning({ id: games.id });
+    const [g2] = await db.insert(games).values({ title: "R2", slug: "r2" }).returning({ id: games.id });
+    const [r1] = await db
+      .insert(recommendations)
+      .values({
+        userId: user.id,
+        gameId: g1.id,
+        bucket: "discovery",
+        score: "0.90",
+        reason: { text: "R1", factors: {} },
+      })
+      .returning({ id: recommendations.id });
+    const [r2] = await db
+      .insert(recommendations)
+      .values({
+        userId: user.id,
+        gameId: g2.id,
+        bucket: "discovery",
+        score: "0.80",
+        reason: { text: "R2", factors: {} },
+      })
+      .returning({ id: recommendations.id });
+    return { userId: user.id, r1: r1.id, r2: r2.id, g1: g1.id, g2: g2.id };
+  }
+
+  it("renvoie 401 sans JWT", async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/recommendations/refresh",
+      payload: { skip: [] },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("renvoie 400 si skip contient un id non-uuid", async () => {
+    const app = await buildApp();
+    const { userId } = await seedTwoDiscovery();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/recommendations/refresh",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { skip: ["pas-un-uuid"] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("passe la carte affichee et fait remonter la suivante", async () => {
+    const app = await buildApp();
+    const { userId, r1, g1, g2 } = await seedTwoDiscovery();
+    const token = app.jwt.sign({ sub: userId });
+
+    // Avant : g1 (meilleur score) est en tete.
+    const before = await app.inject({
+      method: "GET",
+      url: "/api/recommendations",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(before.json().discovery[0].game.id).toBe(g1);
+
+    // On passe g1 (sa reco r1).
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/recommendations/refresh",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { skip: [r1] },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    // La reponse groupee remet g2 en tete (g1 passe en dernier).
+    expect(body.discovery[0].game.id).toBe(g2);
+
+    // skipped_at est bien pose sur r1, feedback intact.
+    const updated = await db.query.recommendations.findFirst({
+      where: (t) => eq(t.id, r1),
+    });
+    expect(updated?.skippedAt).not.toBeNull();
+    expect(updated?.feedback).toBeNull();
+  });
+
+  it("accepte un skip vide et renvoie le set groupe courant", async () => {
+    const app = await buildApp();
+    const { userId, g1 } = await seedTwoDiscovery();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/recommendations/refresh",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { skip: [] },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toHaveProperty("discovery");
+    expect(body.discovery[0].game.id).toBe(g1);
+  });
+
+  it("ne passe pas une reco d'un autre user", async () => {
+    const app = await buildApp();
+    const { userId } = await seedTwoDiscovery();
+    const token = app.jwt.sign({ sub: userId });
+
+    // Reco appartenant a un autre user.
+    const [other] = await db
+      .insert(users)
+      .values({ email: "other-refresh@test.com", username: "otherrefresh", passwordHash: "x" })
+      .returning({ id: users.id });
+    const [og] = await db.insert(games).values({ title: "OG", slug: "og" }).returning({ id: games.id });
+    const [oReco] = await db
+      .insert(recommendations)
+      .values({
+        userId: other.id,
+        gameId: og.id,
+        bucket: "discovery",
+        score: "0.70",
+        reason: { text: "OG", factors: {} },
+      })
+      .returning({ id: recommendations.id });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/recommendations/refresh",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { skip: [oReco.id] },
+    });
+    expect(res.statusCode).toBe(200);
+
+    // La reco de l'autre user n'a pas ete touchee.
+    const untouched = await db.query.recommendations.findFirst({
+      where: (t) => eq(t.id, oReco.id),
+    });
+    expect(untouched?.skippedAt).toBeNull();
+  });
+
+  it("refresh groupe : passe une carte dans chaque bucket", async () => {
+    const app = await buildApp();
+    const [user] = await db
+      .insert(users)
+      .values({ email: "refresh-grp@test.com", username: "refreshgrp", passwordHash: "x" })
+      .returning({ id: users.id });
+
+    // 2 recos par bucket (top + suivant).
+    const buckets = ["library_unplayed", "discovery", "upcoming"] as const;
+    const topIds: Record<string, string> = {};
+    const nextGameIds: Record<string, string> = {};
+    for (const b of buckets) {
+      const [gTop] = await db.insert(games).values({ title: `${b}-top`, slug: `${b}-top` }).returning({ id: games.id });
+      const [gNext] = await db.insert(games).values({ title: `${b}-next`, slug: `${b}-next` }).returning({ id: games.id });
+      const [rTop] = await db
+        .insert(recommendations)
+        .values({ userId: user.id, gameId: gTop.id, bucket: b, score: "0.90", reason: { text: "t", factors: {} } })
+        .returning({ id: recommendations.id });
+      await db
+        .insert(recommendations)
+        .values({ userId: user.id, gameId: gNext.id, bucket: b, score: "0.80", reason: { text: "n", factors: {} } });
+      topIds[b] = rTop.id;
+      nextGameIds[b] = gNext.id;
+    }
+
+    const token = app.jwt.sign({ sub: user.id });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/recommendations/refresh",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { skip: [topIds.library_unplayed, topIds.discovery, topIds.upcoming] },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    // Chaque bucket a avance vers son jeu suivant.
+    expect(body.libraryUnplayed[0].game.id).toBe(nextGameIds.library_unplayed);
+    expect(body.discovery[0].game.id).toBe(nextGameIds.discovery);
+    expect(body.upcoming[0].game.id).toBe(nextGameIds.upcoming);
+  });
+});

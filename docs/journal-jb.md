@@ -195,3 +195,11 @@
 **Tests** -- 79 tests API au vert sur le module (client/dto/service discovery/routes IGDB + DTO collection), unitaires avec deps injectées (pas de réseau). Typecheck + lint OK après le bump de deps.
 
 **Fail-fast quand Postgres est injoignable (#64)** -- Les tests pendaient ~10 min sans message quand le host BDD ne répondait pas (Docker éteint / Tailscale coupé), parce que le client postgres n'avait pas de timeout de connexion. Ajout d'un `connect_timeout` court (3s) sur le client en env de test + un preflight `globalSetup` vitest (`assertDbReachable`) qui fait échouer tout le run en ~3s avec un message clair (`BDD injoignable sur <host> — lance pnpm docker:up`). Bug reproduit avant le fix (host non routable 192.0.2.1 = pend ; port fermé = échec immédiat, non concerné). Suite API au vert (269 tests).
+
+---
+
+## 23 juin 2026
+
+**Refresh des recos (demande de Loreleï)** -- Avant, le seul moyen de changer un jeu proposé était de swiper (feedback) ou de relancer `generate` (déterministe → même top). Frustrant : refresh ne renouvelait que les cartes déjà déclinées. Ajout d'un vrai "passer" distinct du feedback : colonne `skipped_at`, nouvel endpoint `POST /recommendations/refresh { skip: [ids] }` (1 id = une carte, plusieurs = les 3 d'un coup) qui renvoie le set groupé à jour. La liste trie `skipped_at ASC NULLS FIRST, score DESC` : jamais-vus d'abord, puis passés du plus ancien au plus récent → rotation infinie, les jeux reviennent après le tour du pool, jamais tout de suite. Le skip ne pollue pas le profil de goût (seul `feedback` apprend).
+
+**OpenAPI désynchronisé (corrigé au passage)** -- Le script `generate:openapi` n'enregistrait pas `recommendationsRoutes` (oubli) : aucune route reco n'était dans `openapi.json`. Ajouté → les 4 routes recos apparaissent maintenant dans `/docs`. DBML remis à jour (table `recommendations` : `bucket`, `skipped_at`, enum bucket et index manquants).

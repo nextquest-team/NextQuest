@@ -132,6 +132,14 @@ Enum recommendation_feedback_enum {
   added
 }
 
+// Categorie d'une reco : pilote la strategie de selection des candidats et le
+// signal qualite applique au scoring.
+Enum recommendation_bucket_enum {
+  library_unplayed // jeu deja possede, pas encore joue
+  discovery        // jeu sorti, non possede (graphe de similarite)
+  upcoming         // jeu pas encore sorti
+}
+
 // ============================================
 // 1. REFERENTIELS
 // ============================================
@@ -609,12 +617,15 @@ Table recommendations {
   game_id uuid [ref: > games.id, not null]
   reason jsonb
   score decimal(4,3) [note: '0.000-1.000. CHECK (score >= 0 AND score <= 1)']
-  feedback recommendation_feedback_enum
+  feedback recommendation_feedback_enum [note: 'Decision definitive (swipe) : exclut le jeu de la liste et alimente le profil de gout. NULL = pas encore decide.']
+  bucket recommendation_bucket_enum [not null, note: 'Categorie de reco. Pilote la strategie de candidats et le signal qualite.']
   created_at timestamptz [default: `now()`]
   feedback_at timestamptz
+  skipped_at timestamptz [note: 'Refresh : jeu "passe pour l instant" sans decision. La liste trie skipped_at ASC NULLS FIRST puis score DESC -> les jamais-passes d abord, puis les passes du plus ancien au plus recent (rotation : un jeu passe revient apres le tour du pool). Distinct de feedback qui exclut definitivement.']
 
   indexes {
     (user_id, created_at) [note: 'Mes recommandations, triees par date']
+    (user_id, bucket) [note: 'Lecture groupee par bucket (liste + refresh)']
   }
   // Note metier : un meme jeu peut etre recommande plusieurs fois dans le temps
   // (ex: apres mise a jour du profil ou du modele IA). Pas de contrainte unique (user_id, game_id).

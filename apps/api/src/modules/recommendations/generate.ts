@@ -18,6 +18,7 @@ import {
 } from "./scoring.js";
 import { buildReason } from "./recommendations.dto.js";
 import { hydrateMissingGames } from "./hydrate.js";
+import { diversify, type Diversifiable } from "./diversify.js";
 
 const PER_BUCKET = 20; // nb de recos conservees par categorie
 
@@ -93,7 +94,7 @@ export async function generateRecommendations(
     ),
   ]);
 
-  // 3. Score + selection top N par bucket.
+  // 3. Score + selection top N par bucket + diversification.
   const toInsert: (typeof recommendations.$inferInsert)[] = [];
   const bucketCounts: Record<Bucket, number> = {
     library_unplayed: 0,
@@ -110,15 +111,73 @@ export async function generateRecommendations(
       .map((c) => ({ c, ...scoreCandidate(profile, c, bucket, maxSim) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, PER_BUCKET);
-    for (const s of scored) {
+
+    // Charger les genres de chaque candidat score pour calculer le genre dominant
+    const scoredGameIds = scored.map((s) => s.c.gameId);
+    const gameGenresRows = await db
+      .select({
+        gameId: gameGenres.gameId,
+        genreId: gameGenres.genreId,
+      })
+      .from(gameGenres)
+      .where(inArray(gameGenres.gameId, scoredGameIds));
+
+    // Grouper genres par gameId et calculer le genre dominant
+    const genresByGame = new Map<string, string[]>();
+    for (const row of gameGenresRows) {
+      if (!genresByGame.has(row.gameId)) genresByGame.set(row.gameId, []);
+      genresByGame.get(row.gameId)!.push(row.genreId);
+    }
+
+    // Genre dominant = celui avec le plus grand poids dans le profil normalise
+    const getDominantGenre = (gameId: string): string | null => {
+      const genreIds = genresByGame.get(gameId) ?? [];
+      if (genreIds.length === 0) return null;
+      let maxWeight = -1;
+      let dominant: string | null = null;
+      for (const gid of genreIds) {
+        const weight = profile.get(`g:${gid}`) ?? 0;
+        if (weight > maxWeight) {
+          maxWeight = weight;
+          dominant = gid;
+        }
+      }
+      return dominant;
+    };
+
+    // Appliquer la diversification : max 3 jeux par genre dominant
+    const diversifiableScored = scored.map((s) => ({
+      c: s.c,
+      score: s.score,
+      factors: s.factors,
+      dominantGenreId: getDominantGenre(s.c.gameId),
+    }));
+
+    const diversified = diversify(
+      diversifiableScored.map((ds) => ({
+        gameId: ds.c.gameId,
+        score: ds.score,
+        dominantGenreId: ds.dominantGenreId,
+      })),
+      3,
+    );
+
+    // Reconstruire le mapping score/factors des candidats diversifies
+    const diversifiedScoreMap = new Map(
+      diversifiableScored.map((ds) => [ds.c.gameId, { score: ds.score, factors: ds.factors }]),
+    );
+
+    for (const d of diversified) {
+      const scoreInfo = diversifiedScoreMap.get(d.gameId);
+      if (!scoreInfo) continue; // Ne devrait pas arriver ici
       toInsert.push({
         userId,
-        gameId: s.c.gameId,
+        gameId: d.gameId,
         bucket,
-        score: s.score.toFixed(3),
-        reason: { text: buildReason(bucket, s.factors), factors: s.factors },
+        score: scoreInfo.score.toFixed(3),
+        reason: { text: buildReason(bucket, scoreInfo.factors), factors: scoreInfo.factors },
       });
-      allScoredGameIds.push(s.c.gameId);
+      allScoredGameIds.push(d.gameId);
       bucketCounts[bucket]++;
     }
   }

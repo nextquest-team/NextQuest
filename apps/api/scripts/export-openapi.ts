@@ -15,6 +15,7 @@ import { oauthRoutes } from '../src/modules/auth/oauth/oauth.routes.js'
 import { usersRoutes } from '../src/modules/users/users.routes.js'
 import { steamRoutes } from '../src/modules/platforms/steam/steam.routes.js'
 import { collectionRoutes } from '../src/modules/collection/collection.routes.js'
+import { recommendationsRoutes } from '../src/modules/recommendations/recommendations.routes.js'
 import { igdbRoutes } from '../src/modules/games/igdb/igdb.routes.js'
 import { gamesRoutes } from '../src/modules/games/games.routes.js'
 
@@ -41,6 +42,7 @@ async function main() {
   await app.register(usersRoutes, { prefix: '/api' })
   await app.register(steamRoutes, { prefix: '/api' })
   await app.register(collectionRoutes, { prefix: '/api' })
+  await app.register(recommendationsRoutes, { prefix: '/api' })
   await app.register(igdbRoutes, { prefix: '/api' })
   await app.register(gamesRoutes, { prefix: '/api' })
   await app.register(oauthRoutes, { prefix: '/api/auth' })

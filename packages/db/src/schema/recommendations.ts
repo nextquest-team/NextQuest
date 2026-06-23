@@ -32,6 +32,11 @@ export const recommendations = pgTable(
       .notNull()
       .defaultNow(),
     feedbackAt: timestamp("feedback_at", { withTimezone: true }),
+    // "Passe pour l'instant" via le bouton refresh : fait tourner les recos sans
+    // decision definitive. Distinct de feedback (qui exclut le jeu et alimente le
+    // profil de gout). NULL = jamais passe. La liste trie skipped_at ASC NULLS FIRST
+    // pour que les jeux passes reviennent en dernier, apres le tour du pool.
+    skippedAt: timestamp("skipped_at", { withTimezone: true }),
   },
   (t) => [
     index("idx_recommendations_user_id_created_at").on(t.userId, t.createdAt),

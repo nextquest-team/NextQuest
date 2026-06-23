@@ -195,3 +195,15 @@
 **Tests** -- 79 tests API au vert sur le module (client/dto/service discovery/routes IGDB + DTO collection), unitaires avec deps injectées (pas de réseau). Typecheck + lint OK après le bump de deps.
 
 **Fail-fast quand Postgres est injoignable (#64)** -- Les tests pendaient ~10 min sans message quand le host BDD ne répondait pas (Docker éteint / Tailscale coupé), parce que le client postgres n'avait pas de timeout de connexion. Ajout d'un `connect_timeout` court (3s) sur le client en env de test + un preflight `globalSetup` vitest (`assertDbReachable`) qui fait échouer tout le run en ~3s avec un message clair (`BDD injoignable sur <host> — lance pnpm docker:up`). Bug reproduit avant le fix (host non routable 192.0.2.1 = pend ; port fermé = échec immédiat, non concerné). Suite API au vert (269 tests).
+
+---
+
+## 23 juin 2026
+
+**Refresh des recos (demande de Loreleï)** -- Avant, le seul moyen de changer un jeu proposé était de swiper (feedback) ou de relancer `generate` (déterministe → même top). Frustrant : refresh ne renouvelait que les cartes déjà déclinées. Ajout d'un vrai "passer" distinct du feedback : colonne `skipped_at`, nouvel endpoint `POST /recommendations/refresh { skip: [ids] }` (1 id = une carte, plusieurs = les 3 d'un coup) qui renvoie le set groupé à jour. La liste trie `skipped_at ASC NULLS FIRST, score DESC` : jamais-vus d'abord, puis passés du plus ancien au plus récent → rotation infinie, les jeux reviennent après le tour du pool, jamais tout de suite. Le skip ne pollue pas le profil de goût (seul `feedback` apprend).
+
+**OpenAPI désynchronisé (corrigé au passage)** -- Le script `generate:openapi` n'enregistrait pas `recommendationsRoutes` (oubli) : aucune route reco n'était dans `openapi.json`. Ajouté → les 4 routes recos apparaissent maintenant dans `/docs`. DBML remis à jour (table `recommendations` : `bucket`, `skipped_at`, enum bucket et index manquants).
+
+**Résilience connexion BDD (révélée par l'E2E)** -- Pendant la validation, l'enrichissement IGDB (opération longue, ~2,5 min) plantait en `CONNECTION_CLOSED` : une connexion du pool restée inactive pendant les appels IGDB se faisait couper par le NAT (Tailscale + Docker Desktop), Postgres lui restait debout. Deux parades : `withDbRetry` (helper `@nextquest/db` qui rejoue une opération idempotente sur erreur de connexion transitoire) appliqué aux écritures enrich/hydrate, et `idle_timeout: 30` sur le client postgres.js (recycle proprement une connexion inactive avant que le NAT ne la coupe). Après fix, enrich des 252 jeux en 0 échec.
+
+**Validation E2E réelle (biblio Steam liloulei + IGDB live)** -- Flux complet rejoué en HTTP réel : import 252 jeux → enrich → génération 60 recos (3 buckets) → refresh. Vérifié : refresh groupé (les 3 cartes changent), refresh par carte (une seule bouge), rotation des 20 du pool avec retour du 1er jeu après le tour complet, skip qui ne pollue pas le profil (0 feedback), feedback qui exclut toujours. `GET /games/upcoming` renvoie les vraies sorties (GTA VI, Fable...) en tri hype et date, `GET /games/igdb/:id` le détail riche. Suite API : 313 tests verts.

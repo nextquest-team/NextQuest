@@ -16,7 +16,16 @@ export function getDb() {
     // on garde le comportement par défaut (retry, pas de timeout court).
     const isTest =
       process.env.VITEST === "true" || process.env.NODE_ENV === "test";
-    const client = postgres(url, isTest ? { connect_timeout: 3 } : {});
+    // idle_timeout : on recycle une connexion restee inactive > 30s. Sans ca, une
+    // connexion du pool qui dort pendant une operation longue (ex. enrichissement
+    // IGDB qui attend le reseau) peut etre coupee cote NAT (Tailscale / Docker
+    // Desktop) sans que postgres.js le sache -- la requete suivante echoue alors en
+    // CONNECTION_CLOSED. En la recyclant, on rouvre une connexion saine a la demande.
+    // Le retry applicatif (withDbRetry) reste le filet de securite pour les blips.
+    const client = postgres(
+      url,
+      isTest ? { connect_timeout: 3, idle_timeout: 30 } : { idle_timeout: 30 },
+    );
     _db = drizzle(client, { schema });
   }
   return _db;

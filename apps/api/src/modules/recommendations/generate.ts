@@ -11,7 +11,6 @@ import {
 import { buildBaseProfile, applySwipeDeltas, normalize } from "./profile.js";
 import { buildIdfMap } from "./idf.js";
 import {
-  scoreCandidate,
   type Bucket,
   type Candidate,
   type ScoreFactors,

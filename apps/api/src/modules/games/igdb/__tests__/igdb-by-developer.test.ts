@@ -3,9 +3,7 @@ import { fetchGamesByDeveloper } from "../igdb.client.js";
 
 describe("fetchGamesByDeveloper", () => {
   it("résout la société par nom et retourne ses jeux développés, triés par note", async () => {
-    let callCount = 0;
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
-      callCount++;
       // Premier appel : /companies
       if (url.includes("/companies")) {
         return {

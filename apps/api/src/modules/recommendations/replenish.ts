@@ -1,5 +1,5 @@
-import { db, recommendations, games, gameGenres, genres } from "@nextquest/db";
-import { and, eq, isNull, inArray, sql } from "drizzle-orm";
+import { db, recommendations, gameGenres, genres } from "@nextquest/db";
+import { eq, inArray, sql } from "drizzle-orm";
 import {
   getLibraryUnplayedCandidates,
   getDiscoveryCandidates,

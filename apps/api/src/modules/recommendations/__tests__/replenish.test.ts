@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   db,
   users,
@@ -10,7 +10,6 @@ import {
 } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { replenishRecommendations } from "../replenish.js";
-import * as candidates from "../candidates.js";
 
 async function cleanup() {
   await db.delete(recommendations);

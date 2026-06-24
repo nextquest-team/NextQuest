@@ -14,7 +14,7 @@ import type { Candidate } from "./scoring.js";
 import { fetchUpcomingByGenres, fetchAcclaimedByGenres, fetchGamesByDeveloper } from "../games/igdb/igdb.client.js";
 import { defaultDeps } from "../games/igdb/igdb.service.js";
 import { hydrateMissingGames } from "./hydrate.js";
-import { contentSimilarity, sharesGenreOrTheme, normalizeGameTitle, type GameForSimilarity } from "./similarity.js";
+import { contentSimilarity, sharesGenreOrTheme, type GameForSimilarity } from "./similarity.js";
 
 // Genres/tags groupes par gameId (1 requete IN), pour eviter le N+1.
 async function genreTagIdsByGame(gameIds: string[]) {
@@ -275,7 +275,6 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
   // Plafond par studio : map {developer -> [igdbIds]}
   // Sera appliquée apres le filtre genre/theme (voir plus bas).
   const maxSameDevPerStudio = 3;
-  const sameDevByStudio = new Map<string | null, number[]>();
 
   // Exclusions : deja swipes
   const swiped = await db

@@ -441,7 +441,7 @@ describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
       return null;
     });
 
-    const fetchGamesByIds = vi.fn(async (ids: number[]) => {
+    const fetchGamesByIds = vi.fn(async (_ids: number[]) => {
       // Aucun similarGame IGDB de BG3
       return [];
     });

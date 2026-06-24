@@ -105,7 +105,7 @@ function rerankSimilarGames(
   // 2. Les détails des jeux du même studio (chargés par fetchGamesByDeveloper)
   // On traite TOUS les candidats de enrichedDetails (pas seulement similarGames).
   const candidatesWithOriginal: Array<{ game: GameForSimilarity; original: IgdbSimilarGame }> = [];
-  for (const [igdbId, details] of enrichedDetails) {
+  for (const [, details] of enrichedDetails) {
     // Exclure le jeu courant lui-même.
     if (details.igdbId === target.igdbId) continue;
 

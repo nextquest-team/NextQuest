@@ -14,7 +14,6 @@ import {
   type RecommendationRow,
 } from "./recommendations.dto.js";
 import { replenishRecommendations } from "./replenish.js";
-import type { Bucket } from "./scoring.js";
 
 type RecoBucket = (typeof RECO_BUCKETS)[number];
 

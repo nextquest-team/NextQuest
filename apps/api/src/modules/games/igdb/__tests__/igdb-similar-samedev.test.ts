@@ -377,4 +377,108 @@ describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
     // Baldur's Fate (meme studio mais sans genre commun) ne doit PAS etre present
     expect(similarGameIds).not.toContain(2004);
   });
+
+  it("garde l'edition avec la meilleure similarite, pas seulement la mieux notee", async () => {
+    // Cas du brief : deux re-editions du meme titre de base.
+    // - Divinity: Original Sin 2 (base, rating 93) : genres+themes complets = meilleure similarite avec BG3
+    // - Divinity: Original Sin 2 - Definitive Edition (rating 94, mieux notee) : genres+themes identiques
+    //   mais en live IGDB, genre/theme manquants = similarite plus faible
+    // Attendu : on garde la base (93) car meilleure similarite, pas la DE (94) meme si mieux notee.
+
+    const cache = fakeCache();
+
+    // Divinity OS 2 base : rating 93, genres/themes complets (2 genres, 1 theme)
+    const divinityBase: IgdbGame = {
+      igdbId: 3001,
+      name: "Divinity: Original Sin 2",
+      summary: "CRPG",
+      releaseDate: "2017-09-21",
+      rating: 93,
+      ratingCount: 1500,
+      coverImageId: "dos2-cover",
+      artworkImageId: null,
+      developer: "Larian Studios",
+      publisher: "Larian Studios",
+      genres: [
+        { igdbId: 12, name: "RPG", slug: "rpg" },
+        { igdbId: 5, name: "Adventure", slug: "adventure" },
+      ],
+      themes: [
+        { igdbId: 1, name: "Fantasy", slug: "fantasy" },
+      ],
+      similarIgdbIds: [],
+      hypes: 50,
+    };
+
+    // Divinity OS 2 DE : rating 94 (mieux notee), mais genres/themes pauvres (genre RPG seulement, pas Adventure/Fantasy)
+    // Cela simule le cas live IGDB ou la DE a une richesse genre/theme inferieure.
+    const divinityDefinitiveEditionPoor: IgdbGame = {
+      igdbId: 3002,
+      name: "Divinity: Original Sin 2 - Definitive Edition",
+      summary: "Enhanced version",
+      releaseDate: "2018-08-31",
+      rating: 94, // Mieux notee que la base
+      ratingCount: 1600,
+      coverImageId: "dos2-de-cover",
+      artworkImageId: null,
+      developer: "Larian Studios",
+      publisher: "Larian Studios",
+      genres: [
+        { igdbId: 12, name: "RPG", slug: "rpg" },
+        // Pas d'Adventure en live IGDB
+      ],
+      themes: [
+        // Pas de Fantasy en live IGDB
+      ],
+      similarIgdbIds: [],
+      hypes: 60,
+    };
+
+    const fetchGameDetail = vi.fn(async (igdbId: number) => {
+      if (igdbId === baldursGate3.igdbId) {
+        return baldursGate3;
+      }
+      return null;
+    });
+
+    const fetchGamesByIds = vi.fn(async (ids: number[]) => {
+      // Aucun similarGame IGDB de BG3
+      return [];
+    });
+
+    const fetchGamesByDeveloper = vi.fn(async (developerName: string) => {
+      if (developerName === "Larian Studios") {
+        // Retourner les deux editions du meme titre de base
+        return [divinityBase, divinityDefinitiveEditionPoor];
+      }
+      return [];
+    });
+
+    const deps = {
+      getToken: vi.fn(async () => "TOKEN"),
+      fetchGameDetail,
+      fetchGamesByIds,
+      fetchGamesByDeveloper,
+      cache,
+      now: () => FIXED_NOW,
+    } as unknown as DiscoveryDeps;
+
+    const detail = await getGameDetail(baldursGate3.igdbId, "CID", deps);
+
+    expect(detail).not.toBeNull();
+    if (!detail) return;
+
+    const similarGameIds = detail.similarGames.map((g) => g.igdbId);
+
+    // Une SEULE edition du titre de base doit etre presente
+    const divinityEditions = similarGameIds.filter((id) => id === 3001 || id === 3002);
+    expect(divinityEditions.length).toBe(1);
+
+    // C'est la base (3001, meilleure similarite) qui doit etre gardee, pas la DE (3002, mieux notee mais moins similaire)
+    expect(similarGameIds).toContain(3001);
+    expect(similarGameIds).not.toContain(3002);
+
+    // Verifier que c'est bien la base qui apparait dans les resultats
+    expect(detail.similarGames[0]?.title).toBe("Divinity: Original Sin 2");
+  });
 });

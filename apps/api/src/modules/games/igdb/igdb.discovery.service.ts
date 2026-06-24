@@ -124,9 +124,10 @@ export async function getGameDetail(
         igdbRating: game.rating,
       };
 
-      // Etape 1 : filtrer par plancher genre/theme et dedup re-editions
+      // Etape 1 : filtrer par plancher genre/theme, puis dedup re-editions par meilleure similarite
       const filteredByGenre: GameForSimilarity[] = [];
-      const dedupByTitle = new Map<string, IgdbGame>(); // titre normalisé -> meilleur jeu de ce titre
+      // titre normalisé -> { game, similarity } pour le meilleur candidat de ce titre
+      const dedupByTitle = new Map<string, { game: IgdbGame; similarity: number }>();
 
       for (const sameDevGame of sameDeveloperGames) {
         // Exclure le jeu courant lui-même et eviter les doublons IGDB.
@@ -148,27 +149,28 @@ export async function getGameDetail(
           continue;
         }
 
-        // Dedup re-editions par titre normalisé : garder le mieux noté
+        // Calculer la similarité de ce candidat au jeu courant
+        const similarity = contentSimilarity(targetForFiltering, candidateForFiltering);
+
+        // Dedup re-editions par titre normalisé : garder celui de meilleure similarite
+        // (en cas d'égalité de similarité, départager par rating).
         const normalizedTitle = normalizeGameTitle(sameDevGame.name);
         const existing = dedupByTitle.get(normalizedTitle);
-        if (!existing || (sameDevGame.rating ?? 0) > (existing.rating ?? 0)) {
-          dedupByTitle.set(normalizedTitle, sameDevGame);
+        if (
+          !existing ||
+          similarity > existing.similarity ||
+          (similarity === existing.similarity && (sameDevGame.rating ?? 0) > (existing.game.rating ?? 0))
+        ) {
+          dedupByTitle.set(normalizedTitle, { game: sameDevGame, similarity });
         }
 
         filteredByGenre.push(candidateForFiltering);
       }
 
       // Etape 2 : plafonner a top 3 par contentSimilarity au jeu courant
-      const uniqueByTitle = Array.from(dedupByTitle.values()).map((game) => ({
+      const uniqueByTitle = Array.from(dedupByTitle.values()).map(({ game, similarity }) => ({
         game,
-        similarity: contentSimilarity(targetForFiltering, {
-          gameId: String(game.igdbId),
-          genreIds: game.genres.map((g) => String(g.igdbId)),
-          themeIds: game.themes.map((t) => String(t.igdbId)),
-          developer: game.developer,
-          publisher: game.publisher,
-          igdbRating: game.rating,
-        }),
+        similarity,
       }));
 
       const topByGenreAndSim = uniqueByTitle

@@ -37,8 +37,11 @@ export function sharesGenreOrTheme(a: GameForSimilarity, b: GameForSimilarity): 
   return jaccard(a.genreIds, b.genreIds) > 0 || jaccard(a.themeIds, b.themeIds) > 0;
 }
 
-const W_GENRE = 0.45;
-const W_THEME = 0.30;
+// Poids de similarité de contenu. Les genres (RPG, Strategy, TBS) sont discriminants ;
+// les thèmes IGDB (Action, Fantasy) sont grossiers et s'appliquent à des milliers de jeux.
+// Donc genre pèse plus que thème pour un classement pertinent.
+const W_GENRE = 0.55;
+const W_THEME = 0.20;
 const W_SAME_DEV = 0.20;
 const W_SAME_PUB = 0.05;
 

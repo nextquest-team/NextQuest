@@ -297,8 +297,10 @@ export async function fetchGamesByDeveloper(
 ): Promise<IgdbGame[]> {
   if (!developerName?.trim()) return [];
 
-  // Echapper les guillemets dans le nom du dev pour que la requete IGDB soit valide.
-  const safe = developerName.replace(/"/g, '\\"');
+  // Echapper le nom du dev avant de l'injecter dans la requete IGDB (Apicalypse).
+  // Backslash d'abord (sinon on doublerait les backslash ajoutes par l'echappement
+  // des guillemets), puis les guillemets. Evite une injection via le nom du studio.
+  const safe = developerName.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
   // 1. Resoudre la societe par nom exact, avec fallback : contient le texte.
   const companyRows = (await igdbPost(

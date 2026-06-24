@@ -75,6 +75,24 @@ describe("fetchGamesByDeveloper", () => {
     expect(companiesBody).toContain('Studio \\"Test\\"');
   });
 
+  it("échappe les backslashes dans le nom du développeur (anti-injection)", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/companies")) {
+        return { ok: true, status: 200, json: async () => [{ id: 123 }] };
+      }
+      if (url.includes("/games")) {
+        return { ok: true, status: 200, json: async () => [] };
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    await fetchGamesByDeveloper('Back\\slash', "tok", "cid", fetchMock);
+
+    const companiesBody = fetchMock.mock.calls[0][1].body as string;
+    // Le backslash doit etre double dans la requete (Back\\slash) pour ne pas casser/echapper le reste.
+    expect(companiesBody).toContain("Back\\\\slash");
+  });
+
   it("retourne [] si la société est introuvable (exact et fallback)", async () => {
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       if (url.includes("/companies")) {

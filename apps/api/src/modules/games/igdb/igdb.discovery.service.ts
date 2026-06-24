@@ -8,6 +8,7 @@ import {
   fetchGamesByIds,
   fetchGamesByDeveloper,
   type UpcomingQuery,
+  type IgdbGame,
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
 import { redis } from "../../../lib/redis.js";

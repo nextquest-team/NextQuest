@@ -1,4 +1,4 @@
-import { db, recommendations, games, gameSimilar } from "@nextquest/db";
+import { db, recommendations, games, gameSimilar, gameGenres, genres } from "@nextquest/db";
 import { and, eq, isNull, inArray, sql } from "drizzle-orm";
 import {
   getOwnedForProfile,
@@ -11,15 +11,13 @@ import {
 import { buildBaseProfile, applySwipeDeltas, normalize } from "./profile.js";
 import { buildIdfMap } from "./idf.js";
 import {
-  scoreCandidate,
   type Bucket,
   type Candidate,
   type ScoreFactors,
 } from "./scoring.js";
 import { buildReason } from "./recommendations.dto.js";
 import { hydrateMissingGames } from "./hydrate.js";
-
-const PER_BUCKET = 20; // nb de recos conservees par categorie
+import { buildBucketRecos } from "./replenish.js";
 
 // Logger injectable pour les recos. Adapte a pino et testable.
 export type RecoLogger = {
@@ -93,32 +91,66 @@ export async function generateRecommendations(
     ),
   ]);
 
-  // 3. Score + selection top N par bucket.
+  // 3. Score + selection top N par bucket + diversification.
   const toInsert: (typeof recommendations.$inferInsert)[] = [];
   const bucketCounts: Record<Bucket, number> = {
     library_unplayed: 0,
     discovery: 0,
     upcoming: 0,
   };
+  const allScoredGameIds: string[] = []; // Pour charger les genres après
 
   for (const { bucket, candidates } of buckets) {
-    const maxSim = Math.max(1, ...candidates.map((c) => c.similarVotes));
-    // Les candidats sont filtrés naturellement par le scoring quality-gated :
-    // un jeu de mauvaise qualité rankera bas et tombera hors top-N.
-    const scored = candidates
-      .map((c) => ({ c, ...scoreCandidate(profile, c, bucket, maxSim) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, PER_BUCKET);
-    for (const s of scored) {
+    const bucketRecos = await buildBucketRecos(profile, candidates, bucket);
+    for (const reco of bucketRecos) {
       toInsert.push({
         userId,
-        gameId: s.c.gameId,
-        bucket,
-        score: s.score.toFixed(3),
-        reason: { text: buildReason(bucket, s.factors), factors: s.factors },
+        gameId: reco.gameId,
+        bucket: reco.bucket,
+        score: reco.score,
+        reason: reco.reason,
       });
+      allScoredGameIds.push(reco.gameId);
       bucketCounts[bucket]++;
     }
+  }
+
+  // Charger les genres des jeux scorés et construire une map gameId -> genres matchés.
+  // Un genre est "matché" s'il a un poids positif dans le profil normalisé.
+  const matchedGenreNamesByGame = new Map<string, string[]>();
+  if (allScoredGameIds.length > 0) {
+    const gameGenresRows = await db
+      .select({
+        gameId: gameGenres.gameId,
+        genreId: gameGenres.genreId,
+        name: genres.name,
+      })
+      .from(gameGenres)
+      .innerJoin(genres, eq(gameGenres.genreId, genres.id))
+      .where(inArray(gameGenres.gameId, allScoredGameIds));
+
+    // Grouper par gameId et filtrer par poids positif dans le profil.
+    const genresByGame = new Map<string, Array<{ genreId: string; name: string; weight: number }>>();
+    for (const row of gameGenresRows) {
+      const weight = profile.get(`g:${row.genreId}`) ?? 0;
+      if (weight > 0) {
+        if (!genresByGame.has(row.gameId)) genresByGame.set(row.gameId, []);
+        genresByGame.get(row.gameId)!.push({ genreId: row.genreId, name: row.name, weight });
+      }
+    }
+
+    // Trier par poids décroissant et garder les noms.
+    for (const [gameId, genreList] of genresByGame) {
+      const sorted = genreList.sort((a, b) => b.weight - a.weight);
+      matchedGenreNamesByGame.set(gameId, sorted.map((g) => g.name));
+    }
+  }
+
+  // Mettre à jour les raisons avec les genres matchés.
+  for (const row of toInsert) {
+    const matchedNames = matchedGenreNamesByGame.get(row.gameId) ?? [];
+    const reasonObj = row.reason as { text: string; factors: ScoreFactors };
+    reasonObj.text = buildReason(row.bucket as Bucket, reasonObj.factors, matchedNames);
   }
 
   // Recuperer les titres des jeux recommandes pour le logging.

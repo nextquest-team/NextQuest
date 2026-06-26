@@ -69,6 +69,8 @@
     "importing": "Importing…",
     "importSuccess": "games imported!",
     "importError": "Import failed. Please try again.",
+    "steamLinkError": "Could not link Steam. Please try again.",
+    "enrichError": "Could not enrich game data. Please try again.",
     "enrichIgdb": "Enrich via IGDB",
     "enriching": "Enriching…",
     "empty": "Your list is empty",
@@ -156,7 +158,9 @@
     "released": "Released",
     "genres": "Genres",
     "feedbackDone": "Got it!",
-    "noReco": "No suggestion for this category"
+    "noReco": "No suggestion for this category",
+    "loadError": "Failed to load recommendations",
+    "retry": "Try again"
   },
   "dashboard": {
     "onboarding": {

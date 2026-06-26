@@ -20,7 +20,9 @@ export function useGameList() {
       )
       steamConnected.value = res.connected
       steamPersona.value = res.personaName
-    } catch { /* pas de compte lié ou erreur réseau */ }
+    } catch (e) {
+      console.error('[useGameList] fetchSteamStatus', e)
+    }
   }
 
   async function linkSteam() {
@@ -28,7 +30,9 @@ export function useGameList() {
     try {
       const res = await authFetch<{ url: string }>(`${apiBase}/api/platforms/steam/link`)
       window.location.href = res.url
-    } catch {
+    } catch (e) {
+      console.error('[useGameList] linkSteam', e)
+      importMessage.value = { type: 'error', text: t('gameList.steamLinkError') }
       steamLoading.value = false
     }
   }
@@ -61,8 +65,10 @@ export function useGameList() {
     try {
       await authFetch(`${apiBase}/api/users/me/library/enrich`, { method: 'POST' })
       await fetchGames()
-    } catch { /* best-effort */ }
-    finally { enrichLoading.value = false }
+    } catch (e) {
+      console.error('[useGameList] enrichGames', e)
+      importMessage.value = { type: 'error', text: t('gameList.enrichError') }
+    } finally { enrichLoading.value = false }
   }
 
   // ── Filtres, recherche, drawer ───────────────────────────
@@ -120,10 +126,12 @@ export function useGameList() {
 
   // ── Liste des jeux ───────────────────────────────────────
   const gamesLoading = ref(false)
+  const gamesError = ref(false)
   const games = ref<UserGame[]>([])
 
   async function fetchGames() {
     gamesLoading.value = true
+    gamesError.value = false
     try {
       const query: Record<string, string | number> = {
         limit: LIMIT,
@@ -135,8 +143,10 @@ export function useGameList() {
       const res = await authFetch<CollectionListResponse>(`${apiBase}/api/collection`, { query })
       games.value = res.items.map(toUserGame)
       total.value = res.total
-    } catch { /* conserve les données actuelles */ }
-    finally { gamesLoading.value = false }
+    } catch (e) {
+      console.error('[useGameList] fetchGames', e)
+      gamesError.value = true
+    } finally { gamesLoading.value = false }
   }
 
   // ── Actions sur les jeux ─────────────────────────────────
@@ -199,7 +209,7 @@ export function useGameList() {
     // Pagination
     currentPage, total, totalPages, goToPage,
     // Jeux
-    gamesLoading, games, fetchGames,
+    gamesLoading, gamesError, games, fetchGames,
     // Actions
     onStatusChange, onDeleteGame, onCardClick,
     // Modale

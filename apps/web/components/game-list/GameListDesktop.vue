@@ -11,10 +11,7 @@ const {
   gamesLoading, games,
   onStatusChange, onDeleteGame, onCardClick,
   addModalOpen,
-  init,
-} = useGameList()
-
-onMounted(init)
+} = inject<ReturnType<typeof useGameList>>('gameList')!
 </script>
 
 <template>

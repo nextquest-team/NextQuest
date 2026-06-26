@@ -49,7 +49,7 @@ function formatDate(iso: string | null): string {
 
 function ratingStars(rating: number | null): string {
   if (rating === null) return ''
-  const r = Math.round(rating / 2)
+  const r = Math.round(rating / 20)
   return '★'.repeat(Math.min(r, 5)) + '☆'.repeat(Math.max(0, 5 - r))
 }
 </script>

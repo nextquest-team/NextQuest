@@ -151,7 +151,7 @@ onMounted(load)
                 <dd class="gdm__dd">
                   <span class="gdm__rating">
                     <v-icon size="14" color="#c8a44a">mdi-star</v-icon>
-                    {{ game.game.igdbRating }}<span class="gdm__rating-max">/100</span>
+                    {{ (game.game.igdbRating / 10).toFixed(1) }}<span class="gdm__rating-max">/10</span>
                   </span>
                 </dd>
               </template>
@@ -284,7 +284,7 @@ onMounted(load)
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(58, 26, 10, 0.75);
   margin: 0 0 5px;
 }
 
@@ -334,7 +334,7 @@ onMounted(load)
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(58, 26, 10, 0.75);
   margin: 0 0 0.5rem;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid rgba(92, 51, 23, 0.1);
@@ -348,7 +348,7 @@ onMounted(load)
 .gdm__dt {
   font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(58, 26, 10, 0.75);
   white-space: nowrap;
   align-self: start;
   padding-top: 2px;
@@ -427,7 +427,7 @@ onMounted(load)
 
 /* ── Note ── */
 .gdm__rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.9rem; color: var(--nq-brown-dark); }
-.gdm__rating-max { font-size: 0.7rem; font-weight: 400; color: rgba(58, 26, 10, 0.45); }
+.gdm__rating-max { font-size: 0.7rem; font-weight: 400; color: rgba(58, 26, 10, 0.65); }
 
 /* ── Danger zone ── */
 .gdm__danger { padding: 1.5rem 0 0.5rem; display: flex; justify-content: flex-end; }

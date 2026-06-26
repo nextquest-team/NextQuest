@@ -82,8 +82,8 @@ describe("importSteamLibrary", () => {
     const userId = await createUser();
 
     const count = await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1200 },
-      { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 0 },
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 0 },
+      { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 0, playtimeRecentMinutes: 0 },
     ]);
 
     expect(count).toBe(2);
@@ -109,10 +109,10 @@ describe("importSteamLibrary", () => {
     const userId = await createUser();
 
     await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1200 },
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 0 },
     ]);
     await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1500 },
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1500, playtimeRecentMinutes: 0 },
     ]);
 
     const g = await db.select().from(games).where(eq(games.steamAppid, 570));
@@ -135,8 +135,8 @@ describe("importSteamLibrary", () => {
     const userId = await createUser();
 
     await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1200 },
-      { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 0 },
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 120 },
+      { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 0, playtimeRecentMinutes: 0 },
     ]);
 
     const ug = await db
@@ -160,7 +160,7 @@ describe("importSteamLibrary", () => {
     const userId = await createUser();
 
     await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1200 },
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 0 },
     ]);
 
     // L'user marque le jeu comme termine via sa collection.
@@ -171,7 +171,7 @@ describe("importSteamLibrary", () => {
 
     // Reimport avec plus d'heures : les heures se mettent a jour, pas le statut.
     await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1500 },
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1500, playtimeRecentMinutes: 0 },
     ]);
 
     const ug = await db

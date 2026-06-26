@@ -30,8 +30,8 @@ describe("getOwnedGames", () => {
     const games = await getOwnedGames("76561198000000000", "KEY", fetchMock);
 
     expect(games).toEqual([
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1200 },
-      { appid: 730, name: "CS2", playtimeMinutes: 0 },
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 0 },
+      { appid: 730, name: "CS2", playtimeMinutes: 0, playtimeRecentMinutes: 0 },
     ]);
   });
 

@@ -244,6 +244,17 @@ export async function fetchGamesByIds(
   return rows.map(mapRawGame);
 }
 
+// Helper privé : exécute requête IGDB sur games et mappe le résultat en IgdbGame[].
+async function requestIgdbGames(
+  body: string,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbGame[]> {
+  const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawGame[];
+  return rows.map(mapRawGame);
+}
+
 // Jeux pas encore sortis dans des genres donnes, tries par hype.
 // nowEpochSeconds = timestamp Unix en secondes (eg. Math.floor(Date.now()/1000)).
 export async function fetchUpcomingByGenres(
@@ -255,8 +266,74 @@ export async function fetchUpcomingByGenres(
 ): Promise<IgdbGame[]> {
   if (igdbGenreIds.length === 0) return [];
   const body = `fields ${GAME_FIELDS}; where first_release_date > ${nowEpochSeconds} & genres = (${igdbGenreIds.join(",")}); sort hypes desc; limit 60;`;
-  const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawGame[];
-  return rows.map(mapRawGame);
+  return requestIgdbGames(body, token, clientId, fetchImpl);
+}
+
+// Jeux deja sortis, bien notes (assez de votes), dans des genres donnes. Tries par note.
+// Sert d'epine dorsale a la Decouverte : du volume et de la pertinence meme sur petite biblio.
+export async function fetchAcclaimedByGenres(
+  igdbGenreIds: number[],
+  nowEpochSeconds: number,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbGame[]> {
+  if (igdbGenreIds.length === 0) return [];
+  const body =
+    `fields ${GAME_FIELDS}; ` +
+    `where first_release_date < ${nowEpochSeconds} & genres = (${igdbGenreIds.join(",")}) ` +
+    `& rating_count >= 50 & rating >= 75; ` +
+    `sort rating desc; limit 100;`;
+  return requestIgdbGames(body, token, clientId, fetchImpl);
+}
+
+// Jeux developpes par un studio donne (resout la societe par nom puis interroge ses jeux).
+// Sert a proposer "du meme studio" (ex. Larian -> Divinity) que le graphe similar IGDB ne donne pas.
+export async function fetchGamesByDeveloper(
+  developerName: string,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbGame[]> {
+  if (!developerName?.trim()) return [];
+
+  // Echapper le nom du dev avant de l'injecter dans la requete IGDB (Apicalypse).
+  // Backslash d'abord (sinon on doublerait les backslash ajoutes par l'echappement
+  // des guillemets), puis les guillemets. Evite une injection via le nom du studio.
+  const safe = developerName.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+  // 1. Resoudre la societe par nom exact, avec fallback : contient le texte.
+  const companyRows = (await igdbPost(
+    "companies",
+    `fields id; where name = "${safe}"; limit 1;`,
+    token,
+    clientId,
+    fetchImpl,
+  )) as Array<{ id?: number }>;
+
+  let companyId = companyRows?.[0]?.id;
+  if (companyId == null) {
+    // Fallback : recherche "contient"
+    const alt = (await igdbPost(
+      "companies",
+      `fields id; where name ~ *"${safe}"*; limit 1;`,
+      token,
+      clientId,
+      fetchImpl,
+    )) as Array<{ id?: number }>;
+    companyId = alt?.[0]?.id;
+  }
+
+  // Societe introuvable => retourner tableau vide sans appeler /games.
+  if (companyId == null) return [];
+
+  // 2. Jeux developpes par cette societe, sortis (rating_count >= 10), tries par note.
+  const body =
+    `fields ${GAME_FIELDS}; ` +
+    `where involved_companies.company = ${companyId} & involved_companies.developer = true & rating_count >= 10; ` +
+    `sort rating desc; limit 20;`;
+
+  return requestIgdbGames(body, token, clientId, fetchImpl);
 }
 
 interface RawPlatform {

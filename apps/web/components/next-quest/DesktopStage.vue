@@ -69,7 +69,10 @@ const { t } = useI18n()
   flex-direction: column;
   gap: 0.6rem;
   padding: 5% 5% 3%;
-  background: url('/images/next-quest/carte-landscape.png') center / 100% 100% no-repeat;
+  background: image-set(
+    url('/images/next-quest/carte-landscape.webp') type('image/webp'),
+    url('/images/next-quest/carte-landscape.png')  type('image/png')
+  ) center / 100% 100% no-repeat;
   border-radius: 16px;
   overflow: hidden;
 }

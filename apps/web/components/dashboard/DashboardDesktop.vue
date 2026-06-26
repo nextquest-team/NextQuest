@@ -13,7 +13,7 @@ defineEmits<{
 const { t } = useI18n()
 const { authFetch, apiBase } = useAuthFetch()
 
-// 9 derniers jeux ajoutés (API trie par createdAt DESC)
+// 8 derniers jeux ajoutés (le 9e slot est réservé au bouton +)
 const bagGames = ref<{ id: string; title: string; coverUrl: string | null }[]>([])
 const bagLoading = ref(false)
 
@@ -21,7 +21,7 @@ async function fetchBagGames() {
   bagLoading.value = true
   try {
     const res = await authFetch<CollectionListResponse>(`${apiBase}/api/collection`, {
-      query: { limit: 9, offset: 0 },
+      query: { limit: 8, offset: 0 },
     })
     bagGames.value = res.items.map(item => toUserGame(item))
   } catch { /* liste vide si erreur */ }
@@ -44,7 +44,7 @@ onMounted(fetchBagGames)
       <NuxtLink to="/game-list" class="dd__bag-btn">
         {{ t('dashboard.sacoche.gameList') }}
       </NuxtLink>
-      <!-- Grille 3×3 des derniers jeux ajoutés -->
+      <!-- Grille 3×3 des derniers jeux ajoutés + encart ajout -->
       <div class="dd__bag-grid">
         <NuxtLink
           v-for="game in bagGames"
@@ -55,6 +55,9 @@ onMounted(fetchBagGames)
         >
           <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" />
           <v-icon v-else size="28" color="rgba(122,62,42,0.4)">mdi-gamepad-variant-outline</v-icon>
+        </NuxtLink>
+        <NuxtLink to="/game-list" class="dd__bag-thumb dd__bag-thumb--add" :title="t('dashboard.sacoche.addGame')">
+          <v-icon size="28" color="#7a3e2a">mdi-plus</v-icon>
         </NuxtLink>
       </div>
     </div>
@@ -188,6 +191,16 @@ onMounted(fetchBagGames)
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.dd__bag-thumb--add {
+  border-style: dashed;
+  background: rgba(245, 237, 223, 0.2);
+  transition: background 0.15s;
+}
+
+.dd__bag-thumb--add:hover {
+  background: rgba(122, 62, 42, 0.12);
 }
 
 /* ── Centre : profil + boussole ─────────────────────────────────── */

@@ -64,7 +64,10 @@ const { t } = useI18n()
 .nq-portrait-bg {
   position: fixed;
   inset: 0;
-  background-image: url('/images/next-quest/carte-portrait.png');
+  background-image: image-set(
+    url('/images/next-quest/carte-portrait.webp') type('image/webp'),
+    url('/images/next-quest/carte-portrait.png')  type('image/png')
+  );
   background-size: contain;
   margin-top: 30%;
   z-index: -1;

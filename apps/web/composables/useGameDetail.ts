@@ -62,8 +62,8 @@ export function useGameDetail() {
     showRemoveConfirm.value = false
     try {
       await authFetch(`${apiBase}/api/collection/${game.value?.userGameId}`, { method: 'DELETE' })
-    } catch { /* on navigue quand même */ }
-    navigateTo('/game-list')
+      navigateTo('/game-list')
+    } catch { /* suppression échouée — on reste sur la page */ }
   }
 
   return {

@@ -21,17 +21,15 @@ onMounted(() => {
 </script>
 
 <template>
-  <ClientOnly>
-    <DashboardMobile
-      v-if="mobile"
-      :username="username"
-      @logout="logout"
-    />
-    <DashboardDesktop
-      v-else
-      :username="username"
-      @logout="logout"
-    />
-    <DashboardOnboardingOverlay />
-  </ClientOnly>
+  <DashboardMobile
+    v-if="mobile"
+    :username="username"
+    @logout="logout"
+  />
+  <DashboardDesktop
+    v-else
+    :username="username"
+    @logout="logout"
+  />
+  <DashboardOnboardingOverlay />
 </template>

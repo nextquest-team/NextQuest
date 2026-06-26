@@ -3,8 +3,11 @@ const props = defineProps<{
   to?: string
 }>()
 
+const router = useRouter()
+
 function handleClick() {
   if (props.to) navigateTo(props.to)
+  else router.back()
 }
 </script>
 

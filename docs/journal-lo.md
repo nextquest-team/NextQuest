@@ -764,3 +764,281 @@ Détecté lors du codegen : symlinks pnpm cassés vers `fast-jwt@6.2.4` (suite a
 - Timeline (`/timeline`) : page à construire (liste des sorties de jeux)
 - JB : brancher `fastify-type-provider-zod` pour enrichir les types body/response
 
+---
+
+## 2026-06-22 — Module recommandations : page Next Quest
+
+### Résumé exécutif
+
+Session sur la branche `feat/front-reco`. Objectif : livrer la page `/next-quest` câblée sur les routes recommandations que JB avait livrées (3 buckets : `discovery`, `library_unplayed`, `upcoming`). Fix d'un bug de migration DB au passage. Mise en page desktop en `100dvh` sans scroll vertical.
+
+**Types centralisés** — Tous les types liés aux recommandations sont extraits dans `apps/web/types/recommendations.ts` : `RecoBucket`, `RecoGame`, `RecoReason`, `RecommendationDTO`, `GroupedRecommendations`, `FeedbackAction`. Aucun type inline dans la page — respect de la convention établie sur le module collection.
+
+**Page `next-quest.vue`** — Trois états principaux : chargement, vide (roue spinning + bouton de génération), recommandations disponibles.
+
+- **Hero (discovery)** : card large avec cover portrait (180px), titre, genres en tags, note IGDB en étoiles, date de sortie, raison personnalisée, boutons "Ajouter à ma liste" / "Pas pour moi".
+- **Secondaires (library_unplayed + upcoming)** : grille 2 colonnes, cards compactes avec cover miniature (72px), titre, genres, raison, boutons contextuels ("Je m'y mets" / "Me le rappeler" / "Pas pour moi"). Cards vides en pointillés si aucun jeu dans le bucket.
+- **Feedback** : `POST /api/recommendations/:id/feedback` avec action `liked | dismissed | added` — la card disparaît après confirmation.
+- **Régénération** : bouton "Nouvelles suggestions" relance `POST /api/recommendations/generate` puis re-fetch.
+
+**i18n** — Section `nextQuest` ajoutée dans `fr.json` et `en.json` : titres, sous-titres, labels de buckets, actions, libellés de date.
+
+**Fix migration DB** — `GET /api/recommendations` retournait 500 (`column recommendations.bucket does not exist`). La migration `0005_mean_hedge_knight.sql` existait mais n'avait pas été appliquée au running DB. Corrigé via `pnpm --filter @nextquest/db db:migrate`.
+
+**Layout desktop 100dvh** — Contrainte : tout doit tenir dans la fenêtre sans scroll vertical (≥960px). Solution en deux volets :
+- `.nq-page` : `height: 100dvh; overflow: hidden`
+- `.nq-hero` : `flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: flex-start` (le `align-items: flex-start` empêche le label pill de s'étirer pleine largeur)
+- `.nq-hero__card` : `flex: 1; min-height: 0; width: 100%` (le `width: 100%` compense le parent en `align-items: flex-start`)
+- `.nq-hero__actions` : `margin-top: 0` en desktop (le `margin-top: auto` du base pousse les boutons en bas du flex et `overflow: hidden` les coupe)
+- Paddings et marges réduits sur tous les éléments pour maximiser l'espace utile.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/types/recommendations.ts` | Nouveau — types DTO recommandations |
+| `apps/web/pages/next-quest.vue` | Réécriture complète de la page |
+| `apps/web/i18n/locales/fr.json` | Ajout section `nextQuest` |
+| `apps/web/i18n/locales/en.json` | Ajout section `nextQuest` |
+
+### Points ouverts
+
+- Layout desktop : en attente de confirmation visuelle finale sur le fix des boutons hero
+- Mobile : pas encore testé sur petit écran avec les nouvelles cards
+- Feedback : pas de toast de confirmation après action — à ajouter
+- Régénération : pas d'optimistic update — la page reste vide pendant le calcul (backend ~1s)
+
+---
+
+## 2026-06-22 — Redesign Next Quest : carte au trésor + fix token 401
+
+### Résumé exécutif
+
+Session sur `feat/front-reco`. Deux objectifs : (1) revoir complètement le layout desktop de `/next-quest` pour mettre les cards **sur** la carte au trésor (overlay) au lieu d'à côté, et appliquer le même rendu laine que les `.patch-btn` sur les bordures ; (2) corriger le 401 silencieux causé par l'expiration du JWT access token pendant une session.
+
+**Redesign overlay** — La page desktop utilise désormais `.nq-map-stage` : un `div` avec `background: url(carte-landscape.png) center / 100% 100% no-repeat` comme fond de scène. Les cards sont positionnées en `absolute` à l'intérieur via trois `.nq-slot` (discovery : gauche centre, library : droite haut, upcoming : droite bas). Le bouton "Nouvelles suggestions" flotte en bas centre via `position: absolute; left: 50%; transform: translateX(-50%)`.
+
+Sur mobile, l'image passe en bannière horizontale (`<img class="nq-mobile-map">`, 200px de haut, `object-fit: cover`), cachée sur desktop ; les cards s'empilent normalement en dessous.
+
+**Bordures laine** — Les `.nq-quest-card` utilisent `border: 20px solid transparent; border-image: url('/images/buttons/wooly-btn-final.png') 350 fill round` — exactement le même principe que `.patch-btn`. La card principale (discovery) a `border-width: 24px`. Le fond est `transparent` pour laisser apparaître la carte derrière.
+
+**Image carte au trésor** — L'image AI (`carte-landscape.jpg`, 1376×768) avait un fond en damier blanc/gris transparent baked dans le JPEG. Nettoyé via un script PIL BFS flood fill depuis les 4 coins (critère de saturation < 18 pour isoler le fond low-saturation) → sauvegardé en RGBA PNG (`carte-landscape.png`). L'image PNG exposait ensuite un problème de crop côté droit et gauche : corrigé en remplaçant `background-size: cover` par `background-size: 100% 100%` qui étire l'image exactement dans le conteneur sans recadrage.
+
+**`useAuthFetch` composable** — Nouveau composable `apps/web/composables/useAuthFetch.ts` qui encapsule `$fetch` d'ofetch avec un mécanisme de refresh automatique :
+1. Appel API avec le token courant (Bearer depuis le store Pinia mémoire).
+2. Si 401 (`FST_JWT_AUTHORIZATION_TOKEN_EXPIRED`) → appelle `refreshTokens()` du composable `useAuth` (utilise le cookie httpOnly refresh token).
+3. Retry unique avec le nouveau token.
+4. Si le refresh échoue → redirect vers `/auth/login`.
+
+**Migration de toutes les pages** — Les 4 pages concernées remplacent `$fetch` + `authHeaders()` manuels par `useAuthFetch` :
+- `next-quest.vue` — 3 appels (`fetchRecos`, `generate`, `sendFeedback`)
+- `game-list.vue` — 6 appels (steam status, link steam, import steam, enrich, fetch games, status change, delete)
+- `profil.vue` — 2 appels (saveBio, saveVisibility)
+- `games/[gameId].vue` — 3 appels (fetch detail, status change, delete)
+
+Les headers `Authorization`, `credentials: 'include'` et la fonction `authHeaders()` locale ont été supprimés de chaque page — `useAuthFetch` les injecte systématiquement.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/composables/useAuthFetch.ts` | Nouveau — wrapper $fetch avec refresh token auto |
+| `apps/web/public/images/next-quest/carte-landscape.jpg` | Nouveau — image source AI (1376×768) |
+| `apps/web/public/images/next-quest/carte-landscape.png` | Nouveau — image nettoyée RGBA (fond transparent) |
+| `apps/web/pages/next-quest.vue` | Redesign complet — overlay map + bordures laine + useAuthFetch |
+| `apps/web/pages/game-list.vue` | Migration useAuthFetch — suppression authHeaders manuel |
+| `apps/web/pages/profil.vue` | Migration useAuthFetch — suppression authHeaders manuel |
+| `apps/web/pages/games/[gameId].vue` | Migration useAuthFetch — suppression authHeaders manuel |
+
+### Vérifications
+
+| Check | Résultat |
+|-------|----------|
+| `nuxi typecheck` | ✅ 0 erreur |
+| Rendu overlay desktop | ✅ Cards positionnées sur la carte, bordures laine visibles |
+| Fix crop image | ✅ Image affichée sans recadrage gauche/droite |
+| Fix 401 token expiré | ✅ Refresh silencieux + retry automatique |
+
+### Points ouverts
+
+- Feedback (liked/dismissed) : pas de toast de confirmation visuelle — à ajouter
+- Régénération : pas d'optimistic update pendant le calcul backend
+- Tests mobiles des overlays non encore validés sur petit écran physique
+
+---
+
+## 2026-06-22 — Correction background + split mobile/desktop toutes pages
+
+### Résumé exécutif
+
+Session sur `feat/front-reco`. Deux objectifs : (1) corriger l'anomalie visuelle de `fond.png` qui changeait de taille selon la hauteur de la page et se répétait verticalement sur les pages longues (profil, actualités) ; (2) appliquer systématiquement le pattern de séparation mobile/desktop à toutes les pages qui en manquaient.
+
+### Correction du background `fond.png`
+
+**Cause racine** — Dans `app.vue`, `.app-bg` avait `background-repeat: repeat` et `min-height: 100vh`. Quand le contenu dépassait la hauteur du viewport (page profil avec bio longue, game-list avec beaucoup de jeux), le div grandissait et `fond.png` se répétait verticalement, donnant l'effet "doublé". Un `body::before { position: fixed }` avait été ajouté à tort dans `main.css` — il était inutile car masqué par le fond de `v-application` (Vuetify).
+
+**Correction** — `.app-bg` devient `position: fixed; inset: 0` (élément hors du flux, ancré sur le viewport). Il ne peut plus grandir ni se répéter. `.v-application__wrap { position: relative; z-index: 0; background: transparent }` garantit que le contenu Vuetify reste au-dessus. Le `body::before` redondant a été supprimé de `main.css`.
+
+**`PageHeader` sticky mobile** — Ajout de `position: sticky; top: 0; z-index: 50` sur `.ui-page-header` via `@media (max-width: 959px)`. Un pseudo-élément `::before { left: -100vw; right: -100vw }` étend le fond semi-opaque pleine largeur malgré le padding parent (clippé par `overflow: hidden` du conteneur).
+
+### Pattern mobile/desktop — généralisation
+
+**Convention établie** : chaque page doit disposer d'un composant `FooMobile.vue` et `FooDesktop.vue` dans `components/foo/`. La page routeur (`pages/foo.vue`) se réduit à ~8 lignes : `definePageMeta` + `useDisplay` + `<ClientOnly>` + `v-if="mobile"`. La logique partagée (data fetch, état, méthodes) va dans un composable `composables/useFoo.ts`.
+
+**Layout mobile standard** : `height: calc(100dvh - 64px)` (64px = bottom nav), flex colonne, `overflow: hidden`. Zone header : `flex-shrink: 0`. Zone contenu : `flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch`.
+
+Pages splittées dans cette session :
+
+| Page | Composable | Mobile | Desktop |
+|---|---|---|---|
+| `game-list` | `useGameList.ts` | `GameListMobile.vue` | `GameListDesktop.vue` |
+| `profil` | `useProfil.ts` | `ProfilMobile.vue` | `ProfilDesktop.vue` |
+| `actualites` | — | `ActualitesMobile.vue` | `ActualitesDesktop.vue` |
+| `games/[gameId]` | `useGameDetail.ts` | `GameDetailMobile.vue` | `GameDetailDesktop.vue` |
+| `games/catalog/[gameId]` | — | `GameCatalogDetailMobile.vue` | `GameCatalogDetailDesktop.vue` |
+| `next-quest` | (existant) | restructuré | restructuré |
+
+`next-quest.vue` était déjà partiellement split (`NextQuestMobileStage` / `NextQuestDesktopStage`) mais le header était partagé. Il a été restructuré en deux blocs `v-if="mdAndUp"` / `v-else` dans la même page, avec un container mobile `height: calc(100dvh - 64px)` + zone scrollable interne.
+
+**Spécificité `GameDetailMobile`** — La cover n'est plus dans un bloc hero côte-à-côte : elle s'étend pleine largeur (`margin: 0 -1rem; width: calc(100% + 2rem); height: 220px`) pour un rendu immersif. Les screenshots utilisent le même débordement horizontal (`margin-left: -1rem; padding-left: 1rem`).
+
+### Fichiers modifiés / créés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/app.vue` | Fix — `.app-bg` position fixed, `v-application__wrap` transparent |
+| `apps/web/assets/css/main.css` | Fix — suppression `body::before` redondant |
+| `apps/web/components/ui/PageHeader.vue` | Amélioration — sticky + fond étendu sur mobile |
+| `apps/web/components/next-quest/MobileStage.vue` | Ajustement — restructuration layout mobile |
+| `apps/web/pages/next-quest.vue` | Restructuration — deux blocs mobile/desktop distincts |
+| `apps/web/composables/useGameList.ts` | Nouveau — état + logique game list |
+| `apps/web/components/game-list/GameListMobile.vue` | Nouveau — layout mobile inner-scroll |
+| `apps/web/components/game-list/GameListDesktop.vue` | Nouveau — layout desktop grille |
+| `apps/web/pages/game-list.vue` | Refactorisé — routeur thin |
+| `apps/web/composables/useProfil.ts` | Nouveau — état + logique profil |
+| `apps/web/components/profil/ProfilMobile.vue` | Nouveau |
+| `apps/web/components/profil/ProfilDesktop.vue` | Nouveau |
+| `apps/web/pages/profil.vue` | Refactorisé — routeur thin |
+| `apps/web/components/actualites/ActualitesMobile.vue` | Nouveau — placeholder mobile |
+| `apps/web/components/actualites/ActualitesDesktop.vue` | Nouveau — placeholder desktop |
+| `apps/web/pages/actualites.vue` | Refactorisé — routeur thin |
+| `apps/web/composables/useGameDetail.ts` | Nouveau — état + logique fiche jeu |
+| `apps/web/components/games/GameDetailMobile.vue` | Nouveau — cover pleine largeur mobile |
+| `apps/web/components/games/GameDetailDesktop.vue` | Nouveau |
+| `apps/web/pages/games/[gameId].vue` | Refactorisé — routeur thin |
+| `apps/web/components/games/catalog/GameCatalogDetailMobile.vue` | Nouveau |
+| `apps/web/components/games/catalog/GameCatalogDetailDesktop.vue` | Nouveau |
+| `apps/web/pages/games/catalog/[gameId].vue` | Refactorisé — routeur thin |
+
+### Vérifications
+
+| Check | Résultat |
+|-------|----------|
+| `nuxi prepare` (types) | ✅ 0 erreur |
+| Background fond.png mobile | ✅ Constant, plus de repeat sur pages longues |
+| PageHeader sticky | ✅ Reste visible au scroll sur mobile |
+| Split mobile/desktop | ✅ Pattern uniforme sur toutes les pages |
+
+### Points ouverts
+
+- Tests unitaires des nouveaux composables (`useGameList`, `useProfil`, `useGameDetail`) — à écrire
+- Actualités : contenu réel à implémenter (placeholder pour l'instant)
+- Valider le rendu sur un appareil physique iOS (Safari, bottom nav, `100dvh`)
+
+---
+
+## 2026-06-22 — Uniformisation cards mobile Next Quest
+
+### Résumé exécutif
+
+Affinage UI sur `feat/front-reco`. Les trois cards de recommandation Next Quest avaient des formats hétérogènes en mobile : Discovery utilisait un layout héro centré (cover 130×173px, infos centrées), Library et Upcoming utilisaient un layout compact (cover gauche + infos droite). Résultat : une grande card en haut et deux petites en grille décalée — incohérent visuellement. Les 3 cards ont été unifiées en colonne avec le même format.
+
+### Changements
+
+**`RecoCard.vue`** — Ajout prop `compact?: boolean`. Quand actif, Discovery abandonne le layout héro et adopte le layout compact. Cover compacte agrandie 68×90 → 80×108px. Desktop non impacté (prop non transmis depuis DesktopStage).
+
+**`MobileStage.vue`** — Suppression `.nq-slot` + `.nq-secondary` (grille 2 col décalée). Remplacement par `.nq-cards` flex colonne. Les 3 cards reçoivent `compact`.
+
+**`nuxt.config.ts`** — Devtools désactivé (`enabled: false`) pour ne pas polluer l'interface mobile.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/next-quest/RecoCard.vue` | Ajout prop `compact`, condition `isMain && !compact` |
+| `apps/web/components/next-quest/MobileStage.vue` | Layout colonne unique, prop compact sur les 3 cards |
+| `apps/web/nuxt.config.ts` | Devtools désactivé |
+
+### Points ouverts
+
+- Effet verre dépoli sur les cards : exploré mais non retenu. `border-image: fill` peint le centre de façon opaque et bloque tout `backdrop-filter`. Nécessite une refonte de l'approche border (SVG clip, abandon du fill) — à reprendre si besoin.
+
+---
+
+## 2026-06-23 — Tests unitaires PR feat/front-reco
+
+### Résumé exécutif
+
+Écriture de la couverture de tests unitaires complète pour tous les composants et composables introduits dans la PR `feat/front-reco`. 14 fichiers de tests créés, 203 tests passants, 0 régression. La CI passe.
+
+### Ce qui a été fait
+
+**Composables** (`tests/composables/`)
+- `useGameDetail.test.ts` — 17 tests : `formatPlaytime` (null, 0, 90 min, 150 min), `formatReleaseDate`, `GAME_STATUSES` (4 entrées, ordre, icônes mdi), `onStatusChange` (optimiste + revert sur erreur, no-op si game=null)
+- `useGameList.test.ts` — 18 tests : `STATUS_OPTIONS` (4 options), `toggleStatus` (ajout/suppression), `activeFilterCount`, `resetFilters` (vide statuts + remet page à 1), `goToPage`, `onDeleteGame` (suppression optimiste, décrement total), `totalPages` (calcul ceil)
+
+**Composants profil** (`tests/components/profil/`)
+- `ProfilMobile.test.ts` — 11 tests : montage (`fetchProfile`), affichage nom/displayName/@username, avatar DiceBear vs custom, édition bio (ouverture textarea, annuler, compteur 500, PATCH succès, PATCH erreur, désactivation > 500 chars), visibilité (3 options, PATCH private), logout
+
+**Composants actualités** (`tests/components/actualites/`)
+- `ActualitesMobile.test.ts` + `ActualitesDesktop.test.ts` — placeholder title + zone placeholder
+
+**Composants game-list** (`tests/components/game-list/`)
+- `GameListMobile.test.ts` / `GameListDesktop.test.ts` — 10–11 tests chacun : `init()` au montage, bouton Steam Lier / steam-row quand connecté, loader, état vide, grille avec GameListCard, champ recherche, badge filtre, pagination conditionnelle, clic Steam
+
+**Composants game-detail** (`tests/components/games/`)
+- `GameDetailMobile.test.ts` / `GameDetailDesktop.test.ts` — 9 tests chacun : `load()` au montage, loader, not-found, titre, 4 boutons de statut, statut actif (.--active), `onStatusChange` au clic, modale de confirmation (ouverture + `confirmRemove`)
+
+**Composants catalog** (`tests/components/games/catalog/`)
+- `GameCatalogDetailMobile.test.ts` / `GameCatalogDetailDesktop.test.ts` — 5–6 tests chacun : not-found si state null, titre, cover, note IGDB, genres (chips)
+
+**Composants next-quest** (`tests/components/next-quest/`)
+- `MobileStage.test.ts` — 4 tests : 3 zones rendues (nq-slot-empty), structure nq-cards, émission `generate`, bouton disabled si generating
+- `RecoCard.test.ts` — 13 tests : slot vide (reco=null), layout compact (library, upcoming, discovery+compact), layout héro (discovery sans compact), titre, badges (discovery/library/upcoming), feedback CTA (added/liked), dismiss, disabled si feedbackPending
+
+**Composant UI** (`tests/components/ui/`)
+- `PageHeader.test.ts` — 4 tests : montage, rendu slot, prop `to` transmise à UiBackButton, wrapper content
+
+### Décisions techniques
+
+**`global.stubs` ne fonctionne pas pour les composants auto-importés par Nuxt.** Dans l'environnement `@vitest-environment nuxt`, Nuxt injecte les composants comme des imports statiques au moment de la compilation Vite. `global.stubs` n'intercepte que les composants résolus via le registre global Vue, pas les imports statiques. Solution adoptée : tester le comportement réel plutôt que de mocker les enfants. Ex : MobileStage testé avec `reco: null` → 3 `.nq-slot-empty` rendus.
+
+**`shallowMount` pour PageHeader.** Le composant `UiBackButton` utilise Vuetify en interne ; sans plugin Vuetify dans l'environnement de test, le montage profond échoue. `shallowMount` stub automatiquement tous les enfants et permet d'inspecter les props transmises.
+
+**Stub avec `name` = conflit.** Ajouter `name: 'NextQuestRecoCard'` à un stub provoque un conflit avec le composant déjà enregistré globalement par Nuxt — le composant réel reprend la priorité. Il faut soit laisser le stub sans `name`, soit tester le comportement réel.
+
+### Fichiers créés
+
+| Fichier | Tests |
+|---|---|
+| `tests/composables/useGameDetail.test.ts` | 17 |
+| `tests/composables/useGameList.test.ts` | 18 |
+| `tests/components/profil/ProfilMobile.test.ts` | 11 |
+| `tests/components/actualites/ActualitesMobile.test.ts` | 3 |
+| `tests/components/actualites/ActualitesDesktop.test.ts` | 3 |
+| `tests/components/game-list/GameListMobile.test.ts` | 11 |
+| `tests/components/game-list/GameListDesktop.test.ts` | 10 |
+| `tests/components/games/GameDetailMobile.test.ts` | 9 |
+| `tests/components/games/GameDetailDesktop.test.ts` | 9 |
+| `tests/components/games/catalog/GameCatalogDetailMobile.test.ts` | 6 |
+| `tests/components/games/catalog/GameCatalogDetailDesktop.test.ts` | 5 |
+| `tests/components/next-quest/MobileStage.test.ts` | 4 |
+| `tests/components/next-quest/RecoCard.test.ts` | 13 |
+| `tests/components/ui/PageHeader.test.ts` | 4 |
+| **Total** | **203** |
+
+### TODOs en attente
+
+- Aucun blocker. La PR est prête pour review.
+
+

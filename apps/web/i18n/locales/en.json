@@ -124,7 +124,39 @@
     "noSummary": "No summary available.",
     "tags": "Themes",
     "similarGames": "Similar games",
+    "storyline": "Storyline",
+    "screenshots": "Screenshots",
+    "gameModes": "Game modes",
     "comingSoon": "IGDB data will be available once the API is connected."
+  },
+  "nextQuest": {
+    "title": "Next Quest",
+    "subtitle": "What will your next adventure be?",
+    "generate": "Get my recommendations",
+    "regenerate": "New suggestions",
+    "generating": "Calculating…",
+    "emptyTitle": "No recommendations yet",
+    "emptyHint": "Start the calculation to get your first personalized suggestions.",
+    "buckets": {
+      "discovery": "Discovery",
+      "discoveryHint": "A game made for you, not yet in your list",
+      "libraryUnplayed": "In your library",
+      "libraryUnplayedHint": "A game you own but haven't finished yet",
+      "upcoming": "Coming soon",
+      "upcomingHint": "An upcoming release you shouldn't miss"
+    },
+    "actions": {
+      "add": "Accept the quest",
+      "dismiss": "Decline",
+      "play": "Resume the quest",
+      "remind": "Watch for it"
+    },
+    "rating": "IGDB rating",
+    "release": "Release date",
+    "released": "Released",
+    "genres": "Genres",
+    "feedbackDone": "Got it!",
+    "noReco": "No suggestion for this category"
   },
   "dashboard": {
     "onboarding": {

@@ -124,7 +124,39 @@
     "noSummary": "Aucun synopsis disponible.",
     "tags": "Thèmes",
     "similarGames": "Jeux similaires",
-    "comingSoon": "Les données IGDB seront disponibles une fois l'API connectée."
+    "storyline": "Histoire",
+    "screenshots": "Captures d'écran",
+    "gameModes": "Modes de jeu",
+    "comingSoon": "Aucune donnée pour ce jeu."
+  },
+  "nextQuest": {
+    "title": "Next Quest",
+    "subtitle": "Quelle sera ta prochaine aventure ?",
+    "generate": "Lancer mes recommandations",
+    "regenerate": "Nouvelles suggestions",
+    "generating": "Calcul en cours…",
+    "emptyTitle": "Aucune recommandation",
+    "emptyHint": "Lance le calcul pour obtenir tes premières suggestions personnalisées.",
+    "buckets": {
+      "discovery": "Découverte",
+      "discoveryHint": "Un jeu fait pour toi, pas encore dans ta liste",
+      "libraryUnplayed": "Dans ta bibliothèque",
+      "libraryUnplayedHint": "Un jeu que tu as mais n'as pas encore terminé",
+      "upcoming": "À venir",
+      "upcomingHint": "Une sortie à ne pas manquer"
+    },
+    "actions": {
+      "add": "Accepter la quête",
+      "dismiss": "Décliner",
+      "play": "Reprendre la quête",
+      "remind": "Guetter la sortie"
+    },
+    "rating": "Note IGDB",
+    "release": "Sortie prévue",
+    "released": "Sorti en",
+    "genres": "Genres",
+    "feedbackDone": "Pris en compte !",
+    "noReco": "Aucune suggestion pour ce bucket"
   },
   "dashboard": {
     "onboarding": {

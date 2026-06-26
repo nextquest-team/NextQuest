@@ -6,7 +6,7 @@ const { mobile } = useDisplay()
 
 <template>
   <ClientOnly>
-    <ProfilMobile v-if="mobile" />
-    <ProfilDesktop v-else />
+    <GamesCatalogGameCatalogDetailMobile v-if="mobile" />
+    <GamesCatalogGameCatalogDetailDesktop v-else />
   </ClientOnly>
 </template>

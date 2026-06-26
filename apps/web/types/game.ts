@@ -12,7 +12,57 @@ export interface CollectionGameMeta {
   developer: string | null
   publisher: string | null
   igdbRating: number | null
+  igdbId: number | null
   isEnriched: boolean
+}
+
+// ── Types IGDB proxy (igdb.dto.ts côté API) ──────────────
+
+export interface IgdbTaxonRef {
+  igdbId: number
+  name: string
+  slug: string
+}
+
+export interface IgdbPlatformRef {
+  igdbId: number
+  name: string
+  abbreviation: string | null
+}
+
+export interface IgdbVideoRef {
+  name: string | null
+  youtubeId: string
+}
+
+export interface IgdbSimilarGame {
+  igdbId: number
+  title: string
+  coverUrl: string | null
+}
+
+export interface IgdbGameDetail {
+  igdbId: number
+  title: string
+  summary: string | null
+  storyline: string | null
+  releaseDate: string | null
+  releaseStatus: 'upcoming' | 'released'
+  coverUrl: string | null
+  artworkUrl: string | null
+  screenshots: string[]
+  videos: IgdbVideoRef[]
+  rating: number | null
+  ratingCount: number | null
+  hypes: number | null
+  developer: string | null
+  publisher: string | null
+  genres: IgdbTaxonRef[]
+  themes: IgdbTaxonRef[]
+  gameModes: IgdbTaxonRef[]
+  playerPerspectives: IgdbTaxonRef[]
+  platforms: IgdbPlatformRef[]
+  similarGames: IgdbSimilarGame[]
 }
 
 export interface GenreRef {

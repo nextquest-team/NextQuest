@@ -9,10 +9,10 @@
     "./prettier": "./prettier.config.mjs"
   },
   "devDependencies": {
-    "eslint": "^10.5.0",
+    "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.5",
-    "typescript-eslint": "^8.61.1",
-    "prettier": "^3.8.4",
+    "typescript-eslint": "^8.62.1",
+    "prettier": "^3.9.4",
     "typescript": "^5.9.3"
   }
 }

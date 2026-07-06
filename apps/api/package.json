@@ -25,7 +25,7 @@
     "argon2": "^0.44.0",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.45.2",
-    "fastify": "^5.8.4",
+    "fastify": "^5.10.0",
     "fastify-type-provider-zod": "^6.1.0",
     "ioredis": "^5.11.1",
     "zod": "^4.4.3"
@@ -33,11 +33,11 @@
   "devDependencies": {
     "@nextquest/config": "workspace:*",
     "@types/supertest": "^6.0.2",
-    "eslint": "^10.5.0",
+    "eslint": "^10.6.0",
     "pino-pretty": "^13.0.0",
     "supertest": "^7.2.2",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   }
 }

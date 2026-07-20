@@ -65,4 +65,27 @@ describe('useImportProgress', () => {
     await vi.advanceTimersByTimeAsync(500)
     expect(authFetchMock).toHaveBeenCalled()
   })
+
+  it('pousse un toast a la fin quand on est passe en arriere-plan', async () => {
+    authFetchMock
+      .mockResolvedValueOnce({ status: 'running', total: 3, done: 1, games: [] })
+      .mockResolvedValueOnce({ status: 'done', total: 3, done: 3, games: [] })
+    const { start, stopBackground } = useImportProgress()
+    start()
+    await vi.advanceTimersByTimeAsync(0)
+    stopBackground()
+    await vi.advanceTimersByTimeAsync(500)
+    expect(pushMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("ne pousse pas de toast si la modale etait encore ouverte a la fin", async () => {
+    authFetchMock
+      .mockResolvedValueOnce({ status: 'running', total: 3, done: 1, games: [] })
+      .mockResolvedValueOnce({ status: 'done', total: 3, done: 3, games: [] })
+    const { start } = useImportProgress()
+    start()
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(500)
+    expect(pushMock).not.toHaveBeenCalled()
+  })
 })

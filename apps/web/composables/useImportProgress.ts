@@ -16,6 +16,8 @@ let doneHandler: (() => void) | null = null
 
 export function useImportProgress() {
   const { authFetch, apiBase } = useAuthFetch()
+  const { push } = useToast()
+  const { t } = useI18n()
 
   function clearTimer() {
     if (timer) {
@@ -26,9 +28,15 @@ export function useImportProgress() {
 
   function finish() {
     clearTimer()
+    const wasBackground = inBackground
     open.value = false
     inBackground = false
     doneHandler?.()
+    // Si l'utilisateur avait ferme la modale (arriere-plan), on le previent par
+    // un toast que les jaquettes sont a jour.
+    if (wasBackground) {
+      push({ type: 'success', text: t('gameList.enrichDone') })
+    }
   }
 
   async function tick() {

@@ -135,35 +135,35 @@ watch(show, (val) => {
 .nq-popover .driver-popover-title {
   font-family: var(--nq-font);
   font-size: 1rem;
-  color: #56311B;
+  color: var(--nq-overlay-brown);
 }
 
 .nq-popover .driver-popover-description {
   font-family: var(--nq-font);
   font-size: 0.9rem;
-  color: #3A1A0A;
+  color: var(--nq-brown-dark);
   line-height: 1.5;
 }
 
 .nq-popover.driver-popover {
   background: radial-gradient(circle at center, rgba(202, 164, 109, 1) 0%, rgba(158, 106, 30, 1) 100%);
-  border: 4px solid #5B6A5B;
+  border: 4px solid var(--nq-overlay-sage);
   border-radius: 10px;
   min-width: 280px;
   max-width: 360px;
 }
 
-.nq-popover .driver-popover-arrow-side-left.driver-popover-arrow { border-right-color: #5B6A5B; }
-.nq-popover .driver-popover-arrow-side-right.driver-popover-arrow { border-left-color: #5B6A5B; }
-.nq-popover .driver-popover-arrow-side-top.driver-popover-arrow { border-bottom-color: #5B6A5B; }
-.nq-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-top-color: #5B6A5B; }
+.nq-popover .driver-popover-arrow-side-left.driver-popover-arrow { border-right-color: var(--nq-overlay-sage); }
+.nq-popover .driver-popover-arrow-side-right.driver-popover-arrow { border-left-color: var(--nq-overlay-sage); }
+.nq-popover .driver-popover-arrow-side-top.driver-popover-arrow { border-bottom-color: var(--nq-overlay-sage); }
+.nq-popover .driver-popover-arrow-side-bottom.driver-popover-arrow { border-top-color: var(--nq-overlay-sage); }
 
 .nq-popover .driver-popover-next-btn,
 .nq-popover .driver-popover-prev-btn,
 .nq-popover .driver-popover-done-btn {
   font-family: var(--nq-font);
-  background: #56311B;
-  color: #edc78e;
+  background: var(--nq-overlay-brown);
+  color: var(--nq-cream-light);
   border: none;
   border-radius: 5px;
   padding: 6px 16px;
@@ -174,23 +174,23 @@ watch(show, (val) => {
 .nq-popover .driver-popover-next-btn:hover,
 .nq-popover .driver-popover-prev-btn:hover,
 .nq-popover .driver-popover-done-btn:hover {
-  background: #7a3e2a;
-  color: #edc78e;
+  background: var(--nq-brown-mid);
+  color: var(--nq-cream-light);
 }
 
 .nq-popover .driver-popover-close-btn {
-  color: #56311B;
+  color: var(--nq-overlay-brown);
   font-size: 1.2rem;
 }
 
 .nq-popover .driver-popover-close-btn:hover {
-  color: #3A1A0A;
+  color: var(--nq-brown-dark);
   background: transparent;
 }
 
 .nq-popover .driver-popover-progress-text {
   font-family: var(--nq-font);
-  color: #56311B;
+  color: var(--nq-overlay-brown);
   font-size: 0.8rem;
 }
 
@@ -199,7 +199,7 @@ watch(show, (val) => {
   font-size: 0.8rem;
   background: transparent;
   border: none;
-  color: #56311B;
+  color: var(--nq-overlay-brown);
   text-decoration: underline;
   cursor: pointer;
   padding: 4px 8px;

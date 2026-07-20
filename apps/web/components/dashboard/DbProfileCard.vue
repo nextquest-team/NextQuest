@@ -53,7 +53,7 @@ const { t } = useI18n()
   content: '';
   position: absolute;
   inset: 6%;
-  background: #F5EDDF;
+  background: var(--nq-cream-alt);
   border-radius: 15%;
   z-index: 0;
 }
@@ -102,8 +102,8 @@ const { t } = useI18n()
   font-size: clamp(0.875rem, 1.8vw, 0.95rem);
   padding: 5px 14px;
   border-radius: 5px;
-  background: #7a3e2a;
-  color: #edc78e;
+  background: var(--nq-brown-mid);
+  color: var(--nq-cream-light);
   white-space: nowrap;
   min-height: 44px;
   display: inline-flex;
@@ -114,13 +114,13 @@ const { t } = useI18n()
   font-family: var(--nq-font);
   font-size: clamp(0.875rem, 2.5vw, 1.1rem);
   font-weight: bold;
-  color: #332b25;
+  color: var(--nq-text-alt);
   text-align: center;
 }
 
 /* ── Mode horizontal (desktop) ── */
 .profile-h {
-  --frame-bg: #F5EDDF;
+  --frame-bg: var(--nq-cream-alt);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -160,7 +160,7 @@ const { t } = useI18n()
   font-family: var(--nq-font);
   font-size: clamp(1rem, 1.5vw, 1.4rem);
   font-weight: bold;
-  color: #332b25;
+  color: var(--nq-text-alt);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -176,8 +176,8 @@ const { t } = useI18n()
   font-size: clamp(0.875rem, 1vw, 0.95rem);
   padding: 6px 16px;
   border-radius: 5px;
-  background: #7a3e2a;
-  color: #edc78e;
+  background: var(--nq-brown-mid);
+  color: var(--nq-cream-light);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;

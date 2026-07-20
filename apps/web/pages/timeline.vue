@@ -17,6 +17,6 @@ const { t } = useI18n()
   align-items: center;
   justify-content: center;
   font-family: var(--nq-font);
-  color: #332b25;
+  color: var(--nq-text-alt);
 }
 </style>

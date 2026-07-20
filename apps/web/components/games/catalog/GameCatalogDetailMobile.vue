@@ -27,11 +27,11 @@ function ratingStars(rating: number | null): string {
     <div class="cdm__body">
 
       <div v-if="loading" class="cdm__not-found">
-        <v-progress-circular indeterminate size="32" color="#5C3317" />
+        <v-progress-circular indeterminate size="32" color="primary" />
       </div>
 
       <div v-else-if="!game" class="cdm__not-found">
-        <v-icon size="52" color="#a07850">mdi-help-circle-outline</v-icon>
+        <v-icon size="52" color="primary-light">mdi-help-circle-outline</v-icon>
         <p class="cdm__nf-title">{{ t('gameDetail.notFound') }}</p>
         <p class="cdm__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
       </div>
@@ -41,7 +41,7 @@ function ratingStars(rating: number | null): string {
         <div class="cdm__cover">
           <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="cdm__cover-img" />
           <div v-else class="cdm__cover-ph">
-            <v-icon size="48" color="#a07850">mdi-gamepad-variant</v-icon>
+            <v-icon size="48" color="primary-light">mdi-gamepad-variant</v-icon>
           </div>
         </div>
 
@@ -103,7 +103,7 @@ function ratingStars(rating: number | null): string {
 }
 
 .cdm__nf-title { font-size: 1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.cdm__nf-hint  { font-size: 0.85rem; color: rgba(58, 26, 10, 0.6); margin: 0; }
+.cdm__nf-hint  { font-size: 0.85rem; color: rgba(var(--nq-brown-dark-rgb), 0.6); margin: 0; }
 
 /* Cover pleine largeur */
 .cdm__cover {
@@ -111,7 +111,7 @@ function ratingStars(rating: number | null): string {
   margin-left: -1rem;
   margin-right: -1rem;
   height: 220px;
-  background: rgba(92, 51, 23, 0.08);
+  background: rgba(var(--nq-brown-rgb), 0.08);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -127,7 +127,7 @@ function ratingStars(rating: number | null): string {
 .cdm__title { font-size: clamp(1.2rem, 5vw, 1.5rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 0.5rem; line-height: 1.25; }
 
 .cdm__rating { display: flex; align-items: center; gap: 6px; margin-bottom: 0.85rem; }
-.cdm__rating-stars { color: #c8860a; font-size: 0.85rem; }
+.cdm__rating-stars { color: var(--nq-gold-dark); font-size: 0.85rem; }
 .cdm__rating-num { font-weight: 700; font-size: 0.9rem; color: var(--nq-brown-dark); }
 
 .cdm__meta { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; margin: 0; }
@@ -135,7 +135,7 @@ function ratingStars(rating: number | null): string {
 .cdm__dt {
   font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(var(--nq-brown-dark-rgb), 0.5);
   white-space: nowrap;
   align-self: start;
   padding-top: 2px;
@@ -147,7 +147,7 @@ function ratingStars(rating: number | null): string {
 
 .cdm__chip {
   display: inline-block;
-  background: rgba(92, 51, 23, 0.08);
+  background: rgba(var(--nq-brown-rgb), 0.08);
   color: var(--nq-brown, #5C3317);
   border-radius: 999px;
   padding: 2px 9px;

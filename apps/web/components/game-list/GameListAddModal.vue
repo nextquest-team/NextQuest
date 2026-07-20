@@ -33,7 +33,7 @@ const search = ref('')
 
         <!-- Contenu — bientôt disponible -->
         <div class="gl-modal__coming-soon">
-          <v-icon size="48" color="#a07850">mdi-database-search-outline</v-icon>
+          <v-icon size="48" color="primary-light">mdi-database-search-outline</v-icon>
           <p class="gl-modal__coming-text">{{ t('gameList.addModal.comingSoon') }}</p>
         </div>
 
@@ -46,7 +46,7 @@ const search = ref('')
 .gl-modal__backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(30, 14, 4, 0.55);
+  background: rgba(var(--nq-scrim-rgb), 0.55);
   z-index: 200;
   display: flex;
   align-items: center;
@@ -63,7 +63,7 @@ const search = ref('')
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(58, 26, 10, 0.2);
+  box-shadow: 0 8px 32px rgba(var(--nq-brown-dark-rgb), 0.2);
 }
 
 /* ── En-tête ── */
@@ -102,7 +102,7 @@ const search = ref('')
   align-items: center;
   gap: 8px;
   margin: 1rem 1.25rem 0;
-  background: rgba(92, 51, 23, 0.07);
+  background: rgba(var(--nq-brown-rgb), 0.07);
   border-radius: 8px;
   padding: 8px 12px;
   flex-shrink: 0;
@@ -120,7 +120,7 @@ const search = ref('')
   color: var(--nq-brown-dark, #3A1A0A);
 }
 
-.gl-modal__search::placeholder { color: rgba(58, 26, 10, 0.4); }
+.gl-modal__search::placeholder { color: rgba(var(--nq-brown-dark-rgb), 0.4); }
 
 /* ── Coming soon ── */
 .gl-modal__coming-soon {
@@ -137,7 +137,7 @@ const search = ref('')
 .gl-modal__coming-text {
   font-family: var(--nq-font);
   font-size: 0.9rem;
-  color: rgba(58, 26, 10, 0.6);
+  color: rgba(var(--nq-brown-dark-rgb), 0.6);
   line-height: 1.5;
   margin: 0;
 }

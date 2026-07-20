@@ -9,6 +9,12 @@ export default defineNuxtConfig({
       watch: {
         usePolling: true,
         interval: 1000,
+        // Évite que le watcher se déclenche sur les fichiers que Nuxt
+        // génère lui-même dans .nuxt/ au démarrage, ce qui provoquait un
+        // redémarrage immédiat du serveur dev et un crash du WS HMR
+        // ("handleUpgrade() was called more than once with the same socket").
+        // node_modules et .git sont déjà ignorés par défaut par Vite.
+        ignored: ['**/.nuxt/**'],
       },
     },
   },
@@ -66,7 +72,11 @@ export default defineNuxtConfig({
             dark: false,
             colors: {
               primary: '#5C3317',
+              'primary-light': '#A07850',
+              'primary-dark': '#7A3E2A',
               secondary: '#F8F4EA',
+              'secondary-light': '#EDC78E',
+              gold: '#C8A44A',
               background: '#EDE8DC',
               surface: '#F8F4EA',
               error: '#8B1F1F',

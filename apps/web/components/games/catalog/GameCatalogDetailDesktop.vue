@@ -20,11 +20,11 @@ function ratingStars(rating: number | null): string {
     <UiPageHeader />
 
     <div v-if="loading" class="cdd__not-found">
-      <v-progress-circular indeterminate size="32" color="#5C3317" />
+      <v-progress-circular indeterminate size="32" color="primary" />
     </div>
 
     <div v-else-if="!game" class="cdd__not-found">
-      <v-icon size="56" color="#a07850">mdi-help-circle-outline</v-icon>
+      <v-icon size="56" color="primary-light">mdi-help-circle-outline</v-icon>
       <p class="cdd__nf-title">{{ t('gameDetail.notFound') }}</p>
       <p class="cdd__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
     </div>
@@ -34,7 +34,7 @@ function ratingStars(rating: number | null): string {
         <div class="cdd__cover">
           <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="cdd__cover-img" />
           <div v-else class="cdd__cover-ph">
-            <v-icon size="56" color="#a07850">mdi-gamepad-variant</v-icon>
+            <v-icon size="56" color="primary-light">mdi-gamepad-variant</v-icon>
           </div>
         </div>
 
@@ -88,7 +88,7 @@ function ratingStars(rating: number | null): string {
 }
 
 .cdd__nf-title { font-size: 1.1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.cdd__nf-hint  { font-size: 0.9rem; color: rgba(58, 26, 10, 0.6); margin: 0; }
+.cdd__nf-hint  { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.6); margin: 0; }
 
 .cdd__hero { display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1.75rem; }
 
@@ -96,7 +96,7 @@ function ratingStars(rating: number | null): string {
   flex-shrink: 0;
   width: 140px;
   min-height: 190px;
-  background: rgba(92, 51, 23, 0.08);
+  background: rgba(var(--nq-brown-rgb), 0.08);
   border-radius: 10px;
   overflow: hidden;
   display: flex;
@@ -112,7 +112,7 @@ function ratingStars(rating: number | null): string {
 .cdd__title { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 0.75rem; line-height: 1.25; }
 
 .cdd__rating { display: flex; align-items: center; gap: 6px; margin-bottom: 1rem; }
-.cdd__rating-stars { color: #c8860a; font-size: 0.9rem; }
+.cdd__rating-stars { color: var(--nq-gold-dark); font-size: 0.9rem; }
 .cdd__rating-num { font-weight: 700; font-size: 0.95rem; color: var(--nq-brown-dark); }
 
 .cdd__meta { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
@@ -120,7 +120,7 @@ function ratingStars(rating: number | null): string {
 .cdd__dt {
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(var(--nq-brown-dark-rgb), 0.5);
   white-space: nowrap;
   align-self: start;
   padding-top: 2px;
@@ -132,7 +132,7 @@ function ratingStars(rating: number | null): string {
 
 .cdd__chip {
   display: inline-block;
-  background: rgba(92, 51, 23, 0.08);
+  background: rgba(var(--nq-brown-rgb), 0.08);
   color: var(--nq-brown, #5C3317);
   border-radius: 999px;
   padding: 2px 10px;

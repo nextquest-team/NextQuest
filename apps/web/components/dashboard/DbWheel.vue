@@ -62,7 +62,7 @@ function onTouchEnd() {
 
 /* Focus clavier visible */
 .wheel-btn:focus-visible {
-  outline: 3px solid #264a2e;
+  outline: 3px solid var(--nq-focus);
   outline-offset: 6px;
   border-radius: 50%;
 }

@@ -97,10 +97,10 @@ onMounted(() => fetchRecos())
     </UiPageHeader>
 
     <div v-if="loading" class="nq-state">
-      <v-progress-circular indeterminate size="40" color="#5C3317" />
+      <v-progress-circular indeterminate size="40" color="primary" />
     </div>
     <div v-else-if="error" class="nq-state">
-      <v-icon size="48" color="#8B1F1F">mdi-alert-circle-outline</v-icon>
+      <v-icon size="48" color="error">mdi-alert-circle-outline</v-icon>
       <p class="nq-state__title">{{ t('nextQuest.loadError') }}</p>
       <button class="patch-btn" @click="retry">{{ t('nextQuest.retry') }}</button>
     </div>
@@ -142,10 +142,10 @@ onMounted(() => fetchRecos())
     <!-- Contenu scrollable -->
     <div class="nq-mobile-body">
       <div v-if="loading" class="nq-state">
-        <v-progress-circular indeterminate size="40" color="#5C3317" />
+        <v-progress-circular indeterminate size="40" color="primary" />
       </div>
       <div v-else-if="error" class="nq-state">
-        <v-icon size="48" color="#8B1F1F">mdi-alert-circle-outline</v-icon>
+        <v-icon size="48" color="error">mdi-alert-circle-outline</v-icon>
         <p class="nq-state__title">{{ t('nextQuest.loadError') }}</p>
         <button class="patch-btn" @click="retry">{{ t('nextQuest.retry') }}</button>
       </div>
@@ -231,7 +231,7 @@ onMounted(() => fetchRecos())
 
 .nq-subtitle {
   font-size: 1rem;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(var(--nq-brown-dark-rgb), 0.5);
   margin: 0;
   font-style: italic;
 }
@@ -268,7 +268,7 @@ onMounted(() => fetchRecos())
 
 .nq-state__hint {
   font-size: 0.85rem;
-  color: rgba(58, 26, 10, 0.55);
+  color: rgba(var(--nq-brown-dark-rgb), 0.55);
   margin: 0;
   max-width: 300px;
 }

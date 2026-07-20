@@ -19,12 +19,12 @@ onMounted(load)
 
     <!-- Chargement -->
     <div v-if="loading" class="gdd__not-found">
-      <v-progress-circular indeterminate size="40" color="#5C3317" />
+      <v-progress-circular indeterminate size="40" color="primary" />
     </div>
 
     <!-- Jeu introuvable -->
     <div v-else-if="!game" class="gdd__not-found">
-      <v-icon size="56" color="#a07850">mdi-help-circle-outline</v-icon>
+      <v-icon size="56" color="primary-light">mdi-help-circle-outline</v-icon>
       <p class="gdd__nf-title">{{ t('gameDetail.notFound') }}</p>
       <p class="gdd__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
     </div>
@@ -35,7 +35,7 @@ onMounted(load)
         <div class="gdd__cover">
           <img v-if="game.game.coverUrl" :src="game.game.coverUrl" :alt="game.game.title" class="gdd__cover-img" />
           <div v-else class="gdd__cover-placeholder">
-            <v-icon size="56" color="#a07850">mdi-gamepad-variant</v-icon>
+            <v-icon size="56" color="primary-light">mdi-gamepad-variant</v-icon>
           </div>
         </div>
 
@@ -67,7 +67,7 @@ onMounted(load)
 
       <!-- Bannière pas encore enrichi -->
       <div v-if="!game.game.isEnriched" class="gdd__coming-soon">
-        <v-icon size="18" color="#a07850">mdi-information-outline</v-icon>
+        <v-icon size="18" color="primary-light">mdi-information-outline</v-icon>
         {{ t('gameDetail.comingSoon') }}
       </div>
 
@@ -139,7 +139,7 @@ onMounted(load)
               <dt class="gdd__dt">{{ t('gameDetail.igdbRating') }}</dt>
               <dd class="gdd__dd">
                 <span class="gdd__rating">
-                  <v-icon size="16" color="#c8a44a">mdi-star</v-icon>
+                  <v-icon size="16" color="gold">mdi-star</v-icon>
                   {{ (game.game.igdbRating / 10).toFixed(1) }}<span class="gdd__rating-max">/10</span>
                 </span>
               </dd>
@@ -154,7 +154,7 @@ onMounted(load)
               <div v-for="sim in igdb.similarGames" :key="sim.igdbId" class="gdd__similar-item">
                 <div class="gdd__similar-cover">
                   <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
-                  <v-icon v-else size="24" color="#a07850">mdi-gamepad-variant</v-icon>
+                  <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
                 </div>
                 <span class="gdd__similar-title">{{ sim.title }}</span>
               </div>
@@ -163,7 +163,7 @@ onMounted(load)
               <div v-for="sim in game.similarGames" :key="sim.id" class="gdd__similar-item">
                 <div class="gdd__similar-cover">
                   <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
-                  <v-icon v-else size="24" color="#a07850">mdi-gamepad-variant</v-icon>
+                  <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
                 </div>
                 <span class="gdd__similar-title">{{ sim.title }}</span>
               </div>
@@ -225,7 +225,7 @@ onMounted(load)
 }
 
 .gdd__nf-title { font-size: 1.1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.gdd__nf-hint  { font-size: 0.9rem; color: rgba(58, 26, 10, 0.6); margin: 0; }
+.gdd__nf-hint  { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.6); margin: 0; }
 
 .gdd__hero { display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1.75rem; }
 
@@ -233,7 +233,7 @@ onMounted(load)
   flex-shrink: 0;
   width: 140px;
   min-height: 190px;
-  background: rgba(92, 51, 23, 0.08);
+  background: rgba(var(--nq-brown-rgb), 0.08);
   border-radius: 10px;
   overflow: hidden;
   display: flex;
@@ -249,7 +249,7 @@ onMounted(load)
 
 .gdd__title { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; line-height: 1.25; }
 
-.gdd__label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(58, 26, 10, 0.75); margin: 0 0 6px; }
+.gdd__label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(var(--nq-brown-dark-rgb), 0.75); margin: 0 0 6px; }
 .gdd__value { font-size: 0.9rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; }
 
 .gdd__statuses { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
@@ -260,9 +260,9 @@ onMounted(load)
   gap: 4px;
   padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(92, 51, 23, 0.25);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
   background: transparent;
-  color: rgba(58, 26, 10, 0.6);
+  color: rgba(var(--nq-brown-dark-rgb), 0.6);
   font-family: var(--nq-font);
   font-size: 0.75rem;
   cursor: pointer;
@@ -271,19 +271,19 @@ onMounted(load)
   transition: background 0.1s, color 0.1s;
 }
 
-.gdd__status-btn:hover:not(.gdd__status-btn--active) { background: rgba(92, 51, 23, 0.08); color: var(--nq-brown-dark); }
+.gdd__status-btn:hover:not(.gdd__status-btn--active) { background: rgba(var(--nq-brown-rgb), 0.08); color: var(--nq-brown-dark); }
 .gdd__status-btn--active { background: var(--nq-brown, #5C3317); color: #edc78e; border-color: var(--nq-brown); }
 
 .gdd__coming-soon {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(200, 164, 74, 0.1);
-  border: 1px solid rgba(200, 164, 74, 0.3);
+  background: rgba(var(--nq-gold-rgb), 0.1);
+  border: 1px solid rgba(var(--nq-gold-rgb), 0.3);
   border-radius: 10px;
   padding: 12px 16px;
   font-size: 0.85rem;
-  color: rgba(58, 26, 10, 0.7);
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin-bottom: 1.5rem;
 }
 
@@ -294,66 +294,66 @@ onMounted(load)
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(58, 26, 10, 0.75);
+  color: rgba(var(--nq-brown-dark-rgb), 0.75);
   margin: 0 0 0.6rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(92, 51, 23, 0.1);
+  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
 }
 
-.gdd__summary { font-size: 0.9rem; line-height: 1.65; color: rgba(58, 26, 10, 0.85); margin: 0; }
+.gdd__summary { font-size: 0.9rem; line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
 
 .gdd__meta { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
 
-.gdd__dt { font-size: 0.75rem; font-weight: 700; color: rgba(58, 26, 10, 0.75); white-space: nowrap; align-self: start; padding-top: 2px; }
+.gdd__dt { font-size: 0.75rem; font-weight: 700; color: rgba(var(--nq-brown-dark-rgb), 0.75); white-space: nowrap; align-self: start; padding-top: 2px; }
 .gdd__dd { font-size: 0.875rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 
-.gdd__chip { display: inline-block; background: rgba(92, 51, 23, 0.08); color: var(--nq-brown, #5C3317); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; }
-.gdd__chip--tag      { background: rgba(92, 51, 23, 0.04); font-weight: 400; color: rgba(58, 26, 10, 0.6); }
-.gdd__chip--platform { background: rgba(26, 47, 72, 0.07); color: #1A2F48; font-weight: 500; }
+.gdd__chip { display: inline-block; background: rgba(var(--nq-brown-rgb), 0.08); color: var(--nq-brown, #5C3317); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; }
+.gdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.6); }
+.gdd__chip--platform { background: rgba(26, 47, 72, 0.07); color: var(--nq-navy); font-weight: 500; }
 
 .gdd__screenshots { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
 .gdd__screenshots::-webkit-scrollbar { display: none; }
 
-.gdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(92, 51, 23, 0.08); }
+.gdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(var(--nq-brown-rgb), 0.08); }
 
 .gdd__similar { display: flex; gap: 12px; flex-wrap: wrap; }
 
 .gdd__similar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 80px; }
 
-.gdd__similar-cover { width: 80px; height: 106px; border-radius: 8px; background: rgba(92, 51, 23, 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.gdd__similar-cover { width: 80px; height: 106px; border-radius: 8px; background: rgba(var(--nq-brown-rgb), 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .gdd__similar-cover img { width: 100%; height: 100%; object-fit: cover; }
 
-.gdd__similar-title { font-size: 0.7rem; color: rgba(58, 26, 10, 0.7); text-align: center; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.gdd__similar-title { font-size: 0.7rem; color: rgba(var(--nq-brown-dark-rgb), 0.7); text-align: center; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 .gdd__rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.95rem; color: var(--nq-brown-dark); }
-.gdd__rating-max { font-size: 0.75rem; font-weight: 400; color: rgba(58, 26, 10, 0.65); }
+.gdd__rating-max { font-size: 0.75rem; font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.65); }
 
 .gdd__danger { margin-top: auto; padding-top: 2rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
 
-.gdd__remove-error { font-size: 0.82rem; color: #8B1F1F; margin: 0; }
+.gdd__remove-error { font-size: 0.82rem; color: var(--nq-red); margin: 0; }
 
 .gdd__remove-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   background: none;
-  border: 1px solid rgba(139, 31, 31, 0.3);
+  border: 1px solid rgba(var(--nq-red-rgb), 0.3);
   border-radius: 8px;
   padding: 8px 14px;
   font-family: var(--nq-font);
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(139, 31, 31, 0.65);
+  color: rgba(var(--nq-red-rgb), 0.65);
   cursor: pointer;
   transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 
-.gdd__remove-btn:hover { background: rgba(139, 31, 31, 0.06); color: #8B1F1F; border-color: rgba(139, 31, 31, 0.5); }
+.gdd__remove-btn:hover { background: rgba(var(--nq-red-rgb), 0.06); color: var(--nq-red); border-color: rgba(var(--nq-red-rgb), 0.5); }
 
 .gdd__confirm-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(30, 14, 4, 0.55);
+  background: rgba(var(--nq-scrim-rgb), 0.55);
   z-index: 200;
   display: flex;
   align-items: center;
@@ -361,15 +361,15 @@ onMounted(load)
   padding: 1rem;
 }
 
-.gdd__confirm-box { background: var(--nq-cream, #F8F4EA); border-radius: 14px; padding: 1.5rem; max-width: 340px; width: 100%; box-shadow: 0 8px 32px rgba(58, 26, 10, 0.2); }
+.gdd__confirm-box { background: var(--nq-cream, #F8F4EA); border-radius: 14px; padding: 1.5rem; max-width: 340px; width: 100%; box-shadow: 0 8px 32px rgba(var(--nq-brown-dark-rgb), 0.2); }
 .gdd__confirm-text { font-size: 0.95rem; color: var(--nq-brown-dark); margin: 0 0 1.25rem; text-align: center; }
 .gdd__confirm-actions { display: flex; gap: 0.75rem; justify-content: center; }
 
 .gdd__confirm-btn { flex: 1; padding: 9px 16px; border-radius: 8px; font-family: var(--nq-font); font-size: 0.85rem; font-weight: 600; border: none; cursor: pointer; transition: background 0.15s; }
-.gdd__confirm-btn--cancel { background: rgba(92, 51, 23, 0.1); color: var(--nq-brown); }
-.gdd__confirm-btn--cancel:hover { background: rgba(92, 51, 23, 0.18); }
-.gdd__confirm-btn--delete { background: #8B1F1F; color: #fff; }
-.gdd__confirm-btn--delete:hover { background: #6e1818; }
+.gdd__confirm-btn--cancel { background: rgba(var(--nq-brown-rgb), 0.1); color: var(--nq-brown); }
+.gdd__confirm-btn--cancel:hover { background: rgba(var(--nq-brown-rgb), 0.18); }
+.gdd__confirm-btn--delete { background: var(--nq-red); color: #fff; }
+.gdd__confirm-btn--delete:hover { background: var(--nq-red-dark); }
 
 .modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }

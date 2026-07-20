@@ -74,7 +74,7 @@ function onKeydown(e: KeyboardEvent) {
           :aria-label="game.title"
         >
           <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="game-card__cover" />
-          <v-icon v-else class="game-card__placeholder" size="32" color="rgba(237,199,142,0.3)">mdi-gamepad-variant-outline</v-icon>
+          <v-icon v-else class="game-card__placeholder" size="32" color="rgba(var(--nq-cream-light-rgb), 0.3)">mdi-gamepad-variant-outline</v-icon>
         </NuxtLink>
       </div>
     </div>
@@ -131,7 +131,7 @@ function onKeydown(e: KeyboardEvent) {
 
 /* Focus clavier sur le conteneur scroll */
 .game-cards__scroll:focus-visible {
-  outline: 3px solid #264a2e;
+  outline: 3px solid var(--nq-focus);
   outline-offset: 4px;
   border-radius: 8px;
 }
@@ -148,7 +148,7 @@ function onKeydown(e: KeyboardEvent) {
   width: min(22vw, 105px);
   aspect-ratio: 2 / 3;
   border-radius: 10px;
-  border: 3px solid #7a3e2a;
+  border: 3px solid var(--nq-brown-mid);
   background: #3a2e28;
   scroll-snap-align: center;
   cursor: pointer;

@@ -142,6 +142,8 @@ export interface IgdbSearchResult {
   coverUrl: string | null
   releaseYear: number | null
   alreadyInCollection: boolean
+  // Plateformes locales sur lesquelles le jeu existe (mappees depuis IGDB).
+  platforms: { id: string; name: string }[]
 }
 
 // ── Type carte (interface allégée pour GameListCard) ─────

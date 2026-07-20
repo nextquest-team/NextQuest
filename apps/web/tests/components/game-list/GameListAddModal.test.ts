@@ -22,12 +22,6 @@ mockNuxtImport('useToast', () => () => ({
   toasts: ref([]),
 }))
 
-mockNuxtImport('usePlatforms', () => () => ({
-  platforms: ref([{ id: 'p1', name: 'PC', code: 'pc', iconUrl: null }]),
-  loading: ref(false),
-  fetchPlatforms: vi.fn(),
-}))
-
 const stubs = {
   VIcon: { template: '<span v-bind="$attrs" />' },
   VProgressCircular: { template: '<div class="v-progress-circular" />' },
@@ -42,45 +36,67 @@ describe('GameListAddModal', () => {
   })
   afterEach(() => vi.useRealTimers())
 
-  it('recherche IGDB (debounce) et affiche resultats + badge deja ajoute', async () => {
-    authFetchMock.mockResolvedValue({
-      items: [
-        { igdbId: 1, name: 'Celeste', coverUrl: 'http://x/c.jpg', releaseYear: 2018, alreadyInCollection: false },
-        { igdbId: 2, name: 'Hades', coverUrl: null, releaseYear: 2020, alreadyInCollection: true },
-      ],
-    })
+  it('ne recherche pas en dessous de 2 caracteres', async () => {
     const wrapper = mount(GameListAddModal, { props: { open: true }, global: { stubs } })
     await wrapper.find('.gl-modal__search').setValue('a')
     await vi.advanceTimersByTimeAsync(300)
+    expect(authFetchMock).not.toHaveBeenCalled()
+  })
+
+  it('recherche IGDB (debounce) et affiche resultats + badge deja ajoute', async () => {
+    authFetchMock.mockResolvedValue({
+      items: [
+        { igdbId: 1, name: 'Celeste', coverUrl: 'http://x/c.jpg', releaseYear: 2018, alreadyInCollection: false, platforms: [{ id: 'p1', name: 'PC' }] },
+        { igdbId: 2, name: 'Hades', coverUrl: null, releaseYear: 2020, alreadyInCollection: true, platforms: [] },
+      ],
+    })
+    const wrapper = mount(GameListAddModal, { props: { open: true }, global: { stubs } })
+    await wrapper.find('.gl-modal__search').setValue('celeste')
+    await vi.advanceTimersByTimeAsync(300)
     await flushPromises()
 
-    expect(authFetchMock).toHaveBeenCalledWith('http://localhost:3000/api/games/igdb/search', {
-      query: { q: 'a' },
-    })
+    expect(authFetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/games/igdb/search',
+      expect.objectContaining({ query: { q: 'celeste' } }),
+    )
     expect(wrapper.findAll('.gl-add__card')).toHaveLength(2)
     expect(wrapper.findAll('.gl-add__badge')).toHaveLength(1)
     expect(wrapper.findAll('.gl-add__plus')).toHaveLength(1)
   })
 
-  it('ajoute un jeu avec la plateforme choisie et emet added', async () => {
+  it('propose les plateformes du jeu et ajoute avec celle choisie', async () => {
     authFetchMock.mockResolvedValueOnce({
       items: [
-        { igdbId: 1, name: 'Celeste', coverUrl: null, releaseYear: 2018, alreadyInCollection: false },
+        {
+          igdbId: 1,
+          name: 'Forza Horizon',
+          coverUrl: null,
+          releaseYear: 2021,
+          alreadyInCollection: false,
+          platforms: [
+            { id: 'p1', name: 'PC' },
+            { id: 'p2', name: 'Xbox Series X|S' },
+          ],
+        },
       ],
     })
     const wrapper = mount(GameListAddModal, { props: { open: true }, global: { stubs } })
-    await wrapper.find('.gl-modal__search').setValue('cel')
+    await wrapper.find('.gl-modal__search').setValue('forza')
     await vi.advanceTimersByTimeAsync(300)
     await flushPromises()
 
     await wrapper.find('.gl-add__plus').trigger('click')
+    // Deux plateformes du jeu + l'option "sans plateforme"
+    const platformBtns = wrapper.findAll('.gl-add__platform-btn')
+    expect(platformBtns).toHaveLength(3)
+
     authFetchMock.mockResolvedValueOnce({})
-    await wrapper.find('.gl-add__platform-btn').trigger('click')
+    await platformBtns[1].trigger('click') // Xbox Series X|S
     await flushPromises()
 
     expect(authFetchMock).toHaveBeenCalledWith('http://localhost:3000/api/collection/from-igdb', {
       method: 'POST',
-      body: { igdbId: 1, platformId: 'p1' },
+      body: { igdbId: 1, platformId: 'p2' },
     })
     expect(pushMock).toHaveBeenCalled()
     expect(wrapper.emitted('added')).toBeTruthy()

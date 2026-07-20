@@ -8,7 +8,9 @@ const emit = defineEmits<{ close: []; added: [] }>()
 const { t } = useI18n()
 const { authFetch, apiBase } = useAuthFetch()
 const { push } = useToast()
-const { platforms, fetchPlatforms } = usePlatforms()
+
+const MIN_QUERY = 2
+const DEBOUNCE_MS = 300
 
 const search = ref('')
 const results = ref<IgdbSearchResult[]>([])
@@ -17,34 +19,52 @@ const searched = ref(false)
 const pendingGame = ref<IgdbSearchResult | null>(null)
 const adding = ref(false)
 
-fetchPlatforms()
+// Recherche robuste : debounce, annulation de la requete precedente
+// (AbortController), garde de sequence (on ignore une reponse plus ancienne qui
+// arriverait apres une plus recente), et longueur minimale pour ne pas taper
+// IGDB sur 1 caractere. Le backend cache deja les resultats (Redis).
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let inFlight: AbortController | null = null
+let querySeq = 0
 
-// Recherche live IGDB, debounce 300 ms.
-let timer: ReturnType<typeof setTimeout> | null = null
 watch(search, (q) => {
-  if (timer) clearTimeout(timer)
   const query = q.trim()
-  if (!query) {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  // Toute nouvelle frappe rend la requete en cours obsolete.
+  if (inFlight) {
+    inFlight.abort()
+    inFlight = null
+  }
+  if (query.length < MIN_QUERY) {
     results.value = []
     searched.value = false
+    loading.value = false
     return
   }
-  timer = setTimeout(() => runSearch(query), 300)
+  loading.value = true
+  debounceTimer = setTimeout(() => runSearch(query), DEBOUNCE_MS)
 })
 
 async function runSearch(query: string) {
-  loading.value = true
+  const seq = ++querySeq
+  const controller = new AbortController()
+  inFlight = controller
   try {
     const res = await authFetch<{ items: IgdbSearchResult[] }>(
       `${apiBase}/api/games/igdb/search`,
-      { query: { q: query } },
+      { query: { q: query }, signal: controller.signal },
     )
+    if (seq !== querySeq) return // une recherche plus recente a pris le relais
     results.value = res.items
-  } catch {
-    results.value = []
-  } finally {
     searched.value = true
-    loading.value = false
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'AbortError') return // annulee, silencieux
+    if (seq !== querySeq) return
+    results.value = []
+    searched.value = true
+  } finally {
+    if (seq === querySeq) loading.value = false
+    if (inFlight === controller) inFlight = null
   }
 }
 
@@ -122,7 +142,7 @@ async function confirmAdd(platformId: string | null) {
           />
         </div>
 
-        <!-- Choix de plateforme pour le jeu selectionne -->
+        <!-- Choix de plateforme : uniquement celles ou le jeu existe (IGDB) -->
         <div v-if="pendingGame" class="gl-add__platform">
           <button class="gl-add__back" @click="cancelAdd">
             <v-icon size="16">mdi-arrow-left</v-icon>
@@ -133,7 +153,7 @@ async function confirmAdd(platformId: string | null) {
           </p>
           <div class="gl-add__platform-list">
             <button
-              v-for="p in platforms"
+              v-for="p in pendingGame.platforms"
               :key="p.id"
               class="gl-add__platform-btn"
               :disabled="adding"
@@ -141,7 +161,11 @@ async function confirmAdd(platformId: string | null) {
             >
               {{ p.name }}
             </button>
-            <button class="gl-add__platform-btn gl-add__platform-btn--none" :disabled="adding" @click="confirmAdd(null)">
+            <button
+              class="gl-add__platform-btn gl-add__platform-btn--none"
+              :disabled="adding"
+              @click="confirmAdd(null)"
+            >
               {{ t('gameList.addModal.noPlatform') }}
             </button>
           </div>
@@ -150,7 +174,7 @@ async function confirmAdd(platformId: string | null) {
         <!-- Resultats -->
         <div v-else class="gl-add__content">
           <div v-if="loading" class="gl-add__state">
-            <v-progress-circular indeterminate size="28" color="#ff9a00" />
+            <v-progress-circular indeterminate size="28" color="#5c3317" />
           </div>
 
           <div v-else-if="searched && results.length === 0" class="gl-add__state">

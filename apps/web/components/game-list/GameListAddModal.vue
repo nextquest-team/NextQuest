@@ -352,11 +352,11 @@ async function confirmAdd(platformId: string | null) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  background: linear-gradient(135deg, #ff9a00, #ff5d00);
-  transition: filter 0.1s;
+  color: #edc78e;
+  background: var(--nq-brown, #5c3317);
+  transition: background 0.1s;
 }
-.gl-add__plus:hover { filter: brightness(1.05); }
+.gl-add__plus:hover { background: var(--nq-brown-dark, #3a1a0a); }
 
 /* ── Choix de plateforme ── */
 .gl-add__platform { padding: 0.75rem 1.25rem 1.25rem; overflow-y: auto; }
@@ -395,7 +395,7 @@ async function confirmAdd(platformId: string | null) {
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s;
 }
-.gl-add__platform-btn:hover:not(:disabled) { border-color: #ff9a00; background: #fff6ea; }
+.gl-add__platform-btn:hover:not(:disabled) { border-color: var(--nq-brown, #5c3317); background: #f3e9d8; }
 .gl-add__platform-btn:disabled { opacity: 0.5; cursor: default; }
 .gl-add__platform-btn--none { color: rgba(58, 26, 10, 0.55); }
 

@@ -8,6 +8,7 @@
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+    <AppToast />
   </v-app>
 </template>
 

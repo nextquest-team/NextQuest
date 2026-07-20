@@ -160,3 +160,35 @@ export function toCollectionDetailDTO(
     similarGames,
   };
 }
+
+// --- DTO de la liste d'exclusion (jeux retires de la collection, non reimportes) ---
+
+export type ExclusionDTO = {
+  gameId: string;
+  title: string;
+  coverUrl: string | null;
+  releaseDate: string | null;
+  isEnriched: boolean;
+  excludedAt: string; // ISO 8601
+};
+
+// Forme de la row jointe user_game_exclusions + games attendue par le mapper.
+export type ExclusionRow = {
+  gameId: string;
+  title: string;
+  coverUrl: string | null;
+  releaseDate: string | null;
+  igdbId: number | null;
+  excludedAt: Date;
+};
+
+export function toExclusionDTO(row: ExclusionRow): ExclusionDTO {
+  return {
+    gameId: row.gameId,
+    title: row.title,
+    coverUrl: row.coverUrl,
+    releaseDate: row.releaseDate,
+    isEnriched: row.igdbId !== null,
+    excludedAt: row.excludedAt.toISOString(),
+  };
+}

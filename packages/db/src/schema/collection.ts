@@ -71,6 +71,31 @@ export const userGameTags = pgTable(
   (t) => [primaryKey({ columns: [t.userGameId, t.tagId] })],
 );
 
+// Jeux qu'un user a explicitement retires de sa collection : on ne veut pas
+// qu'un reimport (Steam, etc.) les fasse revenir tout seul. Consultable et
+// reversible (l'user peut reintegrer un jeu exclu depuis cette liste).
+export const userGameExclusions = pgTable(
+  "user_game_exclusions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("user_game_exclusions_user_id_game_id_unique").on(
+      t.userId,
+      t.gameId,
+    ),
+  ],
+);
+
 // Historique des changements de statut pour alimenter le fil d'activite et les stats
 export const userGameStatusHistory = pgTable(
   "user_game_status_history",

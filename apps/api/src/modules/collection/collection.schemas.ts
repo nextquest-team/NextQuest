@@ -25,6 +25,13 @@ export const userGameParamsSchema = z.object({
   userGameId: z.string().uuid(),
 });
 
+// Param de la route de reintegration d'un jeu exclu : identifie par son
+// game_id (catalogue), pas par un user_game_id puisque la ligne user_games
+// n'existe plus tant que le jeu est exclu.
+export const gameIdParamsSchema = z.object({
+  gameId: z.string().uuid(),
+});
+
 // Query de listing de la collection. limit/offset arrivent en string dans l'URL,
 // d'ou le coerce. includeHidden : on parse explicitement la chaine plutot que
 // z.coerce.boolean(), qui est piegeux (toute string non vide est truthy, donc

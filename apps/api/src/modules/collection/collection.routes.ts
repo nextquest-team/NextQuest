@@ -3,6 +3,7 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import {
   updateGameStatusSchema,
   userGameParamsSchema,
+  gameIdParamsSchema,
   listCollectionQuerySchema,
   updateUserGameSchema,
   addGameSchema,
@@ -16,6 +17,8 @@ import {
   deleteCollectionItem,
   addGameToCollection,
   addIgdbGameToCollection,
+  listExclusions,
+  restoreExclusion,
 } from "./collection.service.js";
 import { requireAuth, userIdOf } from "../../lib/guards.js";
 
@@ -199,6 +202,50 @@ export async function collectionRoutes(app: FastifyInstance) {
       if (!result.ok) {
         return result.reason === "igdb_not_found"
           ? reply.code(404).send({ error: "Jeu introuvable sur IGDB" })
+          : reply.code(409).send({ error: "Ce jeu est deja dans ta collection" });
+      }
+      return reply.code(201).send(result.item);
+    },
+  );
+
+  // Jeux retires de la collection (supprimes explicitement), qu'un reimport
+  // ne doit pas faire revenir tout seul.
+  r.get(
+    "/collection/exclusions",
+    {
+      onRequest: [requireAuth],
+      schema: {
+        tags: ["Collection"],
+        summary: "Lister les jeux exclus de la collection",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request) => {
+      const items = await listExclusions(userIdOf(request));
+      return { items };
+    },
+  );
+
+  // Reintegre un jeu exclu dans la collection (retire l'exclusion + statut backlog).
+  r.post(
+    "/collection/exclusions/:gameId/restore",
+    {
+      onRequest: [requireAuth],
+      schema: {
+        tags: ["Collection"],
+        summary: "Reintegrer un jeu exclu dans la collection",
+        security: [{ bearerAuth: [] }],
+        params: gameIdParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const result = await restoreExclusion(
+        userIdOf(request),
+        request.params.gameId,
+      );
+      if (!result.ok) {
+        return result.reason === "game_not_found"
+          ? reply.code(404).send({ error: "Jeu introuvable dans le catalogue" })
           : reply.code(409).send({ error: "Ce jeu est deja dans ta collection" });
       }
       return reply.code(201).send(result.item);

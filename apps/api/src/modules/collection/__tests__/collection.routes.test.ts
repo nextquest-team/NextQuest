@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Fastify from "fastify";
-import { db, users, games, userGames } from "@nextquest/db";
+import { db, users, games, userGames, userGameExclusions } from "@nextquest/db";
+import { eq } from "drizzle-orm";
 import { validatorCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
 import { registerSwagger } from "../../../plugins/swagger.js";
 import { collectionRoutes } from "../collection.routes.js";
+import { deleteCollectionItem } from "../collection.service.js";
 import type { GameStatus } from "../collection.schemas.js";
 
 async function buildApp() {
@@ -21,6 +23,7 @@ async function buildApp() {
 
 async function cleanup() {
   await db.delete(userGames);
+  await db.delete(userGameExclusions);
   await db.delete(games);
   await db.delete(users);
 }
@@ -303,6 +306,90 @@ describe("POST /api/collection", () => {
       url: "/api/collection",
       headers: { authorization: `Bearer ${token}` },
       payload: { gameId: "00000000-0000-0000-0000-000000000000" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("GET /api/collection/exclusions", () => {
+  it("401 sans JWT", async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/collection/exclusions",
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("200 et renvoie les jeux exclus du user", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame();
+    await deleteCollectionItem(userId, userGameId);
+
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/collection/exclusions",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0].title).toBe("Test Game");
+  });
+});
+
+describe("POST /api/collection/exclusions/:gameId/restore", () => {
+  it("401 sans JWT", async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection/exclusions/00000000-0000-0000-0000-000000000000/restore",
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("400 sur un gameId non-uuid", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection/exclusions/not-a-uuid/restore",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("201 reintegre le jeu exclu dans la collection", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame();
+    const [g] = await db
+      .select({ gameId: userGames.gameId })
+      .from(userGames)
+      .where(eq(userGames.id, userGameId));
+    await deleteCollectionItem(userId, userGameId);
+
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/collection/exclusions/${g.gameId}/restore`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.status).toBe("backlog");
+    expect(body.game.id).toBe(g.gameId);
+  });
+
+  it("404 si le jeu n'existe pas dans le catalogue", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection/exclusions/00000000-0000-0000-0000-000000000000/restore",
+      headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(404);
   });

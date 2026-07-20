@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Fastify from "fastify";
 import { validatorCompiler } from "fastify-type-provider-zod";
-import { db, users, games, userGames } from "@nextquest/db";
+import { db, users, games, userGames, userGameExclusions } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
@@ -16,6 +16,7 @@ import type { IgdbGame } from "../../games/igdb/igdb.client.js";
 
 async function cleanup() {
   await db.delete(userGames);
+  await db.delete(userGameExclusions);
   await db.delete(games);
   await db.delete(users);
 }
@@ -119,6 +120,25 @@ describe("addIgdbGameToCollection", () => {
 
     const res = await addIgdbGameToCollection(userId, { igdbId: 424242 }, "CID", deps);
     expect(res).toEqual({ ok: false, reason: "igdb_not_found" });
+  });
+
+  it("retire l'exclusion existante pour ce jeu lors de l'ajout", async () => {
+    const userId = await seedUser();
+    const [g] = await db
+      .insert(games)
+      .values({ title: "Celeste", slug: "celeste-igdb-777", igdbId: 777 })
+      .returning({ id: games.id });
+    await db.insert(userGameExclusions).values({ userId, gameId: g.id });
+
+    const deps = makeDeps({});
+    const res = await addIgdbGameToCollection(userId, { igdbId: 777 }, "CID", deps);
+    expect(res.ok).toBe(true);
+
+    const remaining = await db
+      .select()
+      .from(userGameExclusions)
+      .where(eq(userGameExclusions.userId, userId));
+    expect(remaining).toHaveLength(0);
   });
 });
 

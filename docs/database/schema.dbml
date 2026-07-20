@@ -427,6 +427,21 @@ Table user_game_tags {
   }
 }
 
+// Jeux qu'un user a explicitement retires de sa collection : empeche un
+// reimport (Steam...) de les faire revenir tout seuls. Consultable et
+// reversible via la route de reintegration (retire l'exclusion + remet
+// le user_game en backlog).
+Table user_game_exclusions {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  game_id uuid [ref: > games.id, not null]
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, game_id) [unique]
+  }
+}
+
 // Historique des changements de statut (pour stats, badges, fil d'activite)
 Table user_game_status_history {
   id uuid [pk]
@@ -737,6 +752,7 @@ Table reports {
 //   recommendations.user_id       -> CASCADE
 //   user_consents.user_id         -> CASCADE
 //   user_devices.user_id          -> CASCADE
+//   user_game_exclusions.user_id  -> CASCADE
 //
 // SET NULL (contributions publiques / traces d'audit) :
 //   messages.sender_id            -> SET NULL
@@ -754,6 +770,7 @@ Table reports {
 //   game_tags.game_id             -> CASCADE
 //   game_updates.game_id          -> CASCADE
 //   recommendations.game_id       -> CASCADE
+//   user_game_exclusions.game_id  -> CASCADE
 //
 // -- SUPPRESSION D'UN USER_GAME --
 //   external_achievements.user_game_id    -> CASCADE

@@ -2,6 +2,7 @@ import {
   db,
   userGames,
   userGameStatusHistory,
+  userGameExclusions,
   games,
   genres,
   tags,
@@ -27,6 +28,7 @@ import {
   toUserGameStatusDTO,
   toCollectionItemDTO,
   toCollectionDetailDTO,
+  toExclusionDTO,
   type UserGameStatusDTO,
   type CollectionItemDTO,
   type CollectionDetailDTO,
@@ -34,6 +36,7 @@ import {
   type TagRef,
   type SimilarGameRef,
   type CollectionRow,
+  type ExclusionDTO,
 } from "./collection.dto.js";
 
 // Champs de statut selectionnes / retournes, factorises pour rester coherents
@@ -303,15 +306,27 @@ export async function updateCollectionItem(
 // user_game_tags / external_achievements -> user_games sont ON DELETE CASCADE,
 // l'historique et les tags du jeu partent automatiquement. Le catalogue `games`
 // partage n'est pas touche. Renvoie false si rien n'a ete supprime (non possede).
+//
+// Le jeu part aussi dans la liste d'exclusion : un reimport (Steam...) ne doit
+// pas le faire revenir tout seul, l'user a fait un choix explicite en le
+// supprimant. onConflictDoNothing car le jeu peut deja y figurer (ex. ajoute
+// puis re-supprime).
 export async function deleteCollectionItem(
   userId: string,
   userGameId: string,
 ): Promise<boolean> {
-  const deleted = await db
+  const [deleted] = await db
     .delete(userGames)
     .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
-    .returning({ id: userGames.id });
-  return deleted.length > 0;
+    .returning({ id: userGames.id, gameId: userGames.gameId });
+  if (!deleted) return false;
+
+  await db
+    .insert(userGameExclusions)
+    .values({ userId, gameId: deleted.gameId })
+    .onConflictDoNothing();
+
+  return true;
 }
 
 export type AddGameResult =
@@ -360,6 +375,17 @@ export async function addGameToCollection(
       status: "backlog",
     })
     .returning({ id: userGames.id });
+
+  // L'user vient de redemander ce jeu explicitement : une exclusion posee par
+  // une suppression precedente n'a plus lieu d'etre.
+  await db
+    .delete(userGameExclusions)
+    .where(
+      and(
+        eq(userGameExclusions.userId, userId),
+        eq(userGameExclusions.gameId, input.gameId),
+      ),
+    );
 
   // fetchItem ne peut pas renvoyer null ici : on vient d'inserer la ligne.
   const item = await fetchItem(userId, created.id);
@@ -490,4 +516,45 @@ async function insertMinimalGameFromIgdb(data: IgdbGame): Promise<string> {
     throw new Error(`Echec insertion du jeu IGDB ${data.igdbId} (collision de slug)`);
   }
   return race.id;
+}
+
+// Liste les jeux qu'un user a explicitement retires de sa collection (et qui
+// ne reviendront donc pas tout seuls a un reimport). Tri du plus recent au
+// plus ancien : ce sont les dernieres suppressions qui interessent l'user en
+// priorite s'il veut revenir dessus.
+export async function listExclusions(userId: string): Promise<ExclusionDTO[]> {
+  const rows = await db
+    .select({
+      gameId: games.id,
+      title: games.title,
+      coverUrl: games.coverUrl,
+      releaseDate: games.releaseDate,
+      igdbId: games.igdbId,
+      excludedAt: userGameExclusions.createdAt,
+    })
+    .from(userGameExclusions)
+    .innerJoin(games, eq(userGameExclusions.gameId, games.id))
+    .where(eq(userGameExclusions.userId, userId))
+    .orderBy(desc(userGameExclusions.createdAt));
+
+  return rows.map(toExclusionDTO);
+}
+
+// Reintegre un jeu exclu : retire l'exclusion puis le remet dans la collection
+// (statut par defaut backlog, via addGameToCollection). Si le jeu a disparu du
+// catalogue entretemps, addGameToCollection le signale via game_not_found.
+export async function restoreExclusion(
+  userId: string,
+  gameId: string,
+): Promise<AddGameResult> {
+  await db
+    .delete(userGameExclusions)
+    .where(
+      and(
+        eq(userGameExclusions.userId, userId),
+        eq(userGameExclusions.gameId, gameId),
+      ),
+    );
+
+  return addGameToCollection(userId, { gameId });
 }

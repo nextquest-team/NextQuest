@@ -65,18 +65,28 @@ export type GameDetailDTO = {
 // Resultat de recherche par nom (ajout manuel cote front). releaseYear seul suffit
 // pour distinguer les re-editions (pas besoin de la date complete a ce stade).
 // Forme de base : ce que le mapper pur ci-dessous produit, sans le flag "deja en
-// collection" qui depend de l'utilisateur (calcule par le service, pas ici).
+// collection" qui depend de l'utilisateur (calcule par le service, pas ici), et
+// sans les plateformes locales (mappees par le service depuis platformIds, qui
+// elles restent brutes/IGDB dans cette base -- c'est ce qui est cache en Redis).
 export type IgdbSearchResultBase = {
   igdbId: number;
   name: string;
   coverUrl: string | null;
   releaseYear: number | null;
+  platformIds: number[];
 };
 
+// Plateforme locale sur laquelle le jeu existe (mappee depuis platformIds via
+// la table platforms.igdbId cote service). Le front n'affiche que celles-la
+// dans le selecteur d'ajout a la collection.
+export type LocalPlatformRef = { id: string; name: string };
+
 // Resultat final expose par la route : la base + le flag "deja en collection"
-// (croise avec user_games cote service, cf. igdb.discovery.service.ts).
-export type IgdbSearchResult = IgdbSearchResultBase & {
+// (croise avec user_games cote service) + les plateformes locales mappees
+// (cf. igdb.discovery.service.ts).
+export type IgdbSearchResult = Omit<IgdbSearchResultBase, "platformIds"> & {
   alreadyInCollection: boolean;
+  platforms: LocalPlatformRef[];
 };
 
 export function toSearchResultDTO(g: IgdbSearchGame): IgdbSearchResultBase {
@@ -86,6 +96,7 @@ export function toSearchResultDTO(g: IgdbSearchGame): IgdbSearchResultBase {
     coverUrl: g.coverImageId ? igdbImageUrl(g.coverImageId, "t_cover_big") : null,
     releaseYear:
       g.firstReleaseDate != null ? new Date(g.firstReleaseDate * 1000).getUTCFullYear() : null,
+    platformIds: g.platformIds,
   };
 }
 

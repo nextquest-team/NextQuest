@@ -13,8 +13,8 @@ import {
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
 import { redis } from "../../../lib/redis.js";
-import { db, userGames, games } from "@nextquest/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { db, userGames, games, platforms } from "@nextquest/db";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import {
   toUpcomingGameDTO,
   toGameDetailDTO,
@@ -23,6 +23,7 @@ import {
   type GameDetailDTO,
   type IgdbSearchResult,
   type IgdbSearchResultBase,
+  type LocalPlatformRef,
 } from "./igdb.dto.js";
 import { sharesGenreOrTheme, contentSimilarity, normalizeGameTitle, type GameForSimilarity } from "../../recommendations/similarity.js";
 
@@ -38,6 +39,10 @@ export interface CacheStore {
   set(key: string, value: string, mode: "EX", ttl: number): Promise<unknown>;
 }
 
+// Ligne brute renvoyee par la requete DB : garde igdbId pour construire la map
+// de mapping cote appelant (LocalPlatformRef expose seulement id+name au front).
+export type LocalPlatformWithIgdbId = LocalPlatformRef & { igdbId: number };
+
 export interface DiscoveryDeps {
   getToken(): Promise<string>;
   fetchUpcoming: typeof fetchUpcoming;
@@ -46,6 +51,7 @@ export interface DiscoveryDeps {
   fetchGamesByDeveloper: typeof fetchGamesByDeveloper;
   searchGamesByName: typeof searchGamesByName;
   findOwnedIgdbIds(userId: string, igdbIds: number[]): Promise<Set<number>>;
+  findPlatformsByIgdbIds(igdbIds: number[]): Promise<LocalPlatformWithIgdbId[]>;
   cache: CacheStore;
   now(): Date;
 }
@@ -68,6 +74,19 @@ async function findOwnedIgdbIds(
   );
 }
 
+// Mappe des ids de plateformes IGDB vers nos plateformes locales (une seule
+// requete pour tous les resultats de la recherche en cours). Les plateformes
+// sans igdb_id renseigne (ex: Steam Deck) ne peuvent jamais matcher, ce qui est
+// le comportement voulu : on ne propose que ce qu'IGDB confirme pour ce jeu.
+async function findPlatformsByIgdbIds(igdbIds: number[]): Promise<LocalPlatformWithIgdbId[]> {
+  if (igdbIds.length === 0) return [];
+  const rows = await db
+    .select({ id: platforms.id, name: platforms.name, igdbId: platforms.igdbId })
+    .from(platforms)
+    .where(and(isNotNull(platforms.igdbId), inArray(platforms.igdbId, igdbIds)));
+  return rows.filter((r): r is LocalPlatformWithIgdbId => r.igdbId != null);
+}
+
 export function defaultDiscoveryDeps(): DiscoveryDeps {
   // Forme reduite de l'interface ioredis, suffisante ici et testable (mocks en test).
   const redisStore = redis as unknown as CacheStore & {
@@ -87,6 +106,7 @@ export function defaultDiscoveryDeps(): DiscoveryDeps {
     fetchGamesByDeveloper,
     searchGamesByName,
     findOwnedIgdbIds,
+    findPlatformsByIgdbIds,
     cache: redisStore,
     now: () => new Date(),
   };
@@ -253,5 +273,30 @@ export async function searchIgdbGames(
     userId,
     base.map((g) => g.igdbId),
   );
-  return base.map((g) => ({ ...g, alreadyInCollection: owned.has(g.igdbId) }));
+
+  // Mapping plateformes IGDB -> plateformes locales calcule apres lecture/ecriture
+  // du cache (jamais cache lui-meme) : nos plateformes changent rarement, mais
+  // rester a jour immediatement (ex: ajout d'un igdb_id) est plus correct qu'une
+  // heure de latence, sans complexite supplementaire notable.
+  const allPlatformIds = [...new Set(base.flatMap((g) => g.platformIds ?? []))];
+  const localPlatforms = await deps.findPlatformsByIgdbIds(allPlatformIds);
+  const platformsByIgdbId = new Map(localPlatforms.map((p) => [p.igdbId, { id: p.id, name: p.name }]));
+
+  return base.map((g) => {
+    const { platformIds, ...rest } = g;
+    const gamePlatforms = [
+      ...new Map(
+        (platformIds ?? [])
+          .map((igdbId) => platformsByIgdbId.get(igdbId))
+          .filter((p): p is LocalPlatformRef => p != null)
+          .map((p) => [p.id, p] as const),
+      ).values(),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+      ...rest,
+      alreadyInCollection: owned.has(g.igdbId),
+      platforms: gamePlatforms,
+    };
+  });
 }

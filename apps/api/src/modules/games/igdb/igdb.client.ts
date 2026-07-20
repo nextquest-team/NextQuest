@@ -342,19 +342,23 @@ export interface IgdbSearchGame {
   name: string;
   coverImageId: string | null;
   firstReleaseDate: number | null; // epoch secondes
+  platformIds: number[]; // ids IGDB des plateformes sur lesquelles le jeu existe
 }
 
-const SEARCH_FIELDS = "name,cover.image_id,first_release_date";
+const SEARCH_FIELDS = "name,cover.image_id,first_release_date,platforms";
 
 interface RawSearchGame {
   id: number;
   name: string;
   cover?: { image_id?: string };
   first_release_date?: number;
+  platforms?: number[];
 }
 
 // Recherche IGDB par nom (Apicalypse `search`, pas un filtre `where`). Nom echappe
 // avant injection pour eviter une casse de la requete (memes regles que fetchGamesByDeveloper).
+// `platforms` demande sans expansion (juste les ids) : le service mappe ensuite
+// ces ids vers nos plateformes locales, pas besoin du nom/abbreviation IGDB ici.
 export async function searchGamesByName(
   name: string,
   limit: number,
@@ -370,6 +374,7 @@ export async function searchGamesByName(
     name: r.name,
     coverImageId: r.cover?.image_id ?? null,
     firstReleaseDate: r.first_release_date ?? null,
+    platformIds: r.platforms ?? [],
   }));
 }
 

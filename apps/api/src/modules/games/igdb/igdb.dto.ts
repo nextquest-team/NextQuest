@@ -8,6 +8,7 @@ import {
   type IgdbGameDetail,
   type IgdbGame,
   type IgdbSimilarGame,
+  type IgdbSearchGame,
 } from "./igdb.client.js";
 import { rankBySimilarity, type GameForSimilarity } from "../../recommendations/similarity.js";
 
@@ -60,6 +61,25 @@ export type GameDetailDTO = {
   websites: GameWebsiteDTO[];
   similarGames: SimilarGameDTO[];
 };
+
+// Resultat de recherche par nom (ajout manuel cote front). releaseYear seul suffit
+// pour distinguer les re-editions (pas besoin de la date complete a ce stade).
+export type IgdbSearchResult = {
+  igdbId: number;
+  name: string;
+  coverUrl: string | null;
+  releaseYear: number | null;
+};
+
+export function toSearchResultDTO(g: IgdbSearchGame): IgdbSearchResult {
+  return {
+    igdbId: g.igdbId,
+    name: g.name,
+    coverUrl: g.coverImageId ? igdbImageUrl(g.coverImageId, "t_cover_big") : null,
+    releaseYear:
+      g.firstReleaseDate != null ? new Date(g.firstReleaseDate * 1000).getUTCFullYear() : null,
+  };
+}
 
 export function toUpcomingGameDTO(g: IgdbUpcomingGame): UpcomingGameDTO {
   return {

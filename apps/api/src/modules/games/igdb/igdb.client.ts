@@ -336,6 +336,43 @@ export async function fetchGamesByDeveloper(
   return requestIgdbGames(body, token, clientId, fetchImpl);
 }
 
+// Resultat leger de recherche par nom (autocomplete ajout manuel cote front).
+export interface IgdbSearchGame {
+  igdbId: number;
+  name: string;
+  coverImageId: string | null;
+  firstReleaseDate: number | null; // epoch secondes
+}
+
+const SEARCH_FIELDS = "name,cover.image_id,first_release_date";
+
+interface RawSearchGame {
+  id: number;
+  name: string;
+  cover?: { image_id?: string };
+  first_release_date?: number;
+}
+
+// Recherche IGDB par nom (Apicalypse `search`, pas un filtre `where`). Nom echappe
+// avant injection pour eviter une casse de la requete (memes regles que fetchGamesByDeveloper).
+export async function searchGamesByName(
+  name: string,
+  limit: number,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbSearchGame[]> {
+  const safe = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const body = `search "${safe}"; fields ${SEARCH_FIELDS}; limit ${limit};`;
+  const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawSearchGame[];
+  return rows.map((r) => ({
+    igdbId: r.id,
+    name: r.name,
+    coverImageId: r.cover?.image_id ?? null,
+    firstReleaseDate: r.first_release_date ?? null,
+  }));
+}
+
 interface RawPlatform {
   id: number;
   name: string;

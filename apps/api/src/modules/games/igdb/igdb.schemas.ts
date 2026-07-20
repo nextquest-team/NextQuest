@@ -13,5 +13,13 @@ export const gameDetailParamsSchema = z.object({
   igdbId: z.coerce.number().int().positive(),
 });
 
+// Recherche live par nom (ajout manuel cote front). q obligatoire (1-100 caracteres),
+// limit borne a 25 pour rester une liste d'autocomplete, pas un feed paginé.
+export const searchIgdbQuerySchema = z.object({
+  q: z.string().min(1).max(100),
+  limit: z.coerce.number().int().min(1).max(25).default(12),
+});
+
 export type UpcomingQueryInput = z.infer<typeof upcomingQuerySchema>;
 export type GameDetailParams = z.infer<typeof gameDetailParamsSchema>;
+export type SearchIgdbQueryInput = z.infer<typeof searchIgdbQuerySchema>;

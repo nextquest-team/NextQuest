@@ -7,6 +7,7 @@ import {
   fetchGameDetail,
   fetchGamesByIds,
   fetchGamesByDeveloper,
+  searchGamesByName,
   type UpcomingQuery,
   type IgdbGame,
 } from "./igdb.client.js";
@@ -15,14 +16,19 @@ import { redis } from "../../../lib/redis.js";
 import {
   toUpcomingGameDTO,
   toGameDetailDTO,
+  toSearchResultDTO,
   type UpcomingGameDTO,
   type GameDetailDTO,
+  type IgdbSearchResult,
 } from "./igdb.dto.js";
 import { sharesGenreOrTheme, contentSimilarity, normalizeGameTitle, type GameForSimilarity } from "../../recommendations/similarity.js";
 
 // TTL : la liste "a venir" bouge peu (1h) ; le detail d'un jeu encore moins (24h).
+// La recherche par nom partage le TTL "a venir" : resultats stables sur l'heure,
+// evite de re-frapper IGDB a chaque frappe similaire cote autocomplete front.
 const UPCOMING_TTL = 3600;
 const DETAIL_TTL = 86400;
+const SEARCH_TTL = 3600;
 
 export interface CacheStore {
   get(key: string): Promise<string | null>;
@@ -35,6 +41,7 @@ export interface DiscoveryDeps {
   fetchGameDetail: typeof fetchGameDetail;
   fetchGamesByIds: typeof fetchGamesByIds;
   fetchGamesByDeveloper: typeof fetchGamesByDeveloper;
+  searchGamesByName: typeof searchGamesByName;
   cache: CacheStore;
   now(): Date;
 }
@@ -56,6 +63,7 @@ export function defaultDiscoveryDeps(): DiscoveryDeps {
     fetchGameDetail,
     fetchGamesByIds,
     fetchGamesByDeveloper,
+    searchGamesByName,
     cache: redisStore,
     now: () => new Date(),
   };
@@ -191,5 +199,24 @@ export async function getGameDetail(
   const today = deps.now().toISOString().slice(0, 10);
   const dto = toGameDetailDTO(game, today, similarGameDetails);
   await deps.cache.set(key, JSON.stringify(dto), "EX", DETAIL_TTL);
+  return dto;
+}
+
+// Recherche live par nom (autocomplete de l'ajout manuel cote front). Proxy IGDB +
+// cache Redis court : la meme frappe redemandee dans l'heure ne re-tape pas le quota IGDB.
+export async function searchIgdbGames(
+  query: string,
+  limit: number = 12,
+  clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
+  deps: DiscoveryDeps = defaultDiscoveryDeps(),
+): Promise<IgdbSearchResult[]> {
+  const key = `igdb:search:${query}:${limit}`;
+  const cached = await deps.cache.get(key);
+  if (cached) return JSON.parse(cached) as IgdbSearchResult[];
+
+  const token = await deps.getToken();
+  const games = await deps.searchGamesByName(query, limit, token, clientId);
+  const dto = games.map(toSearchResultDTO);
+  await deps.cache.set(key, JSON.stringify(dto), "EX", SEARCH_TTL);
   return dto;
 }

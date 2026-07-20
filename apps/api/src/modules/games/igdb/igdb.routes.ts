@@ -2,8 +2,12 @@ import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireAuth, requireAdmin, userIdOf } from "../../../lib/guards.js";
 import { enrichGames } from "./igdb.service.js";
-import { getUpcomingGames, getGameDetail } from "./igdb.discovery.service.js";
-import { upcomingQuerySchema, gameDetailParamsSchema } from "./igdb.schemas.js";
+import { getUpcomingGames, getGameDetail, searchIgdbGames } from "./igdb.discovery.service.js";
+import {
+  upcomingQuerySchema,
+  gameDetailParamsSchema,
+  searchIgdbQuerySchema,
+} from "./igdb.schemas.js";
 
 export async function igdbRoutes(app: FastifyInstance) {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -56,6 +60,31 @@ export async function igdbRoutes(app: FastifyInstance) {
         return detail;
       } catch (err) {
         request.log.error({ err }, "IGDB detail indisponible");
+        return reply.code(502).send({ error: "Service IGDB indisponible" });
+      }
+    },
+  );
+
+  // Recherche live par nom (autocomplete de l'ajout manuel cote front, proxy IGDB + cache Redis).
+  r.get(
+    "/games/igdb/search",
+    {
+      onRequest: [requireAuth],
+      preHandler: app.rateLimit({ max: 60, timeWindow: "1 minute" }),
+      schema: {
+        tags: ["Games"],
+        summary: "Recherche live de jeux IGDB par nom",
+        security: [{ bearerAuth: [] }],
+        querystring: searchIgdbQuerySchema,
+      },
+    },
+    async (request, reply) => {
+      const { q, limit } = request.query;
+      try {
+        const items = await searchIgdbGames(q, limit);
+        return { items };
+      } catch (err) {
+        request.log.error({ err }, "IGDB search indisponible");
         return reply.code(502).send({ error: "Service IGDB indisponible" });
       }
     },

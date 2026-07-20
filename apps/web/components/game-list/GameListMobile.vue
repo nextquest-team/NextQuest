@@ -11,6 +11,7 @@ const {
   gamesLoading, games,
   onStatusChange, onDeleteGame, onCardClick,
   addModalOpen,
+  progressOpen, progressStatus, onProgressBackground, onProgressClose,
   init,
 } = useGameList()
 
@@ -179,6 +180,12 @@ onMounted(init)
     </v-navigation-drawer>
 
     <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" />
+    <ImportProgressModal
+      :open="progressOpen"
+      :status="progressStatus"
+      @background="onProgressBackground"
+      @close="onProgressClose"
+    />
   </div>
 </template>
 

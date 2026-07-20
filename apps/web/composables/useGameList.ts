@@ -6,6 +6,13 @@ export function useGameList() {
   const { authFetch, apiBase } = useAuthFetch()
   const route = useRoute()
 
+  // Modale de progression d'import (jaquettes live). Le re-fetch final de la
+  // collection est declenche a la fin de l'enrichissement, via onDone.
+  const progress = useImportProgress()
+  progress.onDone(() => {
+    void fetchGames()
+  })
+
   // ── Steam ────────────────────────────────────────────────
   const steamConnected = ref(false)
   const steamPersona = ref<string | null>(null)
@@ -45,7 +52,9 @@ export function useGameList() {
         type: 'success',
         text: res.warning ?? `${res.imported} ${t('gameList.importSuccess')}`,
       }
-      await fetchGames()
+      // Ouvre la modale de progression : elle poll l'enrichissement IGDB et
+      // re-fetch la collection a la fin (via progress.onDone).
+      progress.start()
     } catch {
       importMessage.value = { type: 'error', text: t('gameList.importError') }
     } finally {
@@ -182,8 +191,15 @@ export function useGameList() {
     fetchGames()
 
     if (route.query.steam === 'linked') {
-      importMessage.value = { type: 'success', text: t('gameList.steamLinkedSuccess') }
+      const firstLink = route.query.first === '1'
+      // On nettoie l'URL tout de suite pour ne pas re-declencher au refresh.
       navigateTo('/game-list', { replace: true })
+      if (firstLink) {
+        // Premiere liaison : on importe automatiquement + modale de progression.
+        void importSteam()
+      } else {
+        importMessage.value = { type: 'success', text: t('gameList.steamLinkedSuccess') }
+      }
     }
   }
 
@@ -202,8 +218,13 @@ export function useGameList() {
     gamesLoading, games, fetchGames,
     // Actions
     onStatusChange, onDeleteGame, onCardClick,
-    // Modale
+    // Modale d'ajout
     addModalOpen,
+    // Modale de progression d'import
+    progressOpen: progress.open,
+    progressStatus: progress.status,
+    onProgressBackground: progress.stopBackground,
+    onProgressClose: progress.close,
     // Init
     init,
   }

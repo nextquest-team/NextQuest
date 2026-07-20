@@ -53,6 +53,10 @@ mockNuxtImport('useGameList', () => () => ({
   onDeleteGame: vi.fn(),
   onCardClick: vi.fn(),
   addModalOpen: ref(false),
+  progressOpen: ref(false),
+  progressStatus: ref(null),
+  onProgressBackground: vi.fn(),
+  onProgressClose: vi.fn(),
   init: initMock,
 }))
 
@@ -62,6 +66,7 @@ const stubs = {
   VNavigationDrawer: { template: '<div><slot /></div>' },
   GameListCard: { template: '<div class="game-list-card" />' },
   GameListAddModal: { template: '<div />' },
+  ImportProgressModal: { template: '<div />' },
   UiPageHeader: { template: '<div><slot /></div>' },
   UiBackButton: { template: '<button />' },
   ClientOnly: { template: '<slot />' },

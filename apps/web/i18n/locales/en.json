@@ -115,7 +115,14 @@
       "count": "{done} / {total} covers fetched",
       "background": "Continue in the background"
     },
-    "enrichDone": "Covers updated!"
+    "enrichDone": "Covers updated!",
+    "exclusions": {
+      "button": "Excluded games",
+      "title": "Excluded games",
+      "hint": "These games won't come back on re-import. Restore them if you change your mind.",
+      "empty": "No excluded games.",
+      "restore": "Restore"
+    }
   },
   "gameDetail": {
     "back": "Back",

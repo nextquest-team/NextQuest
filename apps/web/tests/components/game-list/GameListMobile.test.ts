@@ -59,6 +59,9 @@ mockNuxtImport('useGameList', () => () => ({
   progressStatus: ref(null),
   onProgressBackground: vi.fn(),
   onProgressClose: vi.fn(),
+  exclusionsCount: ref(0),
+  exclusionsModalOpen: ref(false),
+  onExclusionRestored: vi.fn(),
   init: initMock,
 }))
 
@@ -69,6 +72,7 @@ const stubs = {
   GameListCard: { template: '<div class="game-list-card" />' },
   GameListAddModal: { template: '<div />' },
   GameListImportProgressModal: { template: '<div />' },
+  GameListExclusionsModal: { template: '<div />' },
   UiPageHeader: { template: '<div><slot /></div>' },
   UiBackButton: { template: '<button />' },
   ClientOnly: { template: '<slot />' },

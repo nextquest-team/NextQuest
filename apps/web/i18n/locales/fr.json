@@ -115,7 +115,14 @@
       "count": "{done} / {total} jaquettes récupérées",
       "background": "Continuer en arrière-plan"
     },
-    "enrichDone": "Jaquettes à jour !"
+    "enrichDone": "Jaquettes à jour !",
+    "exclusions": {
+      "button": "Jeux exclus",
+      "title": "Jeux exclus",
+      "hint": "Ces jeux ne reviendront pas lors d'un ré-import. Réintègre-les si tu changes d'avis.",
+      "empty": "Aucun jeu exclu.",
+      "restore": "Réintégrer"
+    }
   },
   "gameDetail": {
     "back": "Retour",

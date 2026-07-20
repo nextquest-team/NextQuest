@@ -12,6 +12,7 @@ const {
   onStatusChange, onDeleteGame, onCardClick,
   addModalOpen,
   progressOpen, progressStatus, onProgressBackground, onProgressClose,
+  exclusionsCount, exclusionsModalOpen, onExclusionRestored,
   init,
 } = useGameList()
 
@@ -60,6 +61,15 @@ onMounted(init)
         <button class="gl__btn gl__btn--add" @click="addModalOpen = true">
           <v-icon size="18">mdi-plus</v-icon>
           {{ t('gameList.addGame') }}
+        </button>
+
+        <button
+          v-if="exclusionsCount > 0"
+          class="gl__btn gl__btn--igdb"
+          @click="exclusionsModalOpen = true"
+        >
+          <v-icon size="18">mdi-eye-off-outline</v-icon>
+          {{ t('gameList.exclusions.button') }} ({{ exclusionsCount }})
         </button>
       </div>
     </div>
@@ -191,6 +201,11 @@ onMounted(init)
       :status="progressStatus"
       @background="onProgressBackground"
       @close="onProgressClose"
+    />
+    <GameListExclusionsModal
+      :open="exclusionsModalOpen"
+      @close="exclusionsModalOpen = false"
+      @restored="onExclusionRestored"
     />
   </div>
 </template>

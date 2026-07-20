@@ -12,6 +12,7 @@ const {
   onStatusChange, onDeleteGame, onCardClick,
   addModalOpen,
   progressOpen, progressStatus, onProgressBackground, onProgressClose,
+  exclusionsCount, exclusionsModalOpen, onExclusionRestored,
   init,
 } = useGameList()
 
@@ -51,6 +52,15 @@ onMounted(init)
         <button class="glm__btn glm__btn--add" @click="addModalOpen = true">
           <v-icon size="16">mdi-plus</v-icon>
           {{ t('gameList.addGame') }}
+        </button>
+
+        <button
+          v-if="exclusionsCount > 0"
+          class="glm__btn glm__btn--igdb"
+          @click="exclusionsModalOpen = true"
+        >
+          <v-icon size="16">mdi-eye-off-outline</v-icon>
+          {{ t('gameList.exclusions.button') }} ({{ exclusionsCount }})
         </button>
       </div>
 
@@ -186,6 +196,11 @@ onMounted(init)
       @background="onProgressBackground"
       @close="onProgressClose"
     />
+    <GameListExclusionsModal
+      :open="exclusionsModalOpen"
+      @close="exclusionsModalOpen = false"
+      @restored="onExclusionRestored"
+    />
   </div>
 </template>
 
@@ -263,6 +278,11 @@ onMounted(init)
 .glm__btn--steam:hover:not(:disabled) { background: #2a475e; }
 
 .glm__btn--add { background: var(--nq-brown, #5C3317); color: #edc78e; }
+.glm__btn--igdb {
+  background: rgba(92, 51, 23, 0.1);
+  color: var(--nq-brown, #5C3317);
+  border: 1px solid rgba(92, 51, 23, 0.2);
+}
 .glm__btn--add:hover { background: var(--nq-brown-dark, #3A1A0A); }
 
 /* ── Message import ── */

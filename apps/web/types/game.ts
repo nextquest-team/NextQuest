@@ -146,6 +146,17 @@ export interface IgdbSearchResult {
   platforms: { id: string; name: string }[]
 }
 
+// ── Jeux exclus (GET /api/collection/exclusions) ─────────
+
+export interface ExclusionItem {
+  gameId: string
+  title: string
+  coverUrl: string | null
+  releaseDate: string | null
+  isEnriched: boolean
+  excludedAt: string
+}
+
 // ── Type carte (interface allégée pour GameListCard) ─────
 
 export interface UserGame {

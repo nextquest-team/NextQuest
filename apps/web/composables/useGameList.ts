@@ -13,6 +13,14 @@ export function useGameList() {
     void fetchGames()
   })
 
+  // Jeux exclus (supprimes de la collection) : compteur du header + modale.
+  const exclusions = useExclusions()
+  const exclusionsModalOpen = ref(false)
+  function onExclusionRestored() {
+    void fetchGames()
+    void exclusions.fetchExclusions()
+  }
+
   // ── Steam ────────────────────────────────────────────────
   const steamConnected = ref(false)
   const steamPersona = ref<string | null>(null)
@@ -173,6 +181,8 @@ export function useGameList() {
     if (games.value.length === 0 && currentPage.value > 1) currentPage.value--
     try {
       await authFetch(`${apiBase}/api/collection/${userGameId}`, { method: 'DELETE' })
+      // Le jeu supprime part dans les exclus : rafraichit le compteur du header.
+      void exclusions.fetchExclusions()
     } catch {
       await fetchGames()
     }
@@ -189,6 +199,7 @@ export function useGameList() {
   function init() {
     fetchSteamStatus()
     fetchGames()
+    exclusions.fetchExclusions()
 
     if (route.query.steam === 'linked') {
       const firstLink = route.query.first === '1'
@@ -225,6 +236,10 @@ export function useGameList() {
     progressStatus: progress.status,
     onProgressBackground: progress.stopBackground,
     onProgressClose: progress.close,
+    // Jeux exclus
+    exclusionsCount: exclusions.count,
+    exclusionsModalOpen,
+    onExclusionRestored,
     // Init
     init,
   }

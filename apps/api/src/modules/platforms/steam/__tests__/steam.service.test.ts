@@ -60,6 +60,16 @@ describe("linkSteamAccount / getSteamConnection", () => {
     const userId = await createUser();
     expect(await getSteamConnection(userId)).toBeNull();
   });
+
+  it("signale isFirstLink:true pour une premiere liaison, puis false pour un relink", async () => {
+    const userId = await createUser();
+
+    const first = await linkSteamAccount(userId, "76561198000000000", "Gaben");
+    expect(first.isFirstLink).toBe(true);
+
+    const second = await linkSteamAccount(userId, "76561198000000001", "NewName");
+    expect(second.isFirstLink).toBe(false);
+  });
 });
 
 describe("unlinkSteamAccount", () => {

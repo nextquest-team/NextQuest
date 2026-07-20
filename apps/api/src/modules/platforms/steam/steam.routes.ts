@@ -78,9 +78,15 @@ export async function steamRoutes(app: FastifyInstance) {
         steamId,
         process.env.STEAM_API_KEY ?? "",
       );
-      await linkSteamAccount(userId, steamId, summary?.personaName ?? null);
+      const result = await linkSteamAccount(
+        userId,
+        steamId,
+        summary?.personaName ?? null,
+      );
 
-      return reply.redirect(`${FRONTEND_URL}/game-list?steam=linked`);
+      return reply.redirect(
+        `${FRONTEND_URL}/game-list?steam=linked&first=${result.isFirstLink ? 1 : 0}`,
+      );
     },
   );
 

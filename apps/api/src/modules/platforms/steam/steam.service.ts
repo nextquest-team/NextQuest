@@ -22,6 +22,10 @@ export interface SteamConnection {
   personaName: string | null;
 }
 
+export interface SteamLinkResult extends SteamConnection {
+  isFirstLink: boolean;
+}
+
 // Slug deterministe et unique : on suffixe l'appid (unique) pour eviter toute
 // collision de slug entre deux jeux homonymes. IGDB pourra l'affiner plus tard.
 function slugify(input: string): string {
@@ -64,8 +68,22 @@ export async function linkSteamAccount(
   userId: string,
   steamId: string,
   personaName: string | null,
-): Promise<SteamConnection> {
+): Promise<SteamLinkResult> {
   const serviceId = await getServiceId("steam");
+
+  // On verifie l'existence AVANT l'upsert pour distinguer une premiere
+  // liaison d'un relink : le front en a besoin pour adapter l'onboarding
+  // post-callback (proposer l'import ou non).
+  const [existing] = await db
+    .select({ id: connectedServices.id })
+    .from(connectedServices)
+    .where(
+      and(
+        eq(connectedServices.userId, userId),
+        eq(connectedServices.serviceId, serviceId),
+      ),
+    )
+    .limit(1);
 
   await db
     .insert(connectedServices)
@@ -84,7 +102,7 @@ export async function linkSteamAccount(
       },
     });
 
-  return { steamId, personaName };
+  return { steamId, personaName, isFirstLink: !existing };
 }
 
 export async function getSteamConnection(

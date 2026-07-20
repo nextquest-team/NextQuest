@@ -5,7 +5,7 @@ const { t } = useI18n()
 
 const {
   game, igdb, loading,
-  showRemoveConfirm,
+  showRemoveConfirm, removeError,
   load, formatPlaytime, formatReleaseDate,
   onStatusChange, confirmRemove,
 } = useGameDetail()
@@ -187,6 +187,7 @@ onMounted(load)
 
         <!-- Retirer de la liste -->
         <div class="gdm__danger">
+          <p v-if="removeError" class="gdm__remove-error">{{ removeError }}</p>
           <button class="gdm__remove-btn" @click="showRemoveConfirm = true">
             <v-icon size="15">mdi-trash-can-outline</v-icon>
             {{ t('gameDetail.removeGame') }}
@@ -430,7 +431,9 @@ onMounted(load)
 .gdm__rating-max { font-size: 0.7rem; font-weight: 400; color: rgba(58, 26, 10, 0.65); }
 
 /* ── Danger zone ── */
-.gdm__danger { padding: 1.5rem 0 0.5rem; display: flex; justify-content: flex-end; }
+.gdm__danger { padding: 1.5rem 0 0.5rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; }
+
+.gdm__remove-error { font-size: 0.78rem; color: #8B1F1F; margin: 0; }
 
 .gdm__remove-btn {
   display: inline-flex;

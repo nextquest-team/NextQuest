@@ -16,6 +16,7 @@ export function useGameDetail() {
   const igdb = ref<IgdbGameDetail | null>(null)
   const loading = ref(true)
   const showRemoveConfirm = ref(false)
+  const removeError = ref<string | null>(null)
 
   async function load() {
     try {
@@ -60,15 +61,20 @@ export function useGameDetail() {
 
   async function confirmRemove() {
     showRemoveConfirm.value = false
+    removeError.value = null
     try {
       await authFetch(`${apiBase}/api/collection/${game.value?.userGameId}`, { method: 'DELETE' })
       navigateTo('/game-list')
-    } catch { /* suppression échouée — on reste sur la page */ }
+    } catch (e) {
+      console.error('[useGameDetail] confirmRemove', e)
+      removeError.value = t('gameDetail.removeError')
+    }
   }
 
   return {
     game, igdb, loading,
     showRemoveConfirm,
+    removeError,
     load,
     formatPlaytime,
     formatReleaseDate,

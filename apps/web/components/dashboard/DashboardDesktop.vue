@@ -24,7 +24,9 @@ async function fetchBagGames() {
       query: { limit: 8, offset: 0 },
     })
     bagGames.value = res.items.map(item => toUserGame(item))
-  } catch { /* liste vide si erreur */ }
+  } catch (e) {
+    console.error('[DashboardDesktop] fetchBagGames', e)
+  }
   finally { bagLoading.value = false }
 }
 
@@ -56,7 +58,7 @@ onMounted(fetchBagGames)
           <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" />
           <v-icon v-else size="28" color="rgba(122,62,42,0.4)">mdi-gamepad-variant-outline</v-icon>
         </NuxtLink>
-        <NuxtLink to="/game-list" class="dd__bag-thumb dd__bag-thumb--add" :title="t('dashboard.sacoche.addGame')">
+        <NuxtLink to="/game-list" class="dd__bag-thumb dd__bag-thumb--add" :aria-label="t('dashboard.sacoche.addGame')">
           <v-icon size="28" color="#7a3e2a">mdi-plus</v-icon>
         </NuxtLink>
       </div>

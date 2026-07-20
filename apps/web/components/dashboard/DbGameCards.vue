@@ -12,7 +12,9 @@ async function fetchUpcoming() {
       query: { limit: 20, offset: 0, sort: 'hype' },
     })
     games.value = res.items
-  } catch { /* liste vide si IGDB indisponible */ }
+  } catch (e) {
+    console.error('[DbGameCards] fetchUpcoming', e)
+  }
 }
 
 onMounted(fetchUpcoming)

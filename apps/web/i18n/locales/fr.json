@@ -123,6 +123,7 @@
     "playtimeNone": "Non renseigné",
     "removeGame": "Retirer de ma liste",
     "removeConfirm": "Retirer ce jeu de ta liste ?",
+    "removeError": "La suppression a échoué, réessaie.",
     "noSummary": "Aucun synopsis disponible.",
     "tags": "Thèmes",
     "similarGames": "Jeux similaires",

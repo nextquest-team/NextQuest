@@ -67,22 +67,7 @@ const {
 
       <!-- Colonne droite : méthodes OAuth -->
       <div class="login-right">
-        <div class="social-stack">
-          <UiSocialButton
-            provider="google"
-            :loading="isLoading"
-            @click="loginWithOAuth('google')"
-          />
-
-          <UiSocialButton
-            provider="microsoft"
-            :loading="isLoading"
-            @click="loginWithOAuth('microsoft')"
-          />
-
-          <!-- TODO: activer Apple quand JB aura ajouté le provider côté backend -->
-          <UiSocialButton provider="apple" disabled />
-        </div>
+        <AuthSocialButtons :loading="isLoading" @oauth="loginWithOAuth" />
       </div>
     </div>
   </div>
@@ -176,12 +161,5 @@ const {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.social-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  width: 100%;
 }
 </style>

@@ -123,6 +123,7 @@
     "playtimeNone": "Not recorded",
     "removeGame": "Remove from my list",
     "removeConfirm": "Remove this game from your list?",
+    "removeError": "Removal failed, please try again.",
     "noSummary": "No summary available.",
     "tags": "Themes",
     "similarGames": "Similar games",

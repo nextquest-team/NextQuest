@@ -56,8 +56,6 @@ const gameListMock = {
   init: initMock,
 }
 
-mockNuxtImport('useGameList', () => () => gameListMock)
-
 const stubs = {
   VIcon: { template: '<span v-bind="$attrs" />' },
   VProgressCircular: { template: '<div class="v-progress-circular" />' },

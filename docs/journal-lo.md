@@ -4,13 +4,13 @@
 
 ### Résumé exécutif
 
-Remplacement de toutes les données mock du dashboard desktop par des appels API réels. La zone sac à dos affiche une grille 3×3 des 9 derniers jeux ajoutés à la collection (avec miniatures cliquables). La zone game cards affiche le feed "jeux à venir" trié par hype depuis IGDB.
+Remplacement de toutes les données mock du dashboard desktop par des appels API réels. La zone sac à dos affiche une grille 3×3 des 8 derniers jeux ajoutés à la collection (le 9e slot est réservé au bouton d'ajout), avec miniatures cliquables. La zone game cards affiche le feed "jeux à venir" trié par hype depuis IGDB.
 
 ### Ce qui a été fait
 
 #### `DashboardDesktop.vue`
 - Suppression de l'array mock `games`
-- Ajout de `fetchBagGames()` : appel `GET /api/collection?limit=9&offset=0` au montage — l'API trie déjà par `createdAt DESC`, les 9 premiers = les 9 derniers ajoutés
+- Ajout de `fetchBagGames()` : appel `GET /api/collection?limit=8&offset=0` au montage — l'API trie déjà par `createdAt DESC`, les 8 premiers = les 8 derniers ajoutés
 - Grille 3×3 de miniatures carrées dans la div sac (`dd__bag-grid`) : chaque vignette affiche `coverUrl` ou une icône fallback, et link vers `/games/{userGameId}` (fiche de la collection)
 - `v-for` du parchemin migré sur `bagGames` (suppression de la référence à l'ancien mock)
 

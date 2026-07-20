@@ -57,22 +57,7 @@ const {
 
       <div class="auth-separator"><span>{{ t('auth.orContinueWith') }}</span></div>
 
-      <div class="social-stack">
-        <UiSocialButton
-          provider="google"
-          :loading="isLoading"
-          @click="loginWithOAuth('google')"
-        />
-
-        <UiSocialButton
-          provider="microsoft"
-          :loading="isLoading"
-          @click="loginWithOAuth('microsoft')"
-        />
-
-        <!-- TODO: activer Apple quand JB aura ajouté le provider côté backend -->
-        <UiSocialButton provider="apple" disabled />
-      </div>
+      <AuthSocialButtons :loading="isLoading" @oauth="loginWithOAuth" />
     </div>
   </div>
 </template>
@@ -155,11 +140,5 @@ const {
 
 .auth-separator span {
   white-space: nowrap;
-}
-
-.social-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 </style>

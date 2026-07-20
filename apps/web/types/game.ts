@@ -1,5 +1,11 @@
 export type GameStatus = 'backlog' | 'playing' | 'completed' | 'abandoned'
 
+export interface UpcomingGameDTO {
+  igdbId: number
+  title: string
+  coverUrl: string | null
+}
+
 // ── Types API (collection.dto.ts côté API) ───────────────
 
 export interface CollectionGameMeta {

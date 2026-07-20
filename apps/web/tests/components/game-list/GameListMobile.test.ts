@@ -1,6 +1,6 @@
 // @vitest-environment nuxt
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
 import GameListMobile from '~/components/game-list/GameListMobile.vue'
@@ -21,7 +21,7 @@ const initMock = vi.fn()
 const linkSteamMock = vi.fn()
 const importSteamMock = vi.fn()
 
-mockNuxtImport('useGameList', () => () => ({
+const gameListMock = {
   steamConnected: mockSteamConnected,
   steamPersona: ref(null),
   steamLoading: ref(false),
@@ -56,7 +56,7 @@ mockNuxtImport('useGameList', () => () => ({
   onCardClick: vi.fn(),
   addModalOpen: ref(false),
   init: initMock,
-}))
+}
 
 const stubs = {
   VIcon: { template: '<span v-bind="$attrs" />' },
@@ -70,6 +70,8 @@ const stubs = {
   Transition: { template: '<slot />' },
 }
 
+const globalOpts = { stubs, provide: { gameList: gameListMock } }
+
 describe('GameListMobile', () => {
   beforeEach(() => {
     mockGames.value = []
@@ -82,20 +84,14 @@ describe('GameListMobile', () => {
     initMock.mockReset()
   })
 
-  it('appelle init() au montage', async () => {
-    mount(GameListMobile, { global: { stubs } })
-    await flushPromises()
-    expect(initMock).toHaveBeenCalledOnce()
-  })
-
   it('affiche le bouton Steam Lier quand non connecté', () => {
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('.glm__btn--steam').exists()).toBe(true)
   })
 
   it('affiche le steam-row (avec bouton import) quand connecté', () => {
     mockSteamConnected.value = true
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('.glm__steam-row').exists()).toBe(true)
     // Le bouton "Lier Steam" (v-if="!steamConnected") est masqué
     // Le steam-row (v-else) avec son bouton d'import est affiché
@@ -105,7 +101,7 @@ describe('GameListMobile', () => {
 
   it('affiche le loader quand gamesLoading=true', () => {
     mockGamesLoading.value = true
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('.glm__loader').exists()).toBe(true)
     expect(wrapper.find('.glm__empty').exists()).toBe(false)
     expect(wrapper.find('.glm__grid').exists()).toBe(false)
@@ -114,7 +110,7 @@ describe('GameListMobile', () => {
   it('affiche le message vide quand games est vide et chargement terminé', () => {
     mockGamesLoading.value = false
     mockGames.value = []
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('.glm__empty').exists()).toBe(true)
     expect(wrapper.find('.glm__grid').exists()).toBe(false)
   })
@@ -122,7 +118,7 @@ describe('GameListMobile', () => {
   it('affiche la grille quand games est non vide', () => {
     mockGamesLoading.value = false
     mockGames.value = [{ id: 'g1', title: 'Jeu A', status: 'playing' }] as any[]
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('.glm__grid').exists()).toBe(true)
     expect(wrapper.find('.glm__empty').exists()).toBe(false)
   })
@@ -133,35 +129,35 @@ describe('GameListMobile', () => {
       { id: 'g1', title: 'Jeu A', status: 'playing' },
       { id: 'g2', title: 'Jeu B', status: 'backlog' },
     ] as any[]
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.findAll('.game-list-card')).toHaveLength(2)
   })
 
   it('affiche le champ de recherche', () => {
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('input.glm__search').exists()).toBe(true)
   })
 
   it('affiche le bouton filtre avec badge quand activeFilterCount > 0', () => {
     mockActiveFilterCount.value = 2
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('.glm__filter-toggle--active').exists()).toBe(true)
   })
 
   it("n'affiche pas la pagination quand totalPages <= 1", () => {
     mockTotalPages.value = 1
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('.glm__pagination').exists()).toBe(false)
   })
 
   it('affiche la pagination quand totalPages > 1', () => {
     mockTotalPages.value = 3
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     expect(wrapper.find('.glm__pagination').exists()).toBe(true)
   })
 
   it("appelle linkSteam au clic sur le bouton Steam", async () => {
-    const wrapper = mount(GameListMobile, { global: { stubs } })
+    const wrapper = mount(GameListMobile, { global: globalOpts })
     await wrapper.find('.glm__btn--steam').trigger('click')
     expect(linkSteamMock).toHaveBeenCalledOnce()
   })

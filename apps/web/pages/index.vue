@@ -72,6 +72,9 @@ const { t } = useI18n()
 }
 
 .landing-forgot {
+  display: block;
+  width: fit-content;
+  padding: 0.85rem 1rem;
   font-family: var(--nq-font);
   font-variant: small-caps;
   font-size: 0.9rem;

@@ -6,12 +6,12 @@ defineProps<{
   libraryUnplayed: RecommendationDTO | null
   upcoming: RecommendationDTO | null
   feedbackPending: string | null
-  refreshing: boolean
+  generating: boolean
 }>()
 
 const emit = defineEmits<{
   feedback: [reco: RecommendationDTO, action: FeedbackAction]
-  refresh: []
+  generate: []
 }>()
 
 const { t } = useI18n()
@@ -51,9 +51,9 @@ const { t } = useI18n()
 
     <!-- Régénérer -->
     <div class="nq-regen">
-      <button class="patch-btn" :disabled="refreshing" @click="emit('refresh')">
+      <button class="patch-btn" :disabled="generating" @click="emit('generate')">
         <v-icon size="16">mdi-refresh</v-icon>
-        {{ refreshing ? t('nextQuest.generating') : t('nextQuest.regenerate') }}
+        {{ generating ? t('nextQuest.generating') : t('nextQuest.regenerate') }}
       </button>
     </div>
 
@@ -69,7 +69,10 @@ const { t } = useI18n()
   flex-direction: column;
   gap: 0.6rem;
   padding: 5% 5% 3%;
-  background: url('/images/next-quest/carte-landscape.png') center / 100% 100% no-repeat;
+  background: image-set(
+    url('/images/next-quest/carte-landscape.webp') type('image/webp'),
+    url('/images/next-quest/carte-landscape.png')  type('image/png')
+  ) center / 100% 100% no-repeat;
   border-radius: 16px;
   overflow: hidden;
 }

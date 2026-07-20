@@ -36,3 +36,16 @@ const isPassword = computed(() => props.type === 'password')
     />
   </div>
 </template>
+
+<style scoped>
+/* Agrandit la zone cliquable du toggle œil à ~44px sans changer sa taille visuelle (24px) */
+:deep(.v-field__append-inner .v-icon--clickable) {
+  position: relative;
+}
+
+:deep(.v-field__append-inner .v-icon--clickable::before) {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
+</style>

@@ -69,6 +69,8 @@
     "importing": "Import en cours…",
     "importSuccess": "jeux importés !",
     "importError": "Impossible d'importer. Réessaie.",
+    "steamLinkError": "Impossible de lier Steam. Réessaie.",
+    "enrichError": "Impossible d'enrichir les données. Réessaie.",
     "enrichIgdb": "Enrichir via IGDB",
     "enriching": "Enrichissement…",
     "empty": "Ta liste est vide",
@@ -121,6 +123,7 @@
     "playtimeNone": "Non renseigné",
     "removeGame": "Retirer de ma liste",
     "removeConfirm": "Retirer ce jeu de ta liste ?",
+    "removeError": "La suppression a échoué, réessaie.",
     "noSummary": "Aucun synopsis disponible.",
     "tags": "Thèmes",
     "similarGames": "Jeux similaires",
@@ -156,7 +159,9 @@
     "released": "Sorti en",
     "genres": "Genres",
     "feedbackDone": "Pris en compte !",
-    "noReco": "Aucune suggestion pour ce bucket"
+    "noReco": "Aucune suggestion pour ce bucket",
+    "loadError": "Impossible de charger les recommandations",
+    "retry": "Réessayer"
   },
   "dashboard": {
     "onboarding": {

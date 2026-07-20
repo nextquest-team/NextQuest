@@ -10,13 +10,17 @@ const { mdAndUp } = useDisplay()
 // ── State ─────────────────────────────────────────────────────────────────
 const loading = ref(false)
 const generating = ref(false)
-const refreshing = ref(false)
 const error = ref(false)
+const lastFailedOp = ref<'fetch' | 'generate' | null>(null)
 const feedbackPending = ref<string | null>(null)
 
-const discovery = ref<RecommendationDTO | null>(null)
-const libraryUnplayed = ref<RecommendationDTO | null>(null)
-const upcoming = ref<RecommendationDTO | null>(null)
+const discoveryQueue = ref<RecommendationDTO[]>([])
+const libraryUnplayedQueue = ref<RecommendationDTO[]>([])
+const upcomingQueue = ref<RecommendationDTO[]>([])
+
+const discovery = computed(() => discoveryQueue.value[0] ?? null)
+const libraryUnplayed = computed(() => libraryUnplayedQueue.value[0] ?? null)
+const upcoming = computed(() => upcomingQueue.value[0] ?? null)
 
 const hasAnyReco = computed(() =>
   discovery.value || libraryUnplayed.value || upcoming.value,
@@ -26,13 +30,15 @@ const hasAnyReco = computed(() =>
 async function fetchRecos() {
   loading.value = true
   error.value = false
+  lastFailedOp.value = null
   try {
     const res = await authFetch<GroupedRecommendations>(`${apiBase}/api/recommendations`)
-    discovery.value = res.discovery[0] ?? null
-    libraryUnplayed.value = res.libraryUnplayed[0] ?? null
-    upcoming.value = res.upcoming[0] ?? null
+    discoveryQueue.value = res.discovery
+    libraryUnplayedQueue.value = res.libraryUnplayed
+    upcomingQueue.value = res.upcoming
   } catch {
     error.value = true
+    lastFailedOp.value = 'fetch'
   } finally {
     loading.value = false
   }
@@ -41,33 +47,21 @@ async function fetchRecos() {
 async function generate() {
   generating.value = true
   error.value = false
+  lastFailedOp.value = null
   try {
     await authFetch(`${apiBase}/api/recommendations/generate`, { method: 'POST' })
     await fetchRecos()
   } catch {
     error.value = true
+    lastFailedOp.value = 'generate'
   } finally {
     generating.value = false
   }
 }
 
-async function refresh() {
-  refreshing.value = true
-  error.value = false
-  try {
-    const skip = [discovery.value?.id, libraryUnplayed.value?.id, upcoming.value?.id].filter(Boolean) as string[]
-    const res = await authFetch<GroupedRecommendations>(`${apiBase}/api/recommendations/refresh`, {
-      method: 'POST',
-      body: { skip },
-    })
-    discovery.value = res.discovery[0] ?? null
-    libraryUnplayed.value = res.libraryUnplayed[0] ?? null
-    upcoming.value = res.upcoming[0] ?? null
-  } catch {
-    error.value = true
-  } finally {
-    refreshing.value = false
-  }
+function retry() {
+  if (lastFailedOp.value === 'generate') generate()
+  else fetchRecos()
 }
 
 // ── Feedback ───────────────────────────────────────────────────────────────
@@ -79,9 +73,9 @@ async function sendFeedback(reco: RecommendationDTO, action: FeedbackAction) {
       method: 'POST',
       body: { action },
     })
-    if (reco.bucket === 'discovery')        discovery.value = null
-    if (reco.bucket === 'library_unplayed') libraryUnplayed.value = null
-    if (reco.bucket === 'upcoming')         upcoming.value = null
+    if (reco.bucket === 'discovery')        discoveryQueue.value = discoveryQueue.value.slice(1)
+    if (reco.bucket === 'library_unplayed') libraryUnplayedQueue.value = libraryUnplayedQueue.value.slice(1)
+    if (reco.bucket === 'upcoming')         upcomingQueue.value = upcomingQueue.value.slice(1)
   } catch { /* conserve l'état en cas d'erreur réseau */ }
   finally {
     feedbackPending.value = null
@@ -107,8 +101,8 @@ onMounted(() => fetchRecos())
     </div>
     <div v-else-if="error" class="nq-state">
       <v-icon size="48" color="#8B1F1F">mdi-alert-circle-outline</v-icon>
-      <p class="nq-state__title">Impossible de charger les recommandations</p>
-      <button class="patch-btn" @click="fetchRecos">Réessayer</button>
+      <p class="nq-state__title">{{ t('nextQuest.loadError') }}</p>
+      <button class="patch-btn" @click="retry">{{ t('nextQuest.retry') }}</button>
     </div>
     <div v-else-if="!hasAnyReco" class="nq-state">
       <img src="/images/dashboard/turning-wheel.png" alt="" class="nq-state__wheel" />
@@ -125,9 +119,9 @@ onMounted(() => fetchRecos())
       :library-unplayed="libraryUnplayed"
       :upcoming="upcoming"
       :feedback-pending="feedbackPending"
-      :refreshing="refreshing"
+      :generating="generating"
       @feedback="sendFeedback"
-      @refresh="refresh"
+      @generate="generate"
     />
   </div>
 
@@ -152,8 +146,8 @@ onMounted(() => fetchRecos())
       </div>
       <div v-else-if="error" class="nq-state">
         <v-icon size="48" color="#8B1F1F">mdi-alert-circle-outline</v-icon>
-        <p class="nq-state__title">Impossible de charger les recommandations</p>
-        <button class="patch-btn" @click="fetchRecos">Réessayer</button>
+        <p class="nq-state__title">{{ t('nextQuest.loadError') }}</p>
+        <button class="patch-btn" @click="retry">{{ t('nextQuest.retry') }}</button>
       </div>
       <div v-else-if="!hasAnyReco" class="nq-state">
         <img src="/images/dashboard/turning-wheel.png" alt="" class="nq-state__wheel" />
@@ -170,9 +164,9 @@ onMounted(() => fetchRecos())
         :library-unplayed="libraryUnplayed"
         :upcoming="upcoming"
         :feedback-pending="feedbackPending"
-        :refreshing="refreshing"
+        :generating="generating"
         @feedback="sendFeedback"
-        @refresh="refresh"
+        @generate="generate"
       />
     </div>
 

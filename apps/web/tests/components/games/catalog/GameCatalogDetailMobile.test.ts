@@ -20,11 +20,12 @@ mockNuxtImport('useState', () => (key: string, init?: () => unknown) => {
 const fakeGame: RecoGame = {
   id: 'game-42',
   title: 'Disco Elysium',
+  slug: 'disco-elysium',
   coverUrl: 'https://cdn.igdb.com/disco.jpg',
-  genres: [{ id: 3, name: 'RPG' }],
+  genres: [{ id: '3', name: 'RPG', slug: 'rpg' }],
   igdbRating: 94,
   releaseDate: '2019-10-15T00:00:00.000Z',
-  platforms: [],
+  releaseStatus: null,
 }
 
 const stubs = {

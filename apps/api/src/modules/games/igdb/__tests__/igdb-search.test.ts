@@ -16,7 +16,7 @@ const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body }
 const err = (status: number) => ({ ok: false, status, json: async () => ({}) });
 
 describe("searchGamesByName", () => {
-  it("construit la requete Apicalypse (search+fields+limit) et mappe les champs, y compris category/follows/total_rating_count", async () => {
+  it("construit la requete Apicalypse (search+fields+limit) et mappe les champs, y compris game_type/total_rating_count/hypes", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       ok([
         {
@@ -25,9 +25,9 @@ describe("searchGamesByName", () => {
           cover: { image_id: "cov1" },
           first_release_date: 1000000000,
           platforms: [6, 48],
-          category: 0,
-          follows: 1200,
+          game_type: 0,
           total_rating_count: 340,
+          hypes: 12,
         },
       ]),
     );
@@ -41,9 +41,9 @@ describe("searchGamesByName", () => {
         coverImageId: "cov1",
         firstReleaseDate: 1000000000,
         platformIds: [6, 48],
-        category: 0,
-        follows: 1200,
+        gameType: 0,
         totalRatingCount: 340,
+        hypes: 12,
       },
     ]);
 
@@ -52,7 +52,7 @@ describe("searchGamesByName", () => {
     expect(init.headers["Authorization"]).toBe("Bearer TOKEN");
     expect(init.body).toContain('search "Halo";');
     expect(init.body).toContain(
-      "fields name,cover.image_id,first_release_date,platforms,category,follows,total_rating_count;",
+      "fields name,cover.image_id,first_release_date,platforms,game_type,total_rating_count,hypes;",
     );
     expect(init.body).toContain("limit 50;");
   });
@@ -64,7 +64,7 @@ describe("searchGamesByName", () => {
     expect(init.body).toContain('search "The \\"Master\\" Chief\\\\";');
   });
 
-  it("tolere les champs absents (cover, date, plateformes, category, follows, total_rating_count manquants)", async () => {
+  it("tolere les champs absents (cover, date, plateformes, game_type, total_rating_count, hypes manquants)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(ok([{ id: 5, name: "Bare" }]));
     const [g] = await searchGamesByName("Bare", 12, "TOKEN", "CID", fetchMock);
     expect(g).toEqual({
@@ -73,9 +73,9 @@ describe("searchGamesByName", () => {
       coverImageId: null,
       firstReleaseDate: null,
       platformIds: [],
-      category: null,
-      follows: null,
+      gameType: null,
       totalRatingCount: null,
+      hypes: null,
     });
   });
 
@@ -105,9 +105,9 @@ const searchSample: IgdbSearchGame[] = [
     coverImageId: "cov1",
     firstReleaseDate: 1000000000,
     platformIds: [6, 48],
-    category: 0,
-    follows: 0,
+    gameType: 0,
     totalRatingCount: 0,
+    hypes: 0,
   },
   {
     igdbId: 102,
@@ -115,9 +115,9 @@ const searchSample: IgdbSearchGame[] = [
     coverImageId: null,
     firstReleaseDate: null,
     platformIds: [6],
-    category: 0,
-    follows: 0,
+    gameType: 0,
     totalRatingCount: 0,
+    hypes: 0,
   },
 ];
 
@@ -178,13 +178,13 @@ describe("searchIgdbGames", () => {
     // Le cache ne stocke pas alreadyInCollection (specifique a l'utilisateur) ni
     // les plateformes mappees (recalculees a chaque lecture, nos plateformes
     // pouvant evoluer independamment du TTL de la recherche). Il stocke en
-    // revanche category/follows/totalRatingCount : le filtrage/classement se fait
+    // revanche gameType/totalRatingCount/hypes : le filtrage/classement se fait
     // apres lecture du cache, pas avant.
     const cached = JSON.parse(cache.store.get("igdb:search:halo:12") as string);
     expect(cached[0].alreadyInCollection).toBeUndefined();
     expect(cached[0].platforms).toBeUndefined();
     expect(cached[0].platformIds).toEqual([6, 48]);
-    expect(cached[0].category).toBe(0);
+    expect(cached[0].gameType).toBe(0);
   });
 
   it("cache hit: renvoie le cache sans appeler IGDB, mais remappe les plateformes depuis la BDD", async () => {
@@ -297,9 +297,9 @@ function candidate(overrides: Partial<IgdbSearchGame> & { igdbId: number; name: 
     coverImageId: null,
     firstReleaseDate: null,
     platformIds: [],
-    category: 0,
-    follows: 0,
+    gameType: 0,
     totalRatingCount: 0,
+    hypes: 0,
     ...overrides,
   };
 }
@@ -328,13 +328,13 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     expect(deps.searchGamesByName).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID");
   });
 
-  it("exclut les DLC/bundles/packs mais garde un candidat sans category connue", async () => {
+  it("exclut les DLC/bundles/packs (game_type) mais garde un candidat sans game_type connu", async () => {
     const pool = [
-      candidate({ igdbId: 1, name: "Base Game", category: 0 }), // main_game : garde
-      candidate({ igdbId: 2, name: "Base Game DLC", category: 1 }), // dlc : exclu
-      candidate({ igdbId: 3, name: "Base Game Bundle", category: 3 }), // bundle : exclu
-      candidate({ igdbId: 4, name: "Base Game Pack", category: 13 }), // pack : exclu
-      candidate({ igdbId: 5, name: "Unknown Category Game", category: null }), // inconnu : garde par prudence
+      candidate({ igdbId: 1, name: "Base Game", gameType: 0 }), // main_game : garde
+      candidate({ igdbId: 2, name: "Base Game DLC", gameType: 1 }), // dlc : exclu
+      candidate({ igdbId: 3, name: "Base Game Bundle", gameType: 3 }), // bundle : exclu
+      candidate({ igdbId: 4, name: "Base Game Pack", gameType: 13 }), // pack : exclu
+      candidate({ igdbId: 5, name: "Unknown Type Game", gameType: null }), // inconnu : garde par prudence
     ];
     const deps = depsWithPool(pool);
 
@@ -348,11 +348,10 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     expect(ids).not.toContain(4);
   });
 
-  it("classe un jeu tres suivi avant un jeu obscur, a tier de correspondance de nom egal", async () => {
+  it("classe un jeu bien note avant un jeu obscur, a tier de correspondance de nom egal (aucun des deux exact)", async () => {
     const pool = [
-      // Aucun des deux ne matche exactement ni en prefixe : meme tier ("contient").
-      candidate({ igdbId: 1, name: "Obscure Quest Saga", follows: 0, totalRatingCount: 0 }),
-      candidate({ igdbId: 2, name: "Popular Quest Journey", follows: 5000, totalRatingCount: 800 }),
+      candidate({ igdbId: 1, name: "Obscure Quest Saga", totalRatingCount: 0, hypes: 0 }),
+      candidate({ igdbId: 2, name: "Popular Quest Journey", totalRatingCount: 800, hypes: 50 }),
     ];
     const deps = depsWithPool(pool);
 
@@ -363,12 +362,12 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
 
   it("priorise un match exact du nom sur un jeu bien plus populaire mais non-exact", async () => {
     const pool = [
-      candidate({ igdbId: 1, name: "Halo", follows: 1, totalRatingCount: 1 }),
+      candidate({ igdbId: 1, name: "Halo", totalRatingCount: 1, hypes: 0 }),
       candidate({
         igdbId: 2,
         name: "Halo Wars Ultimate Edition",
-        follows: 50000,
         totalRatingCount: 20000,
+        hypes: 500,
       }),
     ];
     const deps = depsWithPool(pool);
@@ -378,14 +377,31 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     expect(res[0]?.igdbId).toBe(1);
   });
 
+  // Cas remonte par l'E2E reel : le titre complet d'un jeu tres connu ne contient
+  // pas toujours litteralement la requete tapee (ex. "gta" absent de "Grand Theft
+  // Auto: San Andreas"). Comme aucun des deux ne matche exactement, seule la
+  // popularite (total_rating_count) doit decider : le jeu connu doit passer devant
+  // un titre obscur qui, lui, contient le texte tape mot pour mot.
+  it("classe un jeu tres note dont le nom ne contient pas la requete avant un obscur qui la contient", async () => {
+    const pool = [
+      candidate({ igdbId: 1, name: "Grand Theft Auto: San Andreas", totalRatingCount: 3988, hypes: 0 }),
+      candidate({ igdbId: 2, name: "GTA La Heist", totalRatingCount: 0, hypes: 0 }),
+    ];
+    const deps = depsWithPool(pool);
+
+    const res = await searchIgdbGames("gta", "user-1", 18, "CID", deps);
+
+    expect(res.map((r) => r.igdbId)).toEqual([1, 2]);
+  });
+
   it("coupe au top N apres classement par popularite", async () => {
-    // Meme tier pour tous ("contient quest"), popularite decroissante avec l'id.
+    // Meme tier pour tous (aucun match exact), popularite decroissante avec l'id.
     const pool = Array.from({ length: 6 }, (_, i) =>
       candidate({
         igdbId: i + 1,
         name: `Quest Game ${i + 1}`,
-        follows: 6 - i,
-        totalRatingCount: 0,
+        totalRatingCount: 6 - i,
+        hypes: 0,
       }),
     );
     const deps = depsWithPool(pool);

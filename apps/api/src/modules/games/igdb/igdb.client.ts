@@ -337,21 +337,24 @@ export async function fetchGamesByDeveloper(
 }
 
 // Resultat leger de recherche par nom (autocomplete ajout manuel cote front).
-// category/follows/totalRatingCount servent au service pour filtrer les non-jeux
+// gameType/totalRatingCount/hypes servent au service pour filtrer les non-jeux
 // (DLC, bundles...) et reclasser par popularite (cf. igdb.discovery.service.ts).
+// Note : le champ IGDB `category` est deprecie et renvoie toujours null en
+// pratique sur /games -- c'est `game_type` qu'il faut lire. Idem `follows`,
+// toujours null : `total_rating_count` (+ `hypes` pour les jeux pas encore notes)
+// est le seul signal de popularite fiable observe sur cet endpoint.
 export interface IgdbSearchGame {
   igdbId: number;
   name: string;
   coverImageId: string | null;
   firstReleaseDate: number | null; // epoch secondes
   platformIds: number[]; // ids IGDB des plateformes sur lesquelles le jeu existe
-  category: number | null; // enum IGDB (0=main_game, 1=dlc, 3=bundle, ...)
-  follows: number | null; // nombre de "follows" IGDB, proxy de popularite
+  gameType: number | null; // enum IGDB game_type (0=main_game, 1=dlc, 3=bundle, ...)
   totalRatingCount: number | null; // nombre total d'avis, proxy de popularite
+  hypes: number | null; // nombre d'anticipations, proxy de popularite pre-sortie
 }
 
-const SEARCH_FIELDS =
-  "name,cover.image_id,first_release_date,platforms,category,follows,total_rating_count";
+const SEARCH_FIELDS = "name,cover.image_id,first_release_date,platforms,game_type,total_rating_count,hypes";
 
 interface RawSearchGame {
   id: number;
@@ -359,9 +362,9 @@ interface RawSearchGame {
   cover?: { image_id?: string };
   first_release_date?: number;
   platforms?: number[];
-  category?: number;
-  follows?: number;
+  game_type?: number;
   total_rating_count?: number;
+  hypes?: number;
 }
 
 // Recherche IGDB par nom (Apicalypse `search`, pas un filtre `where`). Nom echappe
@@ -386,9 +389,9 @@ export async function searchGamesByName(
     coverImageId: r.cover?.image_id ?? null,
     firstReleaseDate: r.first_release_date ?? null,
     platformIds: r.platforms ?? [],
-    category: r.category ?? null,
-    follows: r.follows ?? null,
+    gameType: r.game_type ?? null,
     totalRatingCount: r.total_rating_count ?? null,
+    hypes: r.hypes ?? null,
   }));
 }
 

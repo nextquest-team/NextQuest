@@ -40,32 +40,34 @@ const SEARCH_TTL = 3600;
 // jeux connus se retrouvent noyes derriere des DLC/bundles/jeux obscurs.
 const SEARCH_POOL_SIZE = 50;
 
-// Categories IGDB "jeu jouable" conservees dans les resultats de recherche :
+// Game_type IGDB "jeu jouable" conserves dans les resultats de recherche :
 // main_game=0, standalone_expansion=4, remake=8, remaster=9, expanded_game=10, port=11.
-// Exclues : dlc=1, expansion=2, bundle=3, mod=5, episode=6, season=7, fork=12, pack=13, update=14.
-const SEARCHABLE_CATEGORIES = new Set([0, 4, 8, 9, 10, 11]);
+// Exclus : dlc=1, expansion=2, bundle=3, mod=5, episode=6, season=7, fork=12, pack=13, update=14.
+// Note : le champ `category` d'IGDB est deprecie et renvoie toujours null en pratique
+// sur /games -- c'est `game_type` qu'il faut filtrer (cf. igdb.client.ts).
+const SEARCHABLE_GAME_TYPES = new Set([0, 4, 8, 9, 10, 11]);
 
-// Tier de correspondance du nom vs la requete tapee : plus petit = meilleur match.
-// Prime sur la popularite dans le tri final pour qu'un match exact ne soit jamais
-// enterre sous un jeu plus populaire mais moins pertinent pour ce qui a ete tape.
+// Tier de correspondance du nom vs la requete tapee : seul un match EXACT (0)
+// prime sur la popularite. Un jeu tres connu dont le titre complet ne contient
+// pas litteralement la requete (ex. "Grand Theft Auto: San Andreas" pour "gta")
+// ne doit pas etre enterre sous des titres obscurs qui, eux, contiennent la
+// requete mot pour mot : au-dela du match exact, on laisse la popularite decider.
 function nameMatchTier(name: string, query: string): number {
   const n = name.trim().toLowerCase();
   const q = query.trim().toLowerCase();
-  if (n === q) return 0;
-  if (n.startsWith(q)) return 1;
-  if (n.includes(q)) return 2;
-  return 3;
+  return n === q ? 0 : 1;
 }
 
-// Popularite = somme follows + total_rating_count, les deux signaux IGDB dispo
-// sur la recherche par nom (pas de note moyenne fiable a ce stade, cf. rating_count
-// sur fetchAcclaimedByGenres qui lui filtre deja par volume de votes).
+// Popularite = somme total_rating_count + hypes : le seul signal fiable observe
+// sur la recherche IGDB par nom (rating_count) plus les anticipations (hypes)
+// pour les jeux pas encore sortis/notes. `follows` est toujours null sur cet
+// endpoint en pratique, donc ecarte (cf. igdb.client.ts).
 function popularityScore(g: IgdbSearchResultBase): number {
-  return (g.follows ?? 0) + (g.totalRatingCount ?? 0);
+  return (g.totalRatingCount ?? 0) + (g.hypes ?? 0);
 }
 
 // Filtre les non-jeux (DLC/bundles/mods/...), classe par (tier de nom, popularite
-// decroissante) et coupe au top `limit`. Un candidat sans category connue est
+// decroissante) et coupe au top `limit`. Un candidat sans game_type connu est
 // garde par prudence plutot que perdu (IGDB ne renseigne pas toujours ce champ).
 // Tri stable : a tier et score egaux, l'ordre de pertinence IGDB d'origine est conserve.
 function rankAndFilterCandidates(
@@ -74,7 +76,7 @@ function rankAndFilterCandidates(
   limit: number,
 ): IgdbSearchResultBase[] {
   return candidates
-    .filter((g) => g.category == null || SEARCHABLE_CATEGORIES.has(g.category))
+    .filter((g) => g.gameType == null || SEARCHABLE_GAME_TYPES.has(g.gameType))
     .map((g, index) => ({ g, index, tier: nameMatchTier(g.name, query) }))
     .sort((a, b) => {
       if (a.tier !== b.tier) return a.tier - b.tier;
@@ -349,7 +351,7 @@ export async function searchIgdbGames(
       ).values(),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
-    // category/follows/totalRatingCount ont servi au filtrage/classement plus haut,
+    // gameType/totalRatingCount/hypes ont servi au filtrage/classement plus haut,
     // jamais exposes au front : on construit IgdbSearchResult explicitement plutot
     // que par spread pour ne pas les laisser fuiter dans la reponse.
     return {

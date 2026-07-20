@@ -68,12 +68,18 @@ export type GameDetailDTO = {
 // collection" qui depend de l'utilisateur (calcule par le service, pas ici), et
 // sans les plateformes locales (mappees par le service depuis platformIds, qui
 // elles restent brutes/IGDB dans cette base -- c'est ce qui est cache en Redis).
+// category/follows/totalRatingCount sont aussi bruts/IGDB : ils servent au service
+// a filtrer les non-jeux et reclasser par popularite avant de couper au top N,
+// et ne figurent jamais dans le resultat final expose au front (cf. IgdbSearchResult).
 export type IgdbSearchResultBase = {
   igdbId: number;
   name: string;
   coverUrl: string | null;
   releaseYear: number | null;
   platformIds: number[];
+  category: number | null;
+  follows: number | null;
+  totalRatingCount: number | null;
 };
 
 // Plateforme locale sur laquelle le jeu existe (mappee depuis platformIds via
@@ -83,8 +89,12 @@ export type LocalPlatformRef = { id: string; name: string };
 
 // Resultat final expose par la route : la base + le flag "deja en collection"
 // (croise avec user_games cote service) + les plateformes locales mappees
-// (cf. igdb.discovery.service.ts).
-export type IgdbSearchResult = Omit<IgdbSearchResultBase, "platformIds"> & {
+// (cf. igdb.discovery.service.ts). category/follows/totalRatingCount ne sont que
+// des signaux de filtrage/classement internes au service, jamais exposes ici.
+export type IgdbSearchResult = Omit<
+  IgdbSearchResultBase,
+  "platformIds" | "category" | "follows" | "totalRatingCount"
+> & {
   alreadyInCollection: boolean;
   platforms: LocalPlatformRef[];
 };
@@ -97,6 +107,9 @@ export function toSearchResultDTO(g: IgdbSearchGame): IgdbSearchResultBase {
     releaseYear:
       g.firstReleaseDate != null ? new Date(g.firstReleaseDate * 1000).getUTCFullYear() : null,
     platformIds: g.platformIds,
+    category: g.category,
+    follows: g.follows,
+    totalRatingCount: g.totalRatingCount,
   };
 }
 

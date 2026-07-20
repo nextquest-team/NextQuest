@@ -16,7 +16,7 @@ const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body }
 const err = (status: number) => ({ ok: false, status, json: async () => ({}) });
 
 describe("searchGamesByName", () => {
-  it("construit la requete Apicalypse (search+fields+limit) et mappe les champs", async () => {
+  it("construit la requete Apicalypse (search+fields+limit) et mappe les champs, y compris category/follows/total_rating_count", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       ok([
         {
@@ -25,11 +25,14 @@ describe("searchGamesByName", () => {
           cover: { image_id: "cov1" },
           first_release_date: 1000000000,
           platforms: [6, 48],
+          category: 0,
+          follows: 1200,
+          total_rating_count: 340,
         },
       ]),
     );
 
-    const results = await searchGamesByName("Halo", 12, "TOKEN", "CID", fetchMock);
+    const results = await searchGamesByName("Halo", 50, "TOKEN", "CID", fetchMock);
 
     expect(results).toEqual([
       {
@@ -38,6 +41,9 @@ describe("searchGamesByName", () => {
         coverImageId: "cov1",
         firstReleaseDate: 1000000000,
         platformIds: [6, 48],
+        category: 0,
+        follows: 1200,
+        totalRatingCount: 340,
       },
     ]);
 
@@ -45,8 +51,10 @@ describe("searchGamesByName", () => {
     expect(init.headers["Client-ID"]).toBe("CID");
     expect(init.headers["Authorization"]).toBe("Bearer TOKEN");
     expect(init.body).toContain('search "Halo";');
-    expect(init.body).toContain("fields name,cover.image_id,first_release_date,platforms;");
-    expect(init.body).toContain("limit 12;");
+    expect(init.body).toContain(
+      "fields name,cover.image_id,first_release_date,platforms,category,follows,total_rating_count;",
+    );
+    expect(init.body).toContain("limit 50;");
   });
 
   it("echappe les guillemets et backslash dans le nom recherche", async () => {
@@ -56,7 +64,7 @@ describe("searchGamesByName", () => {
     expect(init.body).toContain('search "The \\"Master\\" Chief\\\\";');
   });
 
-  it("tolere les champs absents (cover, date et plateformes manquants)", async () => {
+  it("tolere les champs absents (cover, date, plateformes, category, follows, total_rating_count manquants)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(ok([{ id: 5, name: "Bare" }]));
     const [g] = await searchGamesByName("Bare", 12, "TOKEN", "CID", fetchMock);
     expect(g).toEqual({
@@ -65,6 +73,9 @@ describe("searchGamesByName", () => {
       coverImageId: null,
       firstReleaseDate: null,
       platformIds: [],
+      category: null,
+      follows: null,
+      totalRatingCount: null,
     });
   });
 
@@ -94,8 +105,20 @@ const searchSample: IgdbSearchGame[] = [
     coverImageId: "cov1",
     firstReleaseDate: 1000000000,
     platformIds: [6, 48],
+    category: 0,
+    follows: 0,
+    totalRatingCount: 0,
   },
-  { igdbId: 102, name: "Halo 2", coverImageId: null, firstReleaseDate: null, platformIds: [6] },
+  {
+    igdbId: 102,
+    name: "Halo 2",
+    coverImageId: null,
+    firstReleaseDate: null,
+    platformIds: [6],
+    category: 0,
+    follows: 0,
+    totalRatingCount: 0,
+  },
 ];
 
 // Plateformes locales telles que renvoyees par la requete DB dans le service
@@ -146,17 +169,22 @@ describe("searchIgdbGames", () => {
         platforms: [{ id: "plat-pc", name: "PC" }],
       },
     ]);
-    expect(searchGamesByNameMock).toHaveBeenCalledWith("halo", 12, "TOKEN", "CID");
+    // Le pool de candidats bruts demande a IGDB est toujours de 50, independamment
+    // du `limit` final demande par l'appelant (ici 12).
+    expect(searchGamesByNameMock).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID");
     // Union dedupliquee des platformIds de tous les resultats : une seule requete DB.
     expect(findPlatformsByIgdbIdsMock).toHaveBeenCalledWith([6, 48]);
     expect(cache.set).toHaveBeenCalledWith("igdb:search:halo:12", expect.any(String), "EX", 3600);
     // Le cache ne stocke pas alreadyInCollection (specifique a l'utilisateur) ni
     // les plateformes mappees (recalculees a chaque lecture, nos plateformes
-    // pouvant evoluer independamment du TTL de la recherche).
+    // pouvant evoluer independamment du TTL de la recherche). Il stocke en
+    // revanche category/follows/totalRatingCount : le filtrage/classement se fait
+    // apres lecture du cache, pas avant.
     const cached = JSON.parse(cache.store.get("igdb:search:halo:12") as string);
     expect(cached[0].alreadyInCollection).toBeUndefined();
     expect(cached[0].platforms).toBeUndefined();
     expect(cached[0].platformIds).toEqual([6, 48]);
+    expect(cached[0].category).toBe(0);
   });
 
   it("cache hit: renvoie le cache sans appeler IGDB, mais remappe les plateformes depuis la BDD", async () => {
@@ -262,6 +290,113 @@ describe("searchIgdbGames", () => {
   });
 });
 
+// Helper : construit un candidat IgdbSearchGame minimal pour les tests de
+// filtrage/classement, avec des defauts neutres (pas de cover/date/plateforme).
+function candidate(overrides: Partial<IgdbSearchGame> & { igdbId: number; name: string }): IgdbSearchGame {
+  return {
+    coverImageId: null,
+    firstReleaseDate: null,
+    platformIds: [],
+    category: 0,
+    follows: 0,
+    totalRatingCount: 0,
+    ...overrides,
+  };
+}
+
+function depsWithPool(pool: IgdbSearchGame[]) {
+  return {
+    getToken: vi.fn(async () => "TOKEN"),
+    fetchUpcoming: vi.fn(),
+    fetchGameDetail: vi.fn(),
+    fetchGamesByIds: vi.fn(),
+    fetchGamesByDeveloper: vi.fn(),
+    searchGamesByName: vi.fn(async () => pool),
+    findOwnedIgdbIds: vi.fn(async () => new Set<number>()),
+    findPlatformsByIgdbIds: vi.fn(async () => []),
+    cache: fakeCache(),
+    now: () => FIXED_NOW,
+  } as unknown as DiscoveryDeps;
+}
+
+describe("searchIgdbGames - pool, filtrage et classement", () => {
+  it("recupere toujours un pool de 50 candidats aupres d'IGDB, quel que soit le limit demande", async () => {
+    const deps = depsWithPool([]);
+
+    await searchIgdbGames("halo", "user-1", 5, "CID", deps);
+
+    expect(deps.searchGamesByName).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID");
+  });
+
+  it("exclut les DLC/bundles/packs mais garde un candidat sans category connue", async () => {
+    const pool = [
+      candidate({ igdbId: 1, name: "Base Game", category: 0 }), // main_game : garde
+      candidate({ igdbId: 2, name: "Base Game DLC", category: 1 }), // dlc : exclu
+      candidate({ igdbId: 3, name: "Base Game Bundle", category: 3 }), // bundle : exclu
+      candidate({ igdbId: 4, name: "Base Game Pack", category: 13 }), // pack : exclu
+      candidate({ igdbId: 5, name: "Unknown Category Game", category: null }), // inconnu : garde par prudence
+    ];
+    const deps = depsWithPool(pool);
+
+    const res = await searchIgdbGames("base game", "user-1", 18, "CID", deps);
+
+    const ids = res.map((r) => r.igdbId);
+    expect(ids).toContain(1);
+    expect(ids).toContain(5);
+    expect(ids).not.toContain(2);
+    expect(ids).not.toContain(3);
+    expect(ids).not.toContain(4);
+  });
+
+  it("classe un jeu tres suivi avant un jeu obscur, a tier de correspondance de nom egal", async () => {
+    const pool = [
+      // Aucun des deux ne matche exactement ni en prefixe : meme tier ("contient").
+      candidate({ igdbId: 1, name: "Obscure Quest Saga", follows: 0, totalRatingCount: 0 }),
+      candidate({ igdbId: 2, name: "Popular Quest Journey", follows: 5000, totalRatingCount: 800 }),
+    ];
+    const deps = depsWithPool(pool);
+
+    const res = await searchIgdbGames("quest", "user-1", 18, "CID", deps);
+
+    expect(res.map((r) => r.igdbId)).toEqual([2, 1]);
+  });
+
+  it("priorise un match exact du nom sur un jeu bien plus populaire mais non-exact", async () => {
+    const pool = [
+      candidate({ igdbId: 1, name: "Halo", follows: 1, totalRatingCount: 1 }),
+      candidate({
+        igdbId: 2,
+        name: "Halo Wars Ultimate Edition",
+        follows: 50000,
+        totalRatingCount: 20000,
+      }),
+    ];
+    const deps = depsWithPool(pool);
+
+    const res = await searchIgdbGames("halo", "user-1", 18, "CID", deps);
+
+    expect(res[0]?.igdbId).toBe(1);
+  });
+
+  it("coupe au top N apres classement par popularite", async () => {
+    // Meme tier pour tous ("contient quest"), popularite decroissante avec l'id.
+    const pool = Array.from({ length: 6 }, (_, i) =>
+      candidate({
+        igdbId: i + 1,
+        name: `Quest Game ${i + 1}`,
+        follows: 6 - i,
+        totalRatingCount: 0,
+      }),
+    );
+    const deps = depsWithPool(pool);
+
+    const res = await searchIgdbGames("quest", "user-1", 3, "CID", deps);
+
+    expect(res).toHaveLength(3);
+    expect(res.map((r) => r.igdbId)).toEqual([1, 2, 3]);
+  });
+});
+
 vi.spyOn(service, "enrichGames").mockResolvedValue({
   scanned: 0,
   mapped: 0,
@@ -308,7 +443,7 @@ describe("GET /api/games/igdb/search", () => {
     expect(searchSpy).not.toHaveBeenCalled();
   });
 
-  it("200 avec q, appelle le service avec la query, le user et le defaut limit=12", async () => {
+  it("200 avec q, appelle le service avec la query, le user et le defaut limit=18", async () => {
     const app = await buildApp();
     const token = app.jwt.sign({ sub: "u", role: "user" });
     const res = await app.inject({
@@ -318,7 +453,7 @@ describe("GET /api/games/igdb/search", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ items: searchResultSample });
-    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 12);
+    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 18);
   });
 
   it("passe le limit custom au service", async () => {

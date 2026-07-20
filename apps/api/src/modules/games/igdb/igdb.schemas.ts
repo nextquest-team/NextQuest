@@ -15,9 +15,11 @@ export const gameDetailParamsSchema = z.object({
 
 // Recherche live par nom (ajout manuel cote front). q obligatoire (1-100 caracteres),
 // limit borne a 25 pour rester une liste d'autocomplete, pas un feed paginé.
+// Defaut 18 : le service sur-fetch un pool de 50 candidats IGDB puis filtre/reclasse
+// avant de couper a `limit`, donc ce defaut n'est que la taille de la liste finale.
 export const searchIgdbQuerySchema = z.object({
   q: z.string().min(1).max(100),
-  limit: z.coerce.number().int().min(1).max(25).default(12),
+  limit: z.coerce.number().int().min(1).max(25).default(18),
 });
 
 export type UpcomingQueryInput = z.infer<typeof upcomingQuerySchema>;

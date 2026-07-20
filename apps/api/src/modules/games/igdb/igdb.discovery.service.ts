@@ -34,6 +34,58 @@ const UPCOMING_TTL = 3600;
 const DETAIL_TTL = 86400;
 const SEARCH_TTL = 3600;
 
+// Taille du pool de candidats bruts recupere aupres d'IGDB, avant filtrage par
+// type et reclassement par pertinence/popularite (cf. rankAndFilterCandidates).
+// La recherche IGDB brute est triee par pertinence texte pure : sans marge, des
+// jeux connus se retrouvent noyes derriere des DLC/bundles/jeux obscurs.
+const SEARCH_POOL_SIZE = 50;
+
+// Categories IGDB "jeu jouable" conservees dans les resultats de recherche :
+// main_game=0, standalone_expansion=4, remake=8, remaster=9, expanded_game=10, port=11.
+// Exclues : dlc=1, expansion=2, bundle=3, mod=5, episode=6, season=7, fork=12, pack=13, update=14.
+const SEARCHABLE_CATEGORIES = new Set([0, 4, 8, 9, 10, 11]);
+
+// Tier de correspondance du nom vs la requete tapee : plus petit = meilleur match.
+// Prime sur la popularite dans le tri final pour qu'un match exact ne soit jamais
+// enterre sous un jeu plus populaire mais moins pertinent pour ce qui a ete tape.
+function nameMatchTier(name: string, query: string): number {
+  const n = name.trim().toLowerCase();
+  const q = query.trim().toLowerCase();
+  if (n === q) return 0;
+  if (n.startsWith(q)) return 1;
+  if (n.includes(q)) return 2;
+  return 3;
+}
+
+// Popularite = somme follows + total_rating_count, les deux signaux IGDB dispo
+// sur la recherche par nom (pas de note moyenne fiable a ce stade, cf. rating_count
+// sur fetchAcclaimedByGenres qui lui filtre deja par volume de votes).
+function popularityScore(g: IgdbSearchResultBase): number {
+  return (g.follows ?? 0) + (g.totalRatingCount ?? 0);
+}
+
+// Filtre les non-jeux (DLC/bundles/mods/...), classe par (tier de nom, popularite
+// decroissante) et coupe au top `limit`. Un candidat sans category connue est
+// garde par prudence plutot que perdu (IGDB ne renseigne pas toujours ce champ).
+// Tri stable : a tier et score egaux, l'ordre de pertinence IGDB d'origine est conserve.
+function rankAndFilterCandidates(
+  candidates: IgdbSearchResultBase[],
+  query: string,
+  limit: number,
+): IgdbSearchResultBase[] {
+  return candidates
+    .filter((g) => g.category == null || SEARCHABLE_CATEGORIES.has(g.category))
+    .map((g, index) => ({ g, index, tier: nameMatchTier(g.name, query) }))
+    .sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      const scoreDiff = popularityScore(b.g) - popularityScore(a.g);
+      if (scoreDiff !== 0) return scoreDiff;
+      return a.index - b.index;
+    })
+    .slice(0, limit)
+    .map(({ g }) => g);
+}
+
 export interface CacheStore {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, mode: "EX", ttl: number): Promise<unknown>;
@@ -252,22 +304,27 @@ export async function getGameDetail(
 export async function searchIgdbGames(
   query: string,
   userId: string,
-  limit: number = 12,
+  limit: number = 18,
   clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
   deps: DiscoveryDeps = defaultDiscoveryDeps(),
 ): Promise<IgdbSearchResult[]> {
   const key = `igdb:search:${query}:${limit}`;
   const cached = await deps.cache.get(key);
 
-  let base: IgdbSearchResultBase[];
+  let pool: IgdbSearchResultBase[];
   if (cached) {
-    base = JSON.parse(cached) as IgdbSearchResultBase[];
+    pool = JSON.parse(cached) as IgdbSearchResultBase[];
   } else {
     const token = await deps.getToken();
-    const foundGames = await deps.searchGamesByName(query, limit, token, clientId);
-    base = foundGames.map(toSearchResultDTO);
-    await deps.cache.set(key, JSON.stringify(base), "EX", SEARCH_TTL);
+    // Pool de candidats bruts (au-dela du `limit` demande), cache tel quel : le
+    // filtrage/reclassement ci-dessous depend de la requete courante et n'est
+    // jamais cache, seul le pool brut IGDB l'est.
+    const foundGames = await deps.searchGamesByName(query, SEARCH_POOL_SIZE, token, clientId);
+    pool = foundGames.map(toSearchResultDTO);
+    await deps.cache.set(key, JSON.stringify(pool), "EX", SEARCH_TTL);
   }
+
+  const base = rankAndFilterCandidates(pool, query, limit);
 
   const owned = await deps.findOwnedIgdbIds(
     userId,
@@ -283,18 +340,23 @@ export async function searchIgdbGames(
   const platformsByIgdbId = new Map(localPlatforms.map((p) => [p.igdbId, { id: p.id, name: p.name }]));
 
   return base.map((g) => {
-    const { platformIds, ...rest } = g;
     const gamePlatforms = [
       ...new Map(
-        (platformIds ?? [])
+        (g.platformIds ?? [])
           .map((igdbId) => platformsByIgdbId.get(igdbId))
           .filter((p): p is LocalPlatformRef => p != null)
           .map((p) => [p.id, p] as const),
       ).values(),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
+    // category/follows/totalRatingCount ont servi au filtrage/classement plus haut,
+    // jamais exposes au front : on construit IgdbSearchResult explicitement plutot
+    // que par spread pour ne pas les laisser fuiter dans la reponse.
     return {
-      ...rest,
+      igdbId: g.igdbId,
+      name: g.name,
+      coverUrl: g.coverUrl,
+      releaseYear: g.releaseYear,
       alreadyInCollection: owned.has(g.igdbId),
       platforms: gamePlatforms,
     };

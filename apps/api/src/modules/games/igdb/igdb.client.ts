@@ -337,15 +337,21 @@ export async function fetchGamesByDeveloper(
 }
 
 // Resultat leger de recherche par nom (autocomplete ajout manuel cote front).
+// category/follows/totalRatingCount servent au service pour filtrer les non-jeux
+// (DLC, bundles...) et reclasser par popularite (cf. igdb.discovery.service.ts).
 export interface IgdbSearchGame {
   igdbId: number;
   name: string;
   coverImageId: string | null;
   firstReleaseDate: number | null; // epoch secondes
   platformIds: number[]; // ids IGDB des plateformes sur lesquelles le jeu existe
+  category: number | null; // enum IGDB (0=main_game, 1=dlc, 3=bundle, ...)
+  follows: number | null; // nombre de "follows" IGDB, proxy de popularite
+  totalRatingCount: number | null; // nombre total d'avis, proxy de popularite
 }
 
-const SEARCH_FIELDS = "name,cover.image_id,first_release_date,platforms";
+const SEARCH_FIELDS =
+  "name,cover.image_id,first_release_date,platforms,category,follows,total_rating_count";
 
 interface RawSearchGame {
   id: number;
@@ -353,12 +359,17 @@ interface RawSearchGame {
   cover?: { image_id?: string };
   first_release_date?: number;
   platforms?: number[];
+  category?: number;
+  follows?: number;
+  total_rating_count?: number;
 }
 
 // Recherche IGDB par nom (Apicalypse `search`, pas un filtre `where`). Nom echappe
 // avant injection pour eviter une casse de la requete (memes regles que fetchGamesByDeveloper).
 // `platforms` demande sans expansion (juste les ids) : le service mappe ensuite
 // ces ids vers nos plateformes locales, pas besoin du nom/abbreviation IGDB ici.
+// `limit` sert de taille de pool de candidats bruts au service appelant (qui filtre
+// et reclasse ensuite), pas necessairement le nombre final renvoye au front.
 export async function searchGamesByName(
   name: string,
   limit: number,
@@ -375,6 +386,9 @@ export async function searchGamesByName(
     coverImageId: r.cover?.image_id ?? null,
     firstReleaseDate: r.first_release_date ?? null,
     platformIds: r.platforms ?? [],
+    category: r.category ?? null,
+    follows: r.follows ?? null,
+    totalRatingCount: r.total_rating_count ?? null,
   }));
 }
 

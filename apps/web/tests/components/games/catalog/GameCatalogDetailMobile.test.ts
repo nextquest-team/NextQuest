@@ -1,6 +1,6 @@
 // @vitest-environment nuxt
-import { describe, it, expect, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { mount, type VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
 import GameCatalogDetailMobile from '~/components/games/catalog/GameCatalogDetailMobile.vue'
@@ -9,13 +9,6 @@ import type { RecoGame } from '~/types/recommendations'
 mockNuxtImport('useI18n', () => () => ({
   t: (key: string) => key.split('.').pop() ?? key,
 }))
-
-const catalogPreviewRef = ref<RecoGame | null>(null)
-
-mockNuxtImport('useState', () => (key: string, init?: () => unknown) => {
-  if (key === 'catalog-preview') return catalogPreviewRef
-  return ref(init?.() ?? null)
-})
 
 const fakeGame: RecoGame = {
   id: 'game-42',
@@ -28,53 +21,72 @@ const fakeGame: RecoGame = {
   releaseStatus: null,
 }
 
+const gameRef = ref<RecoGame | null>(null)
+const loadingRef = ref(false)
+const loadMock = vi.fn()
+
+mockNuxtImport('useGameCatalogDetail', () => () => ({
+  game: gameRef,
+  loading: loadingRef,
+  load: loadMock,
+}))
+
 const stubs = {
   VIcon: { template: '<span v-bind="$attrs" />' },
+  VProgressCircular: { template: '<div class="v-progress-circular" />' },
   UiPageHeader: { template: '<div><slot /></div>' },
   UiBackButton: { template: '<button />' },
 }
 
 describe('GameCatalogDetailMobile', () => {
+  let wrapper: VueWrapper
+
   beforeEach(() => {
-    catalogPreviewRef.value = null
+    gameRef.value = null
+    loadingRef.value = false
+    loadMock.mockReset()
+  })
+
+  afterEach(() => {
+    wrapper?.unmount()
   })
 
   it('affiche le not-found quand game est null', () => {
-    const wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
+    wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
     expect(wrapper.find('.cdm__not-found').exists()).toBe(true)
     expect(wrapper.find('.cdm__title').exists()).toBe(false)
   })
 
   it("affiche le titre du jeu quand le state est renseigné", () => {
-    catalogPreviewRef.value = fakeGame
-    const wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
+    gameRef.value = fakeGame
+    wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
     expect(wrapper.find('.cdm__title').text()).toBe('Disco Elysium')
   })
 
   it("affiche la cover quand coverUrl est défini", () => {
-    catalogPreviewRef.value = fakeGame
-    const wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
+    gameRef.value = fakeGame
+    wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
     const img = wrapper.find('.cdm__cover-img')
     expect(img.exists()).toBe(true)
     expect(img.attributes('src')).toBe(fakeGame.coverUrl)
   })
 
   it("affiche la note IGDB", () => {
-    catalogPreviewRef.value = fakeGame
-    const wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
+    gameRef.value = fakeGame
+    wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
     expect(wrapper.find('.cdm__rating').exists()).toBe(true)
     expect(wrapper.find('.cdm__rating-num').text()).toContain('9.4/10')
   })
 
   it("affiche les genres", () => {
-    catalogPreviewRef.value = fakeGame
-    const wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
+    gameRef.value = fakeGame
+    wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
     expect(wrapper.find('.cdm__chip').text()).toBe('RPG')
   })
 
   it("n'affiche pas le not-found si game est présent", () => {
-    catalogPreviewRef.value = fakeGame
-    const wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
+    gameRef.value = fakeGame
+    wrapper = mount(GameCatalogDetailMobile, { global: { stubs } })
     expect(wrapper.find('.cdm__not-found').exists()).toBe(false)
   })
 })

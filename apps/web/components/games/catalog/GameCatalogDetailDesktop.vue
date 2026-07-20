@@ -1,8 +1,7 @@
 <script setup lang="ts">
 const { t } = useI18n()
 
-const { game, loading, load } = useGameCatalogDetail()
-onMounted(load)
+const { game, loading } = useGameCatalogDetail()
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'

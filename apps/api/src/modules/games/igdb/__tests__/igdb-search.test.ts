@@ -455,21 +455,23 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     expect(res.map((r) => r.igdbId)).toEqual([2, 1]);
   });
 
-  it("priorise un match exact du nom sur un jeu bien plus populaire mais non-exact", async () => {
+  // Pure popularite : un match exact du nom mais peu populaire NE prime PAS sur le
+  // jeu canonique plus populaire (cas reel "Zelda" 1989 exact vs Breath of the Wild).
+  it("classe par pure popularite, meme quand un candidat est un match exact du nom", async () => {
     const pool = [
-      candidate({ igdbId: 1, name: "Halo", totalRatingCount: 1, hypes: 0 }),
+      candidate({ igdbId: 1, name: "Zelda", totalRatingCount: 730, hypes: 0 }),
       candidate({
         igdbId: 2,
-        name: "Halo Wars Ultimate Edition",
-        totalRatingCount: 20000,
-        hypes: 500,
+        name: "The Legend of Zelda: Breath of the Wild",
+        totalRatingCount: 2943,
+        hypes: 0,
       }),
     ];
     const deps = depsWithPool(pool);
 
-    const res = await searchIgdbGames("halo", "user-1", 18, "CID", deps);
+    const res = await searchIgdbGames("zelda", "user-1", 18, "CID", deps);
 
-    expect(res[0]?.igdbId).toBe(1);
+    expect(res[0]?.igdbId).toBe(2);
   });
 
   // Cas remonte par l'E2E reel : le titre complet d'un jeu tres connu ne contient

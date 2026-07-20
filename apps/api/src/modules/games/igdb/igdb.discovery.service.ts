@@ -48,17 +48,6 @@ const SEARCH_POOL_SIZE = 50;
 // sur /games -- c'est `game_type` qu'il faut filtrer (cf. igdb.client.ts).
 const SEARCHABLE_GAME_TYPES = new Set([0, 4, 8, 9, 10, 11]);
 
-// Tier de correspondance du nom vs la requete tapee : seul un match EXACT (0)
-// prime sur la popularite. Un jeu tres connu dont le titre complet ne contient
-// pas litteralement la requete (ex. "Grand Theft Auto: San Andreas" pour "gta")
-// ne doit pas etre enterre sous des titres obscurs qui, eux, contiennent la
-// requete mot pour mot : au-dela du match exact, on laisse la popularite decider.
-function nameMatchTier(name: string, query: string): number {
-  const n = name.trim().toLowerCase();
-  const q = query.trim().toLowerCase();
-  return n === q ? 0 : 1;
-}
-
 // Popularite = somme total_rating_count + hypes : le seul signal fiable observe
 // sur la recherche IGDB par nom (rating_count) plus les anticipations (hypes)
 // pour les jeux pas encore sortis/notes. `follows` est toujours null sur cet
@@ -69,13 +58,15 @@ function popularityScore(g: IgdbSearchResultBase): number {
 
 // Filtre les non-jeux (DLC/bundles/mods/...) et les editions (Deluxe/Ultimate/...
 // via version_parent, qui remontent surtout par le pool A "search" -- le pool B
-// les exclut deja cote IGDB), classe par (tier de nom, popularite decroissante)
-// et coupe au top `limit`. Un candidat sans game_type connu est garde par
-// prudence plutot que perdu (IGDB ne renseigne pas toujours ce champ).
-// Tri stable : a tier et score egaux, l'ordre de pertinence IGDB d'origine est conserve.
+// les exclut deja cote IGDB), puis classe par PURE popularite decroissante et
+// coupe au top `limit`. On ne booste PAS les matchs exacts du nom : en pratique
+// le jeu recherche est aussi le plus populaire (Elden Ring, The Sims 4...), et
+// booster l'exact enterrait le canonique sous un homonyme obscur ("Zelda" 1989
+// devant Breath of the Wild, "Cyberpunk" 2019 devant Cyberpunk 2077). Un candidat
+// sans game_type connu est garde par prudence. Tri stable : a score egal, l'ordre
+// de pertinence IGDB d'origine est conserve.
 function rankAndFilterCandidates(
   candidates: IgdbSearchResultBase[],
-  query: string,
   limit: number,
 ): IgdbSearchResultBase[] {
   return candidates
@@ -83,9 +74,8 @@ function rankAndFilterCandidates(
       (g) =>
         (g.gameType == null || SEARCHABLE_GAME_TYPES.has(g.gameType)) && g.versionParent == null,
     )
-    .map((g, index) => ({ g, index, tier: nameMatchTier(g.name, query) }))
+    .map((g, index) => ({ g, index }))
     .sort((a, b) => {
-      if (a.tier !== b.tier) return a.tier - b.tier;
       const scoreDiff = popularityScore(b.g) - popularityScore(a.g);
       if (scoreDiff !== 0) return scoreDiff;
       return a.index - b.index;
@@ -332,7 +322,7 @@ export async function searchIgdbGames(
     await deps.cache.set(key, JSON.stringify(pool), "EX", SEARCH_TTL);
   }
 
-  const base = rankAndFilterCandidates(pool, query, limit);
+  const base = rankAndFilterCandidates(pool, limit);
 
   const owned = await deps.findOwnedIgdbIds(
     userId,

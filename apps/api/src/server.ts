@@ -17,6 +17,7 @@ import { collectionRoutes } from "./modules/collection/collection.routes.js";
 import { recommendationsRoutes } from "./modules/recommendations/recommendations.routes.js";
 import { igdbRoutes } from "./modules/games/igdb/igdb.routes.js";
 import { gamesRoutes } from "./modules/games/games.routes.js";
+import { platformsRoutes } from "./modules/referentials/platforms.routes.js";
 
 const app = Fastify({
   logger: {
@@ -53,6 +54,7 @@ async function start() {
   await app.register(recommendationsRoutes, { prefix: "/api" });
   await app.register(igdbRoutes, { prefix: "/api" });
   await app.register(gamesRoutes, { prefix: "/api" });
+  await app.register(platformsRoutes, { prefix: "/api" });
   await app.register(oauthRoutes, { prefix: "/api/auth" });
 
   const port = Number(process.env.PORT) || 3000;

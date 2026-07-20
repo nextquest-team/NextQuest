@@ -7,6 +7,7 @@ import {
   getSteamConnection,
   importSteamLibrary,
 } from "./steam.service.js";
+import { getImportStatus } from "./import-status.service.js";
 import { enrichGames } from "../../games/igdb/igdb.service.js";
 import { generateRecommendations } from "../../recommendations/generate.js";
 import { requireAuth, userIdOf } from "../../../lib/guards.js";
@@ -174,6 +175,23 @@ export async function steamRoutes(app: FastifyInstance) {
         });
 
       return reply.send({ imported });
+    },
+  );
+
+  // Statut de l'enrichissement IGDB en cours, poll par le front pour la modale
+  // de progression apres un import (jaquettes qui arrivent au fil de l'eau).
+  app.get(
+    "/platforms/steam/import/status",
+    {
+      onRequest: [requireAuth],
+      schema: {
+        tags: ["Platforms"],
+        summary: "Statut de la progression d'enrichissement de la bibliotheque",
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    async (request) => {
+      return getImportStatus(userIdOf(request));
     },
   );
 }

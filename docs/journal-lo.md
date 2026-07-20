@@ -1194,5 +1194,3 @@ Les tests existants ne couvraient pas : la vérification que le PATCH est bien e
 |---|---|
 | `vitest run useGameList.test.ts` | ✅ 19/19 |
 | `nuxi typecheck` | ✅ 0 nouvelles erreurs (2 erreurs pré-existantes catalog non liées) |
-
-

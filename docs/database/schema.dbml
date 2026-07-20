@@ -608,7 +608,7 @@ Table activities {
 }
 
 // ============================================
-// 10. RECOMMANDATIONS IA
+// 10. RECOMMANDATIONS (moteur algorithmique)
 // ============================================
 
 Table recommendations {
@@ -628,7 +628,7 @@ Table recommendations {
     (user_id, bucket) [note: 'Lecture groupee par bucket (liste + refresh)']
   }
   // Note metier : un meme jeu peut etre recommande plusieurs fois dans le temps
-  // (ex: apres mise a jour du profil ou du modele IA). Pas de contrainte unique (user_id, game_id).
+  // (ex: apres mise a jour du profil de gout ou de l algorithme de scoring). Pas de contrainte unique (user_id, game_id).
 }
 
 // ============================================

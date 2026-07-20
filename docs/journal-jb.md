@@ -207,3 +207,9 @@
 **Résilience connexion BDD (révélée par l'E2E)** -- Pendant la validation, l'enrichissement IGDB (opération longue, ~2,5 min) plantait en `CONNECTION_CLOSED` : une connexion du pool restée inactive pendant les appels IGDB se faisait couper par le NAT (Tailscale + Docker Desktop), Postgres lui restait debout. Deux parades : `withDbRetry` (helper `@nextquest/db` qui rejoue une opération idempotente sur erreur de connexion transitoire) appliqué aux écritures enrich/hydrate, et `idle_timeout: 30` sur le client postgres.js (recycle proprement une connexion inactive avant que le NAT ne la coupe). Après fix, enrich des 252 jeux en 0 échec.
 
 **Validation E2E réelle (biblio Steam liloulei + IGDB live)** -- Flux complet rejoué en HTTP réel : import 252 jeux → enrich → génération 60 recos (3 buckets) → refresh. Vérifié : refresh groupé (les 3 cartes changent), refresh par carte (une seule bouge), rotation des 20 du pool avec retour du 1er jeu après le tour complet, skip qui ne pollue pas le profil (0 feedback), feedback qui exclut toujours. `GET /games/upcoming` renvoie les vraies sorties (GTA VI, Fable...) en tri hype et date, `GET /games/igdb/:id` le détail riche. Suite API : 313 tests verts.
+
+---
+
+## 20 juillet 2026
+
+**Abandon de l'IA pour la reco (le moteur algorithmique suffit)** -- Sortie définitive du re-ranker/explicateur LLM (Qwen local) du périmètre, stretch post-MVP compris. Le moteur déjà livré (similarité de contenu genres/thèmes/studio, cap de diversité, non-répétition, découverte multi-source, similaires par contenu) couvre le besoin. Raisons : explicable et démontrable au jury, déterministe donc testable, et sans dépendance à un LLM local non déployable (PC de dev uniquement, incompatible avec la contrainte de disponibilité). Docs alignées (README, DBML, CLAUDE.md) : "Recommandations IA" devient "moteur de recommandation algorithmique".

@@ -13,6 +13,8 @@ import {
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
 import { redis } from "../../../lib/redis.js";
+import { db, userGames, games } from "@nextquest/db";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   toUpcomingGameDTO,
   toGameDetailDTO,
@@ -20,6 +22,7 @@ import {
   type UpcomingGameDTO,
   type GameDetailDTO,
   type IgdbSearchResult,
+  type IgdbSearchResultBase,
 } from "./igdb.dto.js";
 import { sharesGenreOrTheme, contentSimilarity, normalizeGameTitle, type GameForSimilarity } from "../../recommendations/similarity.js";
 
@@ -42,8 +45,27 @@ export interface DiscoveryDeps {
   fetchGamesByIds: typeof fetchGamesByIds;
   fetchGamesByDeveloper: typeof fetchGamesByDeveloper;
   searchGamesByName: typeof searchGamesByName;
+  findOwnedIgdbIds(userId: string, igdbIds: number[]): Promise<Set<number>>;
   cache: CacheStore;
   now(): Date;
+}
+
+// Croise user_games <-> games.igdbId pour ce user, limite aux candidats de la
+// recherche en cours. Source de verite "deja en collection" = user_games (pas un
+// flag stocke sur `games`, qui est un catalogue partage entre users).
+async function findOwnedIgdbIds(
+  userId: string,
+  igdbIds: number[],
+): Promise<Set<number>> {
+  if (igdbIds.length === 0) return new Set();
+  const rows = await db
+    .select({ igdbId: games.igdbId })
+    .from(userGames)
+    .innerJoin(games, eq(userGames.gameId, games.id))
+    .where(and(eq(userGames.userId, userId), inArray(games.igdbId, igdbIds)));
+  return new Set(
+    rows.map((r) => r.igdbId).filter((id): id is number => id != null),
+  );
 }
 
 export function defaultDiscoveryDeps(): DiscoveryDeps {
@@ -64,6 +86,7 @@ export function defaultDiscoveryDeps(): DiscoveryDeps {
     fetchGamesByIds,
     fetchGamesByDeveloper,
     searchGamesByName,
+    findOwnedIgdbIds,
     cache: redisStore,
     now: () => new Date(),
   };
@@ -204,19 +227,31 @@ export async function getGameDetail(
 
 // Recherche live par nom (autocomplete de l'ajout manuel cote front). Proxy IGDB +
 // cache Redis court : la meme frappe redemandee dans l'heure ne re-tape pas le quota IGDB.
+// Le cache ne stocke que la base (partageable entre users) : le flag "deja en
+// collection" est calcule a chaque appel pour l'utilisateur courant, jamais cache.
 export async function searchIgdbGames(
   query: string,
+  userId: string,
   limit: number = 12,
   clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
   deps: DiscoveryDeps = defaultDiscoveryDeps(),
 ): Promise<IgdbSearchResult[]> {
   const key = `igdb:search:${query}:${limit}`;
   const cached = await deps.cache.get(key);
-  if (cached) return JSON.parse(cached) as IgdbSearchResult[];
 
-  const token = await deps.getToken();
-  const games = await deps.searchGamesByName(query, limit, token, clientId);
-  const dto = games.map(toSearchResultDTO);
-  await deps.cache.set(key, JSON.stringify(dto), "EX", SEARCH_TTL);
-  return dto;
+  let base: IgdbSearchResultBase[];
+  if (cached) {
+    base = JSON.parse(cached) as IgdbSearchResultBase[];
+  } else {
+    const token = await deps.getToken();
+    const foundGames = await deps.searchGamesByName(query, limit, token, clientId);
+    base = foundGames.map(toSearchResultDTO);
+    await deps.cache.set(key, JSON.stringify(base), "EX", SEARCH_TTL);
+  }
+
+  const owned = await deps.findOwnedIgdbIds(
+    userId,
+    base.map((g) => g.igdbId),
+  );
+  return base.map((g) => ({ ...g, alreadyInCollection: owned.has(g.igdbId) }));
 }

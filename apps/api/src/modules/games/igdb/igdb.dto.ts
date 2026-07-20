@@ -64,14 +64,22 @@ export type GameDetailDTO = {
 
 // Resultat de recherche par nom (ajout manuel cote front). releaseYear seul suffit
 // pour distinguer les re-editions (pas besoin de la date complete a ce stade).
-export type IgdbSearchResult = {
+// Forme de base : ce que le mapper pur ci-dessous produit, sans le flag "deja en
+// collection" qui depend de l'utilisateur (calcule par le service, pas ici).
+export type IgdbSearchResultBase = {
   igdbId: number;
   name: string;
   coverUrl: string | null;
   releaseYear: number | null;
 };
 
-export function toSearchResultDTO(g: IgdbSearchGame): IgdbSearchResult {
+// Resultat final expose par la route : la base + le flag "deja en collection"
+// (croise avec user_games cote service, cf. igdb.discovery.service.ts).
+export type IgdbSearchResult = IgdbSearchResultBase & {
+  alreadyInCollection: boolean;
+};
+
+export function toSearchResultDTO(g: IgdbSearchGame): IgdbSearchResultBase {
   return {
     igdbId: g.igdbId,
     name: g.name,

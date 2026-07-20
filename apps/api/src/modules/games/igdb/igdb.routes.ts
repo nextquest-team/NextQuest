@@ -81,7 +81,7 @@ export async function igdbRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const { q, limit } = request.query;
       try {
-        const items = await searchIgdbGames(q, limit);
+        const items = await searchIgdbGames(q, userIdOf(request), limit);
         return { items };
       } catch (err) {
         request.log.error({ err }, "IGDB search indisponible");

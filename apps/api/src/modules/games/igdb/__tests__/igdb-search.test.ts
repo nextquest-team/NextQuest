@@ -83,18 +83,28 @@ describe("searchIgdbGames", () => {
       fetchGamesByIds: vi.fn(),
       fetchGamesByDeveloper: vi.fn(),
       searchGamesByName: searchGamesByNameMock,
+      findOwnedIgdbIds: vi.fn(async () => new Set<number>()),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
 
-    const res = await searchIgdbGames("halo", 12, "CID", deps);
+    const res = await searchIgdbGames("halo", "user-1", 12, "CID", deps);
 
     expect(res).toEqual([
-      { igdbId: 101, name: "Halo", coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/cov1.jpg", releaseYear: 2001 },
-      { igdbId: 102, name: "Halo 2", coverUrl: null, releaseYear: null },
+      {
+        igdbId: 101,
+        name: "Halo",
+        coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/cov1.jpg",
+        releaseYear: 2001,
+        alreadyInCollection: false,
+      },
+      { igdbId: 102, name: "Halo 2", coverUrl: null, releaseYear: null, alreadyInCollection: false },
     ]);
     expect(searchGamesByNameMock).toHaveBeenCalledWith("halo", 12, "TOKEN", "CID");
     expect(cache.set).toHaveBeenCalledWith("igdb:search:halo:12", expect.any(String), "EX", 3600);
+    // Le cache ne stocke pas alreadyInCollection (specifique a l'utilisateur).
+    const cached = JSON.parse(cache.store.get("igdb:search:halo:12") as string);
+    expect(cached[0].alreadyInCollection).toBeUndefined();
   });
 
   it("cache hit: renvoie le cache sans appeler IGDB", async () => {
@@ -111,14 +121,38 @@ describe("searchIgdbGames", () => {
       fetchGamesByIds: vi.fn(),
       fetchGamesByDeveloper: vi.fn(),
       searchGamesByName: searchGamesByNameMock,
+      findOwnedIgdbIds: vi.fn(async () => new Set<number>()),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
 
-    const res = await searchIgdbGames("zelda", 12, "CID", deps);
+    const res = await searchIgdbGames("zelda", "user-1", 12, "CID", deps);
 
-    expect(res).toEqual([{ igdbId: 9, name: "Cached", coverUrl: null, releaseYear: null }]);
+    expect(res).toEqual([
+      { igdbId: 9, name: "Cached", coverUrl: null, releaseYear: null, alreadyInCollection: false },
+    ]);
     expect(searchGamesByNameMock).not.toHaveBeenCalled();
+  });
+
+  it("annote alreadyInCollection=true pour un candidat deja possede par le user", async () => {
+    const cache = fakeCache();
+    const deps = {
+      getToken: vi.fn(async () => "TOKEN"),
+      fetchUpcoming: vi.fn(),
+      fetchGameDetail: vi.fn(),
+      fetchGamesByIds: vi.fn(),
+      fetchGamesByDeveloper: vi.fn(),
+      searchGamesByName: vi.fn(async () => searchSample),
+      findOwnedIgdbIds: vi.fn(async () => new Set<number>([101])),
+      cache,
+      now: () => FIXED_NOW,
+    } as unknown as DiscoveryDeps;
+
+    const res = await searchIgdbGames("halo", "user-1", 12, "CID", deps);
+
+    expect(res.find((r) => r.igdbId === 101)?.alreadyInCollection).toBe(true);
+    expect(res.find((r) => r.igdbId === 102)?.alreadyInCollection).toBe(false);
+    expect(deps.findOwnedIgdbIds).toHaveBeenCalledWith("user-1", [101, 102]);
   });
 
   it("propage l'erreur si IGDB echoue et n'ecrit pas le cache", async () => {
@@ -132,11 +166,12 @@ describe("searchIgdbGames", () => {
       searchGamesByName: vi.fn(async () => {
         throw new Error("IGDB games a repondu HTTP 503");
       }),
+      findOwnedIgdbIds: vi.fn(async () => new Set<number>()),
       cache,
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
 
-    await expect(searchIgdbGames("halo", 12, "CID", deps)).rejects.toThrow(/503/);
+    await expect(searchIgdbGames("halo", "user-1", 12, "CID", deps)).rejects.toThrow(/503/);
     expect(cache.set).not.toHaveBeenCalled();
   });
 });
@@ -150,7 +185,13 @@ vi.spyOn(service, "enrichGames").mockResolvedValue({
 });
 
 const searchResultSample = [
-  { igdbId: 101, name: "Halo", coverUrl: "https://img/cover.jpg", releaseYear: 2001 },
+  {
+    igdbId: 101,
+    name: "Halo",
+    coverUrl: "https://img/cover.jpg",
+    releaseYear: 2001,
+    alreadyInCollection: false,
+  },
 ];
 
 const searchSpy = vi.spyOn(discovery, "searchIgdbGames");
@@ -180,7 +221,7 @@ describe("GET /api/games/igdb/search", () => {
     expect(searchSpy).not.toHaveBeenCalled();
   });
 
-  it("200 avec q, appelle le service avec la query et le defaut limit=12", async () => {
+  it("200 avec q, appelle le service avec la query, le user et le defaut limit=12", async () => {
     const app = await buildApp();
     const token = app.jwt.sign({ sub: "u", role: "user" });
     const res = await app.inject({
@@ -190,7 +231,7 @@ describe("GET /api/games/igdb/search", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ items: searchResultSample });
-    expect(searchSpy).toHaveBeenCalledWith("halo", 12);
+    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 12);
   });
 
   it("passe le limit custom au service", async () => {
@@ -202,7 +243,7 @@ describe("GET /api/games/igdb/search", () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(200);
-    expect(searchSpy).toHaveBeenCalledWith("halo", 5);
+    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 5);
   });
 
   it("400 si q manquant", async () => {

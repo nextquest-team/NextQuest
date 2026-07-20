@@ -10,10 +10,18 @@ import {
   gameSimilar,
 } from "@nextquest/db";
 import { and, eq, sql, inArray, desc, count, isNull, ilike } from "drizzle-orm";
+import {
+  igdbImageUrl,
+  fetchGamesByIds,
+  type IgdbGame,
+} from "../games/igdb/igdb.client.js";
+import { getTwitchToken } from "../games/igdb/igdb.auth.js";
+import { redis } from "../../lib/redis.js";
 import type {
   GameStatus,
   UpdateUserGameInput,
   AddGameInput,
+  AddIgdbGameInput,
 } from "./collection.schemas.js";
 import {
   toUserGameStatusDTO,
@@ -356,4 +364,130 @@ export async function addGameToCollection(
   // fetchItem ne peut pas renvoyer null ici : on vient d'inserer la ligne.
   const item = await fetchItem(userId, created.id);
   return { ok: true, item: item as CollectionItemDTO };
+}
+
+export type AddIgdbGameResult =
+  | { ok: true; item: CollectionItemDTO }
+  | { ok: false; reason: "conflict" | "igdb_not_found" };
+
+// Deps injectables (token + fetch IGDB), meme principe que igdb.discovery.service.ts :
+// permet de tester ce flux sans reseau ni Redis reels.
+export interface AddIgdbGameDeps {
+  getToken(): Promise<string>;
+  fetchGamesByIds: typeof fetchGamesByIds;
+}
+
+function defaultAddIgdbGameDeps(): AddIgdbGameDeps {
+  // Forme reduite de l'interface ioredis, suffisante ici et testable (mocks en test).
+  const redisStore = redis as unknown as {
+    get(k: string): Promise<string | null>;
+    set(k: string, v: string, m: "EX", t: number): Promise<unknown>;
+  };
+  return {
+    getToken: () =>
+      getTwitchToken(
+        process.env.TWITCH_CLIENT_ID ?? "",
+        process.env.TWITCH_CLIENT_SECRET ?? "",
+        redisStore,
+      ),
+    fetchGamesByIds,
+  };
+}
+
+// Slugify helper, duplique volontairement (meme pattern que steam.service.ts et
+// igdb.service.ts) : chaque module reste autonome, pas de dependance croisee
+// pour un utilitaire aussi simple.
+function slugify(input: string): string {
+  const base = input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "game";
+}
+
+// Ajoute a la collection un jeu identifie par son igdbId, potentiellement absent
+// de notre catalogue (cas : jeu trouve via la recherche IGDB live, Task 4, jamais
+// encore ajoute par personne). Hydrate le catalogue au besoin avant de reutiliser
+// addGameToCollection pour le reste (dedoublonnage, statut backlog...).
+export async function addIgdbGameToCollection(
+  userId: string,
+  input: AddIgdbGameInput,
+  clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
+  deps: AddIgdbGameDeps = defaultAddIgdbGameDeps(),
+): Promise<AddIgdbGameResult> {
+  const [existing] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.igdbId, input.igdbId))
+    .limit(1);
+
+  let gameId = existing?.id;
+
+  if (!gameId) {
+    const token = await deps.getToken();
+    const [fetched] = await deps.fetchGamesByIds([input.igdbId], token, clientId);
+    if (!fetched) return { ok: false, reason: "igdb_not_found" };
+
+    gameId = await insertMinimalGameFromIgdb(fetched);
+  }
+
+  const result = await addGameToCollection(userId, {
+    gameId,
+    platformId: input.platformId,
+  });
+  if (!result.ok) {
+    // On vient de garantir l'existence du jeu (trouve ou insere juste avant) :
+    // game_not_found ici trahirait une incoherence, pas un cas metier attendu.
+    if (result.reason === "game_not_found") {
+      throw new Error(
+        `Jeu ${gameId} introuvable juste apres resolution/insertion (igdbId=${input.igdbId})`,
+      );
+    }
+    return { ok: false, reason: "conflict" };
+  }
+  return result;
+}
+
+// Insere une ligne `games` minimale a partir d'une fiche IGDB. Le slug suit le
+// meme motif que hydrateGamesByIgdbIds (igdb.service.ts) pour rester coherent
+// dans tout le catalogue : slugify(titre) + suffixe igdbId (garantit l'unicite).
+async function insertMinimalGameFromIgdb(data: IgdbGame): Promise<string> {
+  const releaseStatus =
+    data.releaseDate && data.releaseDate > new Date().toISOString().slice(0, 10)
+      ? "upcoming"
+      : "released";
+  const slug = `${slugify(data.name)}-igdb-${data.igdbId}`;
+
+  const [created] = await db
+    .insert(games)
+    .values({
+      title: data.name,
+      slug,
+      igdbId: data.igdbId,
+      coverUrl: data.coverImageId ? igdbImageUrl(data.coverImageId, "t_cover_big") : null,
+      description: data.summary,
+      releaseDate: data.releaseDate,
+      releaseStatus,
+      developer: data.developer,
+      publisher: data.publisher,
+      lastSyncedAt: new Date(),
+    })
+    // Defense-in-depth : course possible avec un autre flux (ex. enrichGames) qui
+    // aurait insere ce meme igdbId entretemps sous un slug different.
+    .onConflictDoNothing({ target: games.slug })
+    .returning({ id: games.id });
+
+  if (created) return created.id;
+
+  const [race] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.igdbId, data.igdbId))
+    .limit(1);
+  if (!race) {
+    throw new Error(`Echec insertion du jeu IGDB ${data.igdbId} (collision de slug)`);
+  }
+  return race.id;
 }

@@ -66,3 +66,13 @@ export const addGameSchema = z.object({
 });
 
 export type AddGameInput = z.infer<typeof addGameSchema>;
+
+// Ajout d'un jeu IGDB potentiellement absent de notre catalogue : on identifie
+// le jeu par son igdbId plutot que notre uuid interne (le front ne le connait pas
+// forcement encore), le service hydrate le catalogue si besoin.
+export const addIgdbGameSchema = z.object({
+  igdbId: z.number().int().positive(),
+  platformId: z.string().uuid().optional(),
+});
+
+export type AddIgdbGameInput = z.infer<typeof addIgdbGameSchema>;

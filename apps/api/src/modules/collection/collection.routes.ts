@@ -6,6 +6,7 @@ import {
   listCollectionQuerySchema,
   updateUserGameSchema,
   addGameSchema,
+  addIgdbGameSchema,
 } from "./collection.schemas.js";
 import {
   updateGameStatus,
@@ -14,6 +15,7 @@ import {
   updateCollectionItem,
   deleteCollectionItem,
   addGameToCollection,
+  addIgdbGameToCollection,
 } from "./collection.service.js";
 import { requireAuth, userIdOf } from "../../lib/guards.js";
 
@@ -170,6 +172,33 @@ export async function collectionRoutes(app: FastifyInstance) {
       if (!result.ok) {
         return result.reason === "game_not_found"
           ? reply.code(404).send({ error: "Jeu introuvable dans le catalogue" })
+          : reply.code(409).send({ error: "Ce jeu est deja dans ta collection" });
+      }
+      return reply.code(201).send(result.item);
+    },
+  );
+
+  // Ajoute un jeu IGDB a la collection, meme s'il n'est pas encore dans notre
+  // catalogue (hydrate au besoin depuis IGDB avant l'ajout).
+  r.post(
+    "/collection/from-igdb",
+    {
+      onRequest: [requireAuth],
+      schema: {
+        tags: ["Collection"],
+        summary: "Ajouter un jeu IGDB (absent ou non du catalogue) a la collection",
+        security: [{ bearerAuth: [] }],
+        body: addIgdbGameSchema,
+      },
+    },
+    async (request, reply) => {
+      const result = await addIgdbGameToCollection(
+        userIdOf(request),
+        request.body,
+      );
+      if (!result.ok) {
+        return result.reason === "igdb_not_found"
+          ? reply.code(404).send({ error: "Jeu introuvable sur IGDB" })
           : reply.code(409).send({ error: "Ce jeu est deja dans ta collection" });
       }
       return reply.code(201).send(result.item);

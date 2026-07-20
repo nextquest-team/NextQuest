@@ -129,7 +129,7 @@ Le code Drizzle correspondant est dans `packages/db/src/schema/` :
 | `messaging.ts` | conversations, conversation_members, messages | Messagerie |
 | `notifications.ts` | notifications, notification_preferences, user_devices | Notifications + push mobile |
 | `activities.ts` | activities | Fil d'actualite |
-| `recommendations.ts` | recommendations | Recommandations IA |
+| `recommendations.ts` | recommendations | Recommandations (moteur algorithmique) |
 | `audit.ts` | audit_logs | Journal de securite (OWASP) |
 | `gdpr.ts` | user_consents, gdpr_requests | Conformite RGPD |
 | `moderation.ts` | reports | Signalements et moderation |

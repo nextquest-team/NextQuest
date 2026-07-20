@@ -7,12 +7,13 @@ const emit = defineEmits<{ background: []; close: [] }>()
 
 const { t } = useI18n()
 
-const total = computed(() => props.status?.total ?? 0)
-const done = computed(() => props.status?.done ?? 0)
-const percent = computed(() =>
-  total.value > 0 ? Math.min(100, Math.round((done.value / total.value) * 100)) : 0,
+// Grille plafonnee : sur une grosse biblio (200+ jeux) on n'affiche pas tout,
+// juste les jaquettes deja recuperees jusqu'a un maximum. Le loader indique
+// que l'import continue en fond.
+const MAX_TILES = 24
+const covers = computed(() =>
+  (props.status?.games ?? []).filter((g) => g.coverUrl).slice(0, MAX_TILES),
 )
-const games = computed(() => props.status?.games ?? [])
 </script>
 
 <template>
@@ -25,7 +26,6 @@ const games = computed(() => props.status?.games ?? [])
       :aria-label="t('gameList.importProgress.title')"
     >
       <div class="gl-modal__box ip-modal">
-        <!-- En-tete -->
         <div class="gl-modal__header">
           <h2 class="gl-modal__title">{{ t('gameList.importProgress.title') }}</h2>
           <button
@@ -38,32 +38,15 @@ const games = computed(() => props.status?.games ?? [])
         </div>
 
         <div class="ip-modal__body">
-          <p class="ip-modal__count">
-            {{ t('gameList.importProgress.count', { done, total }) }}
-          </p>
-
-          <div
-            class="ip-modal__bar"
-            role="progressbar"
-            :aria-valuenow="percent"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <div class="ip-modal__bar-fill" :style="{ width: percent + '%' }" />
+          <!-- Indicateur de chargement (pas de compteur textuel) -->
+          <div class="ip-modal__loader" aria-live="polite" :aria-label="t('gameList.importProgress.title')">
+            <v-progress-circular indeterminate size="34" width="3" color="#5c3317" />
           </div>
 
-          <!-- Grille de jaquettes : chaque vignette se remplit au fur et a mesure -->
-          <div class="ip-modal__grid">
-            <div v-for="g in games" :key="g.id" class="ip-modal__cell">
-              <img
-                v-if="g.coverUrl"
-                :src="g.coverUrl"
-                alt=""
-                class="ip-modal__cover"
-              />
-              <div v-else class="ip-modal__placeholder">
-                <v-icon size="22" color="#a07850">mdi-gamepad-variant</v-icon>
-              </div>
+          <!-- Jaquettes qui arrivent au fur et a mesure -->
+          <div v-if="covers.length" class="ip-modal__grid">
+            <div v-for="c in covers" :key="c.id" class="ip-modal__cell">
+              <img :src="c.coverUrl!" alt="" class="ip-modal__cover" />
             </div>
           </div>
         </div>
@@ -129,40 +112,22 @@ const games = computed(() => props.status?.games ?? [])
   opacity: 0.7;
   transition: opacity 0.1s;
 }
-.gl-modal__close:hover {
-  opacity: 1;
-}
+.gl-modal__close:hover { opacity: 1; }
 
 /* ── Corps ── */
 .ip-modal__body {
-  padding: 1rem 1.25rem 0;
+  padding: 1.5rem 1.25rem 0;
   overflow-y: auto;
   flex: 1;
 }
 
-.ip-modal__count {
-  font-family: var(--nq-font);
-  font-size: 0.9rem;
-  color: var(--nq-brown-dark, #3a1a0a);
-  margin: 0 0 0.5rem;
-}
-
-.ip-modal__bar {
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(92, 51, 23, 0.12);
-  overflow: hidden;
-}
-
-.ip-modal__bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--nq-brown, #5c3317), #c8963e);
-  transition: width 0.3s ease;
+.ip-modal__loader {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 1.25rem;
 }
 
 .ip-modal__grid {
-  margin-top: 1rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
   gap: 8px;
@@ -183,14 +148,6 @@ const games = computed(() => props.status?.games ?? [])
   display: block;
 }
 
-.ip-modal__placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* ── Pied ── */
 .ip-modal__footer {
   padding: 0.75rem 1.25rem 1.25rem;
@@ -209,17 +166,9 @@ const games = computed(() => props.status?.games ?? [])
   background: rgba(92, 51, 23, 0.1);
   transition: background 0.1s;
 }
-.ip-modal__bg-btn:hover {
-  background: rgba(92, 51, 23, 0.16);
-}
+.ip-modal__bg-btn:hover { background: rgba(92, 51, 23, 0.16); }
 
 /* ── Transition ── */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
+.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
 </style>

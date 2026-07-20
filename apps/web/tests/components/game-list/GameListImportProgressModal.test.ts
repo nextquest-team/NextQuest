@@ -11,7 +11,16 @@ mockNuxtImport('useI18n', () => () => ({
 
 const stubs = {
   VIcon: { template: '<span v-bind="$attrs" />' },
+  VProgressCircular: { template: '<div class="v-progress-circular" />' },
   Transition: { template: '<slot />' },
+}
+
+function statusWith(covers: number, placeholders: number): ImportStatus {
+  const games = [
+    ...Array.from({ length: covers }, (_, i) => ({ id: `c${i}`, coverUrl: `http://x/${i}.jpg`, isEnriched: true })),
+    ...Array.from({ length: placeholders }, (_, i) => ({ id: `p${i}`, coverUrl: null, isEnriched: false })),
+  ]
+  return { status: 'running', total: games.length, done: covers, games }
 }
 
 describe('GameListImportProgressModal', () => {
@@ -23,32 +32,27 @@ describe('GameListImportProgressModal', () => {
     expect(wrapper.find('.ip-modal').exists()).toBe(false)
   })
 
-  it('affiche la barre a 50% et une vignette par jeu', () => {
-    const status: ImportStatus = {
-      status: 'running',
-      total: 4,
-      done: 2,
-      games: [
-        { id: 'a', coverUrl: 'http://x/a.jpg', isEnriched: true },
-        { id: 'b', coverUrl: null, isEnriched: false },
-        { id: 'c', coverUrl: 'http://x/c.jpg', isEnriched: true },
-        { id: 'd', coverUrl: null, isEnriched: false },
-      ],
-    }
+  it('affiche un loader et seulement les jaquettes recuperees (pas de placeholder)', () => {
     const wrapper = mount(GameListImportProgressModal, {
-      props: { open: true, status },
+      props: { open: true, status: statusWith(2, 3) },
       global: { stubs },
     })
-    expect(wrapper.findAll('.ip-modal__cell')).toHaveLength(4)
+    expect(wrapper.find('.ip-modal__loader').exists()).toBe(true)
     expect(wrapper.findAll('.ip-modal__cover')).toHaveLength(2)
-    expect(wrapper.findAll('.ip-modal__placeholder')).toHaveLength(2)
-    expect(wrapper.find('.ip-modal__bar-fill').attributes('style')).toContain('width: 50%')
+    expect(wrapper.findAll('.ip-modal__cell')).toHaveLength(2)
+  })
+
+  it('plafonne le nombre de vignettes affichees (grosse biblio)', () => {
+    const wrapper = mount(GameListImportProgressModal, {
+      props: { open: true, status: statusWith(50, 0) },
+      global: { stubs },
+    })
+    expect(wrapper.findAll('.ip-modal__cover')).toHaveLength(24)
   })
 
   it('le bouton arriere-plan emet background', async () => {
-    const status: ImportStatus = { status: 'running', total: 1, done: 0, games: [] }
     const wrapper = mount(GameListImportProgressModal, {
-      props: { open: true, status },
+      props: { open: true, status: statusWith(1, 0) },
       global: { stubs },
     })
     await wrapper.find('.ip-modal__bg-btn').trigger('click')

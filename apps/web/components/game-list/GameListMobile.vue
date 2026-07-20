@@ -8,7 +8,7 @@ const {
   drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
   toggleStatus, applyFilters, resetFilters,
   currentPage, totalPages, goToPage,
-  gamesLoading, games,
+  gamesLoading, games, fetchGames,
   onStatusChange, onDeleteGame, onCardClick,
   addModalOpen,
   progressOpen, progressStatus, onProgressBackground, onProgressClose,
@@ -179,7 +179,7 @@ onMounted(init)
       </div>
     </v-navigation-drawer>
 
-    <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" />
+    <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" @added="fetchGames" />
     <ImportProgressModal
       :open="progressOpen"
       :status="progressStatus"

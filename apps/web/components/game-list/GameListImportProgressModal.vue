@@ -157,7 +157,7 @@ const games = computed(() => props.status?.games ?? [])
 .ip-modal__bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ff9a00, #ff5d00);
+  background: linear-gradient(90deg, var(--nq-brown, #5c3317), #c8963e);
   transition: width 0.3s ease;
 }
 

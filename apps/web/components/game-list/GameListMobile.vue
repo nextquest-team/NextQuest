@@ -180,7 +180,7 @@ onMounted(init)
     </v-navigation-drawer>
 
     <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" @added="fetchGames" />
-    <ImportProgressModal
+    <GameListImportProgressModal
       :open="progressOpen"
       :status="progressStatus"
       @background="onProgressBackground"

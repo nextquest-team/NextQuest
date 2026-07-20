@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
-import ImportProgressModal from '~/components/game-list/ImportProgressModal.vue'
+import GameListImportProgressModal from '~/components/game-list/GameListImportProgressModal.vue'
 import type { ImportStatus } from '~/types/game'
 
 mockNuxtImport('useI18n', () => () => ({
@@ -14,9 +14,9 @@ const stubs = {
   Transition: { template: '<slot />' },
 }
 
-describe('ImportProgressModal', () => {
+describe('GameListImportProgressModal', () => {
   it('ne rend rien quand open=false', () => {
-    const wrapper = mount(ImportProgressModal, {
+    const wrapper = mount(GameListImportProgressModal, {
       props: { open: false, status: null },
       global: { stubs },
     })
@@ -35,7 +35,7 @@ describe('ImportProgressModal', () => {
         { id: 'd', coverUrl: null, isEnriched: false },
       ],
     }
-    const wrapper = mount(ImportProgressModal, {
+    const wrapper = mount(GameListImportProgressModal, {
       props: { open: true, status },
       global: { stubs },
     })
@@ -47,7 +47,7 @@ describe('ImportProgressModal', () => {
 
   it('le bouton arriere-plan emet background', async () => {
     const status: ImportStatus = { status: 'running', total: 1, done: 0, games: [] }
-    const wrapper = mount(ImportProgressModal, {
+    const wrapper = mount(GameListImportProgressModal, {
       props: { open: true, status },
       global: { stubs },
     })

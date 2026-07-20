@@ -68,7 +68,7 @@ const stubs = {
   VNavigationDrawer: { template: '<div><slot /></div>' },
   GameListCard: { template: '<div class="game-list-card" />' },
   GameListAddModal: { template: '<div />' },
-  ImportProgressModal: { template: '<div />' },
+  GameListImportProgressModal: { template: '<div />' },
   UiPageHeader: { template: '<div><slot /></div>' },
   UiBackButton: { template: '<button />' },
   ClientOnly: { template: '<slot />' },

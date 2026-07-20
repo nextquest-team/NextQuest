@@ -186,7 +186,7 @@ onMounted(init)
     </div>
 
     <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" @added="fetchGames" />
-    <ImportProgressModal
+    <GameListImportProgressModal
       :open="progressOpen"
       :status="progressStatus"
       @background="onProgressBackground"

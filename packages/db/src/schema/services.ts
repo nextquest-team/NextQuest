@@ -15,6 +15,11 @@ export const platforms = pgTable("platforms", {
   name: varchar("name", { length: 100 }).notNull(),
   code: varchar("code", { length: 50 }).notNull().unique(),
   iconUrl: varchar("icon_url", { length: 2048 }),
+  // Id de la plateforme cote IGDB (endpoint /platforms). Permet de mapper les
+  // plateformes renvoyees par une recherche IGDB vers nos enregistrements locaux
+  // (ex: proposer a l'ajout uniquement les plateformes sur lesquelles le jeu existe).
+  // Null pour les plateformes sans equivalent IGDB (ex: Steam Deck).
+  igdbId: integer("igdb_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

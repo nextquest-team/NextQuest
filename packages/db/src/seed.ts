@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { db } from "./client.js";
 import { users } from "./schema/users.js";
 import { platforms } from "./schema/services.js";
@@ -26,20 +27,29 @@ async function seed() {
     .onConflictDoNothing();
 
   // Referentiel des plateformes materielles (alimente le selecteur d'ajout
-  // manuel et l'import). Idempotent : le code est unique.
+  // manuel et l'import). Idempotent par code, mais onConflictDoUpdate (pas
+  // DoNothing) : le seed doit pouvoir renseigner igdbId sur des lignes deja
+  // presentes (mapping recherche IGDB -> plateformes locales, cf. igdb.discovery.service).
   await db
     .insert(platforms)
     .values([
-      { name: "PC", code: "pc" },
-      { name: "PlayStation 5", code: "ps5" },
-      { name: "PlayStation 4", code: "ps4" },
-      { name: "Xbox Series X|S", code: "xbox_series" },
-      { name: "Xbox One", code: "xbox_one" },
-      { name: "Nintendo Switch", code: "switch" },
-      { name: "Nintendo Switch 2", code: "switch2" },
-      { name: "Steam Deck", code: "steam_deck" },
+      { name: "PC", code: "pc", igdbId: 6 },
+      { name: "PlayStation 5", code: "ps5", igdbId: 167 },
+      { name: "PlayStation 4", code: "ps4", igdbId: 48 },
+      { name: "Xbox Series X|S", code: "xbox_series", igdbId: 169 },
+      { name: "Xbox One", code: "xbox_one", igdbId: 49 },
+      { name: "Nintendo Switch", code: "switch", igdbId: 130 },
+      { name: "Nintendo Switch 2", code: "switch2", igdbId: 508 },
+      // Pas d'equivalent IGDB pour Steam Deck (c'est un PC sous le capot cote IGDB).
+      { name: "Steam Deck", code: "steam_deck", igdbId: null },
     ])
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: platforms.code,
+      set: {
+        name: sql.raw(`excluded.${platforms.name.name}`),
+        igdbId: sql.raw(`excluded.${platforms.igdbId.name}`),
+      },
+    });
 
   console.log("Seed complete.");
   process.exit(0);

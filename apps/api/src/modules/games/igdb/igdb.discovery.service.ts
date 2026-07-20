@@ -34,8 +34,9 @@ const UPCOMING_TTL = 3600;
 const DETAIL_TTL = 86400;
 const SEARCH_TTL = 3600;
 
-// Taille du pool de candidats bruts recupere aupres d'IGDB, avant filtrage par
-// type et reclassement par pertinence/popularite (cf. rankAndFilterCandidates).
+// Taille de chacun des deux pools de candidats bruts recuperes aupres d'IGDB
+// (cf. searchGamesByName -- fusion de deux requetes), avant filtrage par type
+// et reclassement par pertinence/popularite (cf. rankAndFilterCandidates).
 // La recherche IGDB brute est triee par pertinence texte pure : sans marge, des
 // jeux connus se retrouvent noyes derriere des DLC/bundles/jeux obscurs.
 const SEARCH_POOL_SIZE = 50;
@@ -66,9 +67,11 @@ function popularityScore(g: IgdbSearchResultBase): number {
   return (g.totalRatingCount ?? 0) + (g.hypes ?? 0);
 }
 
-// Filtre les non-jeux (DLC/bundles/mods/...), classe par (tier de nom, popularite
-// decroissante) et coupe au top `limit`. Un candidat sans game_type connu est
-// garde par prudence plutot que perdu (IGDB ne renseigne pas toujours ce champ).
+// Filtre les non-jeux (DLC/bundles/mods/...) et les editions (Deluxe/Ultimate/...
+// via version_parent, qui remontent surtout par le pool A "search" -- le pool B
+// les exclut deja cote IGDB), classe par (tier de nom, popularite decroissante)
+// et coupe au top `limit`. Un candidat sans game_type connu est garde par
+// prudence plutot que perdu (IGDB ne renseigne pas toujours ce champ).
 // Tri stable : a tier et score egaux, l'ordre de pertinence IGDB d'origine est conserve.
 function rankAndFilterCandidates(
   candidates: IgdbSearchResultBase[],
@@ -76,7 +79,10 @@ function rankAndFilterCandidates(
   limit: number,
 ): IgdbSearchResultBase[] {
   return candidates
-    .filter((g) => g.gameType == null || SEARCHABLE_GAME_TYPES.has(g.gameType))
+    .filter(
+      (g) =>
+        (g.gameType == null || SEARCHABLE_GAME_TYPES.has(g.gameType)) && g.versionParent == null,
+    )
     .map((g, index) => ({ g, index, tier: nameMatchTier(g.name, query) }))
     .sort((a, b) => {
       if (a.tier !== b.tier) return a.tier - b.tier;
@@ -351,9 +357,9 @@ export async function searchIgdbGames(
       ).values(),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
-    // gameType/totalRatingCount/hypes ont servi au filtrage/classement plus haut,
-    // jamais exposes au front : on construit IgdbSearchResult explicitement plutot
-    // que par spread pour ne pas les laisser fuiter dans la reponse.
+    // gameType/totalRatingCount/hypes/versionParent ont servi au filtrage/classement
+    // plus haut, jamais exposes au front : on construit IgdbSearchResult
+    // explicitement plutot que par spread pour ne pas les laisser fuiter dans la reponse.
     return {
       igdbId: g.igdbId,
       name: g.name,

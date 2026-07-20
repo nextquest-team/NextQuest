@@ -68,9 +68,10 @@ export type GameDetailDTO = {
 // collection" qui depend de l'utilisateur (calcule par le service, pas ici), et
 // sans les plateformes locales (mappees par le service depuis platformIds, qui
 // elles restent brutes/IGDB dans cette base -- c'est ce qui est cache en Redis).
-// gameType/totalRatingCount/hypes sont aussi bruts/IGDB : ils servent au service
-// a filtrer les non-jeux et reclasser par popularite avant de couper au top N,
-// et ne figurent jamais dans le resultat final expose au front (cf. IgdbSearchResult).
+// gameType/totalRatingCount/hypes/versionParent sont aussi bruts/IGDB : ils
+// servent au service a filtrer les non-jeux (et les editions Deluxe/Ultimate/...)
+// et reclasser par popularite avant de couper au top N, et ne figurent jamais
+// dans le resultat final expose au front (cf. IgdbSearchResult).
 export type IgdbSearchResultBase = {
   igdbId: number;
   name: string;
@@ -80,6 +81,7 @@ export type IgdbSearchResultBase = {
   gameType: number | null;
   totalRatingCount: number | null;
   hypes: number | null;
+  versionParent: number | null;
 };
 
 // Plateforme locale sur laquelle le jeu existe (mappee depuis platformIds via
@@ -89,11 +91,12 @@ export type LocalPlatformRef = { id: string; name: string };
 
 // Resultat final expose par la route : la base + le flag "deja en collection"
 // (croise avec user_games cote service) + les plateformes locales mappees
-// (cf. igdb.discovery.service.ts). gameType/totalRatingCount/hypes ne sont que
-// des signaux de filtrage/classement internes au service, jamais exposes ici.
+// (cf. igdb.discovery.service.ts). gameType/totalRatingCount/hypes/versionParent
+// ne sont que des signaux de filtrage/classement internes au service, jamais
+// exposes ici.
 export type IgdbSearchResult = Omit<
   IgdbSearchResultBase,
-  "platformIds" | "gameType" | "totalRatingCount" | "hypes"
+  "platformIds" | "gameType" | "totalRatingCount" | "hypes" | "versionParent"
 > & {
   alreadyInCollection: boolean;
   platforms: LocalPlatformRef[];
@@ -110,6 +113,7 @@ export function toSearchResultDTO(g: IgdbSearchGame): IgdbSearchResultBase {
     gameType: g.gameType,
     totalRatingCount: g.totalRatingCount,
     hypes: g.hypes,
+    versionParent: g.versionParent,
   };
 }
 

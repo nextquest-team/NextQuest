@@ -16,56 +16,116 @@ const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body }
 const err = (status: number) => ({ ok: false, status, json: async () => ({}) });
 
 describe("searchGamesByName", () => {
-  it("construit la requete Apicalypse (search+fields+limit) et mappe les champs, y compris game_type/total_rating_count/hypes", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      ok([
-        {
-          id: 101,
-          name: "Halo",
-          cover: { image_id: "cov1" },
-          first_release_date: 1000000000,
-          platforms: [6, 48],
-          game_type: 0,
-          total_rating_count: 340,
-          hypes: 12,
-        },
-      ]),
-    );
+  it("lance pool A (search) puis pool B (where name~), fusionne et deduplique par id", async () => {
+    const fetchMock = vi
+      .fn()
+      // Pool A (search) : contient 101, deja vu.
+      .mockResolvedValueOnce(
+        ok([
+          {
+            id: 101,
+            name: "Halo",
+            cover: { image_id: "cov1" },
+            first_release_date: 1000000000,
+            platforms: [6, 48],
+            game_type: 0,
+            total_rating_count: 340,
+            hypes: 12,
+          },
+        ]),
+      )
+      // Pool B (where name~) : 101 en doublon (a dedupliquer) + 202 nouveau.
+      .mockResolvedValueOnce(
+        ok([
+          { id: 101, name: "Halo", game_type: 0, total_rating_count: 340 },
+          { id: 202, name: "Halo Wars", game_type: 0, total_rating_count: 900, hypes: 3 },
+        ]),
+      );
 
     const results = await searchGamesByName("Halo", 50, "TOKEN", "CID", fetchMock);
 
-    expect(results).toEqual([
-      {
-        igdbId: 101,
-        name: "Halo",
-        coverImageId: "cov1",
-        firstReleaseDate: 1000000000,
-        platformIds: [6, 48],
-        gameType: 0,
-        totalRatingCount: 340,
-        hypes: 12,
-      },
-    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(results).toHaveLength(2);
+    expect(results.map((r) => r.igdbId).sort()).toEqual([101, 202]);
+    // 101 vient du pool A (premier vu) : ses champs ne sont pas ecrases par le doublon du pool B.
+    expect(results.find((r) => r.igdbId === 101)).toEqual({
+      igdbId: 101,
+      name: "Halo",
+      coverImageId: "cov1",
+      firstReleaseDate: 1000000000,
+      platformIds: [6, 48],
+      gameType: 0,
+      totalRatingCount: 340,
+      hypes: 12,
+      versionParent: null,
+    });
+    expect(results.find((r) => r.igdbId === 202)).toEqual({
+      igdbId: 202,
+      name: "Halo Wars",
+      coverImageId: null,
+      firstReleaseDate: null,
+      platformIds: [],
+      gameType: 0,
+      totalRatingCount: 900,
+      hypes: 3,
+      versionParent: null,
+    });
 
-    const init = fetchMock.mock.calls[0][1];
-    expect(init.headers["Client-ID"]).toBe("CID");
-    expect(init.headers["Authorization"]).toBe("Bearer TOKEN");
-    expect(init.body).toContain('search "Halo";');
-    expect(init.body).toContain(
-      "fields name,cover.image_id,first_release_date,platforms,game_type,total_rating_count,hypes;",
+    const poolAInit = fetchMock.mock.calls[0][1];
+    expect(poolAInit.headers["Client-ID"]).toBe("CID");
+    expect(poolAInit.headers["Authorization"]).toBe("Bearer TOKEN");
+    expect(poolAInit.body).toContain('search "Halo";');
+    expect(poolAInit.body).toContain(
+      "fields name,cover.image_id,first_release_date,platforms,game_type,total_rating_count,hypes,version_parent;",
     );
-    expect(init.body).toContain("limit 50;");
+    expect(poolAInit.body).toContain("limit 50;");
+    expect(poolAInit.body).not.toContain("where");
+
+    const poolBInit = fetchMock.mock.calls[1][1];
+    expect(poolBInit.body).toContain('where name ~ *"Halo"* & game_type = (0,4,8,9,10,11) & version_parent = null;');
+    expect(poolBInit.body).toContain("sort total_rating_count desc;");
+    expect(poolBInit.body).toContain("limit 50;");
+    expect(poolBInit.body).not.toContain("search ");
   });
 
-  it("echappe les guillemets et backslash dans le nom recherche", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(ok([]));
+  it("decoupe une requete multi-mots en conditions name~ jointes par AND (pool B)", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok([])).mockResolvedValueOnce(ok([]));
+    await searchGamesByName("assassins creed", 50, "TOKEN", "CID", fetchMock);
+
+    const poolBInit = fetchMock.mock.calls[1][1];
+    expect(poolBInit.body).toContain('name ~ *"assassins"* & name ~ *"creed"*');
+  });
+
+  it("echappe les guillemets et backslash dans le nom recherche (pool A)", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok([])).mockResolvedValueOnce(ok([]));
     await searchGamesByName('The "Master" Chief\\', 12, "TOKEN", "CID", fetchMock);
-    const init = fetchMock.mock.calls[0][1];
-    expect(init.body).toContain('search "The \\"Master\\" Chief\\\\";');
+    const poolAInit = fetchMock.mock.calls[0][1];
+    expect(poolAInit.body).toContain('search "The \\"Master\\" Chief\\\\";');
   });
 
-  it("tolere les champs absents (cover, date, plateformes, game_type, total_rating_count, hypes manquants)", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(ok([{ id: 5, name: "Bare" }]));
+  it("echappe les guillemets et backslash mot par mot dans les conditions du pool B", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok([])).mockResolvedValueOnce(ok([]));
+    await searchGamesByName('The "Master" Chief\\', 12, "TOKEN", "CID", fetchMock);
+
+    const poolBInit = fetchMock.mock.calls[1][1];
+    const escape = (s: string) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const expectedConds = ["The", '"Master"', "Chief\\"]
+      .map((w) => `name ~ *"${escape(w)}"*`)
+      .join(" & ");
+    expect(poolBInit.body).toContain(expectedConds);
+  });
+
+  it("sans mot exploitable (requete vide apres trim), saute le pool B et n'appelle IGDB qu'une fois", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok([]));
+    await searchGamesByName("   ", 12, "TOKEN", "CID", fetchMock);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("tolere les champs absents (cover, date, plateformes, game_type, total_rating_count, hypes, version_parent manquants)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(ok([{ id: 5, name: "Bare" }]))
+      .mockResolvedValueOnce(ok([]));
     const [g] = await searchGamesByName("Bare", 12, "TOKEN", "CID", fetchMock);
     expect(g).toEqual({
       igdbId: 5,
@@ -76,12 +136,30 @@ describe("searchGamesByName", () => {
       gameType: null,
       totalRatingCount: null,
       hypes: null,
+      versionParent: null,
     });
   });
 
-  it("leve si IGDB repond non-200", async () => {
+  it("leve si IGDB repond non-200 (pool A)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(err(500));
     await expect(searchGamesByName("Halo", 12, "T", "C", fetchMock)).rejects.toThrow(/500/);
+  });
+
+  // Cas remonte par l'E2E reel : `where name ~ *"assassins"*` ne matche jamais
+  // "Assassin's Creed" (l'apostrophe casse le filtre substring cote IGDB), alors
+  // que le pool A (`search`, tokenise) le trouve. La fusion doit conserver ce
+  // resultat meme si le pool B revient bredouille.
+  it("garde un jeu remonte seulement par le pool A (apostrophe non matchee par le pool B)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        ok([{ id: 9999, name: "Assassin's Creed", game_type: 0, total_rating_count: 2000 }]),
+      )
+      .mockResolvedValueOnce(ok([]));
+
+    const results = await searchGamesByName("assassins", 50, "TOKEN", "CID", fetchMock);
+
+    expect(results.map((r) => r.igdbId)).toEqual([9999]);
   });
 });
 
@@ -108,6 +186,7 @@ const searchSample: IgdbSearchGame[] = [
     gameType: 0,
     totalRatingCount: 0,
     hypes: 0,
+    versionParent: null,
   },
   {
     igdbId: 102,
@@ -118,6 +197,7 @@ const searchSample: IgdbSearchGame[] = [
     gameType: 0,
     totalRatingCount: 0,
     hypes: 0,
+    versionParent: null,
   },
 ];
 
@@ -300,6 +380,7 @@ function candidate(overrides: Partial<IgdbSearchGame> & { igdbId: number; name: 
     gameType: 0,
     totalRatingCount: 0,
     hypes: 0,
+    versionParent: null,
     ...overrides,
   };
 }
@@ -346,6 +427,20 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     expect(ids).not.toContain(2);
     expect(ids).not.toContain(3);
     expect(ids).not.toContain(4);
+  });
+
+  it("exclut une edition (version_parent renseigne) meme avec un game_type autorise", async () => {
+    const pool = [
+      candidate({ igdbId: 1, name: "Base Game", gameType: 0, versionParent: null }), // jeu de base : garde
+      candidate({ igdbId: 2, name: "Base Game Ultimate Edition", gameType: 0, versionParent: 1 }), // edition : exclue
+    ];
+    const deps = depsWithPool(pool);
+
+    const res = await searchIgdbGames("base game", "user-1", 18, "CID", deps);
+
+    const ids = res.map((r) => r.igdbId);
+    expect(ids).toContain(1);
+    expect(ids).not.toContain(2);
   });
 
   it("classe un jeu bien note avant un jeu obscur, a tier de correspondance de nom egal (aucun des deux exact)", async () => {

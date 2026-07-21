@@ -119,8 +119,9 @@ async function refillBucket(bucket: RecoBucket) {
 async function sendFeedback(reco: RecommendationDTO, action: FeedbackAction) {
   if (feedbackPending.value) return
   feedbackPending.value = reco.id
+  console.log('[nextQuest] sendFeedback →', { id: reco.id, bucket: reco.bucket, action })
   try {
-    await authFetch(`${apiBase}/api/recommendations/${reco.id}/feedback`, {
+    const res = await authFetch(`${apiBase}/api/recommendations/${reco.id}/feedback`, {
       method: 'POST',
       body: { action },
     })

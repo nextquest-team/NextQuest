@@ -14,9 +14,10 @@
 import { config } from "dotenv";
 config({ path: "../../.env" });
 
-import { db, games, gameGenres, gamePlatforms } from "@nextquest/db";
+import { db, withDbRetry, games, gameGenres, gamePlatforms } from "@nextquest/db";
 import { sql } from "drizzle-orm";
 import { defaultDeps, upsertEnrichedGame } from "../modules/games/igdb/igdb.service.js";
+import type { IgdbGame } from "../modules/games/igdb/igdb.client.js";
 
 const BATCH = 500;
 const SLEEP_MS_BETWEEN_BATCHES = 250;
@@ -62,23 +63,42 @@ async function main() {
   let enriched = 0;
   let failed = 0;
   for (const part of chunk([...igdbIdToGameIds.keys()], BATCH)) {
+    // Nombre de jeux (pas d'igdbIds) couverts par ce lot, pour un comptage
+    // failed/enriched exact meme si un igdbId correspond a plusieurs jeux.
+    const gamesInPart = part.reduce((n, id) => n + (igdbIdToGameIds.get(id)?.length ?? 0), 0);
+
+    let fetched: IgdbGame[];
+    let timeToBeat: Map<number, { normallyMinutes: number; count: number }>;
     try {
-      const fetched = await deps.fetchGamesByIds(part, token, clientId);
-      const timeToBeat = await deps.fetchTimeToBeats(part, token, clientId);
-      for (const data of fetched) {
-        for (const gameId of igdbIdToGameIds.get(data.igdbId) ?? []) {
-          await upsertEnrichedGame(
-            gameId,
-            data,
-            timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
-            data.hypes,
+      fetched = await deps.fetchGamesByIds(part, token, clientId);
+      timeToBeat = await deps.fetchTimeToBeats(part, token, clientId);
+    } catch (e) {
+      // Lot entier perdu (IGDB indisponible) : aucun jeu de ce lot n'a ete traite.
+      failed += gamesInPart;
+      console.error(`Echec du lot IGDB (${gamesInPart} jeux) :`, e);
+      await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
+      continue;
+    }
+
+    for (const data of fetched) {
+      for (const gameId of igdbIdToGameIds.get(data.igdbId) ?? []) {
+        try {
+          // withDbRetry : les upserts sur la BDD distante peuvent se faire
+          // couper (CONNECTION_CLOSED), meme motif que enrichGames.
+          await withDbRetry(() =>
+            upsertEnrichedGame(
+              gameId,
+              data,
+              timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+              data.hypes,
+            ),
           );
           enriched += 1;
+        } catch (e) {
+          failed += 1;
+          console.error(`Echec de l'upsert du jeu ${gameId} (igdbId ${data.igdbId}) :`, e);
         }
       }
-    } catch (e) {
-      failed += part.length;
-      console.error(`Echec du lot IGDB (${part.length} jeux) :`, e);
     }
     await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
   }

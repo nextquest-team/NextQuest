@@ -110,28 +110,28 @@ describe('useGameList', () => {
     })
   })
 
-  describe('onDeleteGame', () => {
-    it('supprime le jeu de la liste de façon optimiste', async () => {
+  describe('onIgnoreGame', () => {
+    it('retire le jeu de la liste de façon optimiste', async () => {
       authFetchMock.mockResolvedValue({})
-      const { games, total, onDeleteGame } = useGameList()
+      const { games, total, onIgnoreGame } = useGameList()
       games.value = [
         { id: 'ug-1', title: 'Jeu A', status: 'backlog' },
         { id: 'ug-2', title: 'Jeu B', status: 'playing' },
       ] as any[]
       total.value = 2
 
-      await onDeleteGame('ug-1')
+      await onIgnoreGame('ug-1')
       expect(games.value.find(g => g.id === 'ug-1')).toBeUndefined()
       expect(total.value).toBe(1)
     })
 
     it('décremente le total au minimum à 0', async () => {
       authFetchMock.mockResolvedValue({})
-      const { games, total, onDeleteGame } = useGameList()
+      const { games, total, onIgnoreGame } = useGameList()
       games.value = [{ id: 'ug-1', title: 'Jeu A', status: 'backlog' }] as any[]
       total.value = 1
 
-      await onDeleteGame('ug-1')
+      await onIgnoreGame('ug-1')
       expect(total.value).toBe(0)
     })
   })

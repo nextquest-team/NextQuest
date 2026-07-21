@@ -116,12 +116,13 @@
       "background": "Continuer en arrière-plan"
     },
     "enrichDone": "Jaquettes à jour !",
-    "exclusions": {
-      "button": "Jeux exclus",
-      "title": "Jeux exclus",
-      "hint": "Ces jeux ne reviendront pas lors d'un ré-import. Réintègre-les si tu changes d'avis.",
-      "empty": "Aucun jeu exclu.",
-      "restore": "Réintégrer"
+    "ignore": "Ignorer",
+    "restore": "Remettre dans ma bibliothèque",
+    "view": {
+      "label": "Affichage",
+      "library": "Ma bibliothèque",
+      "ignored": "Ignorés",
+      "emptyIgnored": "Aucun jeu ignoré."
     }
   },
   "gameDetail": {

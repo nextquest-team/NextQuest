@@ -116,12 +116,13 @@
       "background": "Continue in the background"
     },
     "enrichDone": "Covers updated!",
-    "exclusions": {
-      "button": "Excluded games",
-      "title": "Excluded games",
-      "hint": "These games won't come back on re-import. Restore them if you change your mind.",
-      "empty": "No excluded games.",
-      "restore": "Restore"
+    "ignore": "Ignore",
+    "restore": "Move back to my library",
+    "view": {
+      "label": "View",
+      "library": "My library",
+      "ignored": "Ignored",
+      "emptyIgnored": "No ignored games."
     }
   },
   "gameDetail": {

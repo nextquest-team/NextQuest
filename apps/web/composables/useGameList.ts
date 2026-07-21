@@ -1,6 +1,8 @@
 import type { UserGame, GameStatus, CollectionListResponse } from '~/types/game'
 import { toUserGame } from '~/types/game'
 
+export type CollectionView = 'library' | 'ignored'
+
 export function useGameList() {
   const { t } = useI18n()
   const { authFetch, apiBase } = useAuthFetch()
@@ -12,14 +14,6 @@ export function useGameList() {
   progress.onDone(() => {
     void fetchGames()
   })
-
-  // Jeux exclus (supprimes de la collection) : compteur du header + modale.
-  const exclusions = useExclusions()
-  const exclusionsModalOpen = ref(false)
-  function onExclusionRestored() {
-    void fetchGames()
-    void exclusions.fetchExclusions()
-  }
 
   // ── Steam ────────────────────────────────────────────────
   const steamConnected = ref(false)
@@ -70,16 +64,13 @@ export function useGameList() {
     }
   }
 
-  // ── IGDB — enrichissement ────────────────────────────────
-  const enrichLoading = ref(false)
-
-  async function enrichGames() {
-    enrichLoading.value = true
-    try {
-      await authFetch(`${apiBase}/api/users/me/library/enrich`, { method: 'POST' })
-      await fetchGames()
-    } catch { /* best-effort */ }
-    finally { enrichLoading.value = false }
+  // ── Vue : bibliotheque (defaut) ou jeux ignores ──────────
+  const view = ref<CollectionView>('library')
+  function setView(v: CollectionView) {
+    if (view.value === v) return
+    view.value = v
+    currentPage.value = 1
+    fetchGames()
   }
 
   // ── Filtres, recherche, drawer ───────────────────────────
@@ -143,6 +134,7 @@ export function useGameList() {
     gamesLoading.value = true
     try {
       const query: Record<string, string | number> = {
+        view: view.value,
         limit: LIMIT,
         offset: (currentPage.value - 1) * LIMIT,
       }
@@ -175,14 +167,29 @@ export function useGameList() {
     }
   }
 
-  async function onDeleteGame(userGameId: string) {
+  // Retire de la liste courante (optimiste) et POST l'action. En cas d'echec, on
+  // re-fetch pour resynchroniser.
+  function removeFromList(userGameId: string) {
     games.value = games.value.filter(g => g.id !== userGameId)
     total.value = Math.max(0, total.value - 1)
     if (games.value.length === 0 && currentPage.value > 1) currentPage.value--
+  }
+
+  // Ignorer un jeu (vue bibliotheque) : il quitte la biblio mais garde son statut.
+  async function onIgnoreGame(userGameId: string) {
+    removeFromList(userGameId)
     try {
-      await authFetch(`${apiBase}/api/collection/${userGameId}`, { method: 'DELETE' })
-      // Le jeu supprime part dans les exclus : rafraichit le compteur du header.
-      void exclusions.fetchExclusions()
+      await authFetch(`${apiBase}/api/collection/${userGameId}/ignore`, { method: 'POST' })
+    } catch {
+      await fetchGames()
+    }
+  }
+
+  // Remettre un jeu ignore dans la bibliotheque (vue ignores).
+  async function onRestoreGame(userGameId: string) {
+    removeFromList(userGameId)
+    try {
+      await authFetch(`${apiBase}/api/collection/${userGameId}/restore`, { method: 'POST' })
     } catch {
       await fetchGames()
     }
@@ -199,7 +206,6 @@ export function useGameList() {
   function init() {
     fetchSteamStatus()
     fetchGames()
-    exclusions.fetchExclusions()
 
     if (route.query.steam === 'linked') {
       const firstLink = route.query.first === '1'
@@ -218,8 +224,8 @@ export function useGameList() {
     // Steam
     steamConnected, steamPersona, steamLoading, importLoading, importMessage,
     linkSteam, importSteam,
-    // IGDB
-    enrichLoading, enrichGames,
+    // Vue
+    view, setView,
     // Filtres
     drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
     toggleStatus, applyFilters, resetFilters,
@@ -228,7 +234,7 @@ export function useGameList() {
     // Jeux
     gamesLoading, games, fetchGames,
     // Actions
-    onStatusChange, onDeleteGame, onCardClick,
+    onStatusChange, onIgnoreGame, onRestoreGame, onCardClick,
     // Modale d'ajout
     addModalOpen,
     // Modale de progression d'import
@@ -236,10 +242,6 @@ export function useGameList() {
     progressStatus: progress.status,
     onProgressBackground: progress.stopBackground,
     onProgressClose: progress.close,
-    // Jeux exclus
-    exclusionsCount: exclusions.count,
-    exclusionsModalOpen,
-    onExclusionRestored,
     // Init
     init,
   }

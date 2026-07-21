@@ -281,7 +281,7 @@ const {
 }
 
 .gl__empty-title { font-size: 1.1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.gl__empty-hint { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.6); margin: 0; max-width: 340px; }
+.gl__empty-hint { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.65); margin: 0; max-width: 340px; }
 
 .gl__toolbar {
   display: flex;

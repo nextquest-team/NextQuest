@@ -15,6 +15,7 @@ const {
 
 <template>
   <div class="auth-page">
+    <h1 class="sr-only">{{ t('auth.login') }}</h1>
     <div class="auth-content">
       <div class="auth-header">
         <UiPageHeader to="/" />

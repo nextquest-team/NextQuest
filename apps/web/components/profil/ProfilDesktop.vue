@@ -38,7 +38,7 @@ onMounted(init)
         </div>
 
         <!-- Nom + username -->
-        <h1 class="pd__name">{{ displayName }}</h1>
+        <h2 class="pd__name">{{ displayName }}</h2>
         <p v-if="user?.displayName" class="pd__username">@{{ user.username }}</p>
 
         <!-- Badges -->

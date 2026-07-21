@@ -25,7 +25,7 @@ onMounted(load)
     <!-- Jeu introuvable -->
     <div v-else-if="!game" class="gdd__not-found">
       <v-icon size="56" color="primary-light">mdi-help-circle-outline</v-icon>
-      <p class="gdd__nf-title">{{ t('gameDetail.notFound') }}</p>
+      <h1 class="gdd__nf-title">{{ t('gameDetail.notFound') }}</h1>
       <p class="gdd__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
     </div>
 
@@ -225,7 +225,7 @@ onMounted(load)
 }
 
 .gdd__nf-title { font-size: 1.1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.gdd__nf-hint  { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.6); margin: 0; }
+.gdd__nf-hint  { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.65); margin: 0; }
 
 .gdd__hero { display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1.75rem; }
 

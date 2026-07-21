@@ -5,7 +5,7 @@ definePageMeta({ ssr: false })
 <template>
   <div class="page">
     <UiPageHeader />
-    <p>Ajouter un jeu — à venir</p>
+    <h1>Ajouter un jeu — à venir</h1>
   </div>
 </template>
 
@@ -25,5 +25,11 @@ definePageMeta({ ssr: false })
   top: 1.5rem;
   left: 1.5rem;
   color: var(--nq-brown-dark);
+}
+
+.page h1 {
+  font-size: 1rem;
+  font-weight: normal;
+  margin: 0;
 }
 </style>

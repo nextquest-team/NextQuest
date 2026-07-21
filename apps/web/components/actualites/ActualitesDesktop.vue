@@ -48,7 +48,7 @@ const { t } = useI18n()
 
 .ad__placeholder-text {
   font-size: 1.1rem;
-  color: rgba(var(--nq-brown-dark-rgb), 0.5);
+  color: rgba(var(--nq-brown-dark-rgb), 0.65);
   margin: 0;
   font-style: italic;
 }

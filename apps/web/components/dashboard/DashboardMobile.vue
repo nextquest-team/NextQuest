@@ -14,6 +14,7 @@ const sacocheOpen = ref(false)
 
 <template>
   <div class="dm">
+    <h1 class="sr-only">{{ t('nav.dashboard') }}</h1>
 
     <div class="dm__top">
 

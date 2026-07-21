@@ -18,6 +18,7 @@ const {
 
 <template>
   <div class="register-desktop-page">
+    <h1 class="sr-only">{{ t('auth.register') }}</h1>
     <div class="register-desktop-header">
       <UiPageHeader to="/" />
     </div>

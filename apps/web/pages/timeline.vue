@@ -6,7 +6,7 @@ const { t } = useI18n()
 
 <template>
   <div class="page">
-    <p>{{ t('nav.timeline') }} — à venir</p>
+    <h1>{{ t('nav.timeline') }} — à venir</h1>
   </div>
 </template>
 
@@ -18,5 +18,11 @@ const { t } = useI18n()
   justify-content: center;
   font-family: var(--nq-font);
   color: var(--nq-text-alt);
+}
+
+.page h1 {
+  font-size: 1rem;
+  font-weight: normal;
+  margin: 0;
 }
 </style>

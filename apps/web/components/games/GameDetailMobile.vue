@@ -32,7 +32,7 @@ onMounted(load)
       <!-- Jeu introuvable -->
       <div v-else-if="!game" class="gdm__state">
         <v-icon size="52" color="primary-light">mdi-help-circle-outline</v-icon>
-        <p class="gdm__nf-title">{{ t('gameDetail.notFound') }}</p>
+        <h1 class="gdm__nf-title">{{ t('gameDetail.notFound') }}</h1>
         <p class="gdm__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
       </div>
 

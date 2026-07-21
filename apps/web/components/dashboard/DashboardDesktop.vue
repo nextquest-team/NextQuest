@@ -35,6 +35,7 @@ onMounted(fetchBagGames)
 
 <template>
   <div class="dd">
+    <h1 class="sr-only">{{ t('nav.dashboard') }}</h1>
 
     <!-- Colonne gauche : sac à dos -->
     <div class="dd__bag" data-onb-target="bag">

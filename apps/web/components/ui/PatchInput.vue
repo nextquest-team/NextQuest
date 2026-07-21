@@ -21,6 +21,7 @@ const isPassword = computed(() => props.type === 'password')
     <span class="nq-label">{{ label }}</span>
     <v-text-field
       :model-value="modelValue"
+      :label="label"
       :type="isPassword && !showPassword ? 'password' : 'text'"
       :placeholder="placeholder"
       :rules="rules"
@@ -38,6 +39,20 @@ const isPassword = computed(() => props.type === 'password')
 </template>
 
 <style scoped>
+/* Le <span class="nq-label"> ci-dessus est déjà le label visible : celui de Vuetify
+   (nécessaire pour l'association aria-labelledby native) est masqué visuellement. */
+:deep(.v-field-label) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Agrandit la zone cliquable du toggle œil à ~44px sans changer sa taille visuelle (24px) */
 :deep(.v-field__append-inner .v-icon--clickable) {
   position: relative;

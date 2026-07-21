@@ -72,7 +72,7 @@ function isActive(to: string) {
   gap: 12px;
   padding: 11px 20px;
   text-decoration: none;
-  color: rgba(var(--nq-cream-light-rgb), 0.45);
+  color: rgba(var(--nq-cream-light-rgb), 0.65);
   font-family: var(--nq-font);
   font-size: clamp(0.875rem, 1.1vw, 1rem);
   transition: color 0.2s, background 0.2s;

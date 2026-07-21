@@ -32,6 +32,7 @@
   },
   "nav": {
     "label": "Main navigation",
+    "back": "Back",
     "dashboard": "Home",
     "gameList": "My games",
     "actualites": "News",

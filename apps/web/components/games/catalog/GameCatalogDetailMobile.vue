@@ -32,7 +32,7 @@ function ratingStars(rating: number | null): string {
 
       <div v-else-if="!game" class="cdm__not-found">
         <v-icon size="52" color="primary-light">mdi-help-circle-outline</v-icon>
-        <p class="cdm__nf-title">{{ t('gameDetail.notFound') }}</p>
+        <h1 class="cdm__nf-title">{{ t('gameDetail.notFound') }}</h1>
         <p class="cdm__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
       </div>
 

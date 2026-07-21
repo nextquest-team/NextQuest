@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { RecommendationDTO, FeedbackAction, RecoGame } from '~/types/recommendations'
+import type { RecommendationDTO, FeedbackAction } from '~/types/recommendations'
+import type { CatalogPreview } from '~/types/game'
 
 const props = defineProps<{
   reco: RecommendationDTO | null
@@ -16,12 +17,20 @@ const { t } = useI18n()
 
 const isMain = computed(() => props.bucket === 'discovery')
 
-const catalogPreview = useState<RecoGame | null>('catalog-preview', () => null)
+const catalogPreview = useState<CatalogPreview | null>('catalog-preview', () => null)
 
 function goToGame() {
   if (!props.reco) return
-  catalogPreview.value = props.reco.game
-  navigateTo(`/games/catalog/${props.reco.game.id}`)
+  const g = props.reco.game
+  catalogPreview.value = {
+    igdbId: Number(g.id),
+    title: g.title,
+    coverUrl: g.coverUrl,
+    releaseDate: g.releaseDate,
+    rating: g.igdbRating,
+    genres: g.genres.map(genre => ({ igdbId: Number(genre.id), name: genre.name, slug: genre.slug })),
+  }
+  navigateTo(`/games/catalog/${g.id}`)
 }
 
 const badgeConfig = computed(() => ({

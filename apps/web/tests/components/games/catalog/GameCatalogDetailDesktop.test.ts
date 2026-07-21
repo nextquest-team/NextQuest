@@ -4,24 +4,37 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
 import GameCatalogDetailDesktop from '~/components/games/catalog/GameCatalogDetailDesktop.vue'
-import type { RecoGame } from '~/types/recommendations'
+import type { IgdbGameDetail } from '~/types/game'
 
 mockNuxtImport('useI18n', () => () => ({
   t: (key: string) => key.split('.').pop() ?? key,
 }))
 
-const fakeGame: RecoGame = {
-  id: 'game-42',
+const fakeGame: IgdbGameDetail = {
+  igdbId: 42,
   title: 'Disco Elysium',
-  slug: 'disco-elysium',
+  summary: 'Un RPG détective hors normes.',
+  storyline: null,
   coverUrl: 'https://cdn.igdb.com/disco.jpg',
-  genres: [{ id: '3', name: 'RPG', slug: 'rpg' }],
-  igdbRating: 94,
+  artworkUrl: null,
+  screenshots: [],
+  videos: [],
+  genres: [{ igdbId: 3, name: 'RPG', slug: 'rpg' }],
+  themes: [],
+  gameModes: [],
+  playerPerspectives: [],
+  platforms: [],
+  similarGames: [],
+  rating: 94,
+  ratingCount: 120,
+  hypes: null,
+  developer: null,
+  publisher: null,
   releaseDate: '2019-10-15T00:00:00.000Z',
-  releaseStatus: null,
+  releaseStatus: 'released',
 }
 
-const gameRef = ref<RecoGame | null>(null)
+const gameRef = ref<IgdbGameDetail | null>(null)
 const loadingRef = ref(false)
 const loadMock = vi.fn()
 
@@ -81,5 +94,11 @@ describe('GameCatalogDetailDesktop', () => {
     gameRef.value = fakeGame
     wrapper = mount(GameCatalogDetailDesktop, { global: { stubs } })
     expect(wrapper.find('.cdd__chip').text()).toBe('RPG')
+  })
+
+  it('affiche le résumé', () => {
+    gameRef.value = fakeGame
+    wrapper = mount(GameCatalogDetailDesktop, { global: { stubs } })
+    expect(wrapper.find('.cdd__summary').text()).toBe(fakeGame.summary)
   })
 })

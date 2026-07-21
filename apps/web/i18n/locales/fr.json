@@ -226,6 +226,33 @@
       "alt": "Next Quest"
     }
   },
+  "timeline": {
+    "title": "Sorties de jeux",
+    "subtitle": "Ce que le destin te réserve",
+    "tabs": {
+      "upcoming": "Prophéties à venir",
+      "followed": "Quêtes annoncées"
+    },
+    "searchPlaceholder": "Rechercher un jeu…",
+    "filterBtn": "Filtres",
+    "filterReset": "Réinitialiser",
+    "filterClose": "Fermer les filtres",
+    "filterApply": "Appliquer",
+    "filterGenres": "Genres",
+    "filterGenresEmpty": "Aucun genre disponible pour l'instant.",
+    "sortLabel": "Tri",
+    "sortHype": "Popularité",
+    "sortDate": "Date de sortie",
+    "loadMore": "Voir plus",
+    "loadError": "Impossible de charger les jeux à venir",
+    "retry": "Réessayer",
+    "upcomingEmpty": "Aucun jeu à venir pour ces critères",
+    "followedEmpty": "Aucune quête annoncée pour l'instant",
+    "followedEmptyHint": "Suis un jeu depuis l'onglet « Prophéties à venir » pour le retrouver ici.",
+    "follow": "Suivre ce jeu",
+    "unfollow": "Ne plus suivre ce jeu",
+    "releaseUnknown": "Date inconnue"
+  },
   "common": {
     "loading": "Chargement en cours"
   }

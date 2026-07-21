@@ -1462,3 +1462,21 @@ Scan Silktide sur `/game-list` : "People using screen readers are not able to se
 | `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
 | `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
 | Capture d'écran toolbar recherche + filtre, mobile et desktop | ✅ aucun changement visuel (label en `sr-only`) |
+
+## 2026-07-21 — Session 23 : Contraste du champ de recherche /game-list (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/game-list` : bordure du champ de recherche (`.gl__search` / `.glm__search`) à `rgba(var(--nq-brown-rgb), 0.22)` — 1.46:1 sur le fond tricoté, sous le seuil 3:1 requis pour les contrôles de formulaire (WCAG 1.4.11). Même symptôme que la bordure des champs de connexion/inscription corrigée en session 19, sur un composant différent.
+
+### Ce qui a été fait
+
+- `GameListDesktop.vue` (`.gl__search`) et `GameListMobile.vue` (`.glm__search`) : bordure `rgba(var(--nq-brown-rgb), 0.22)` → `1.5px solid var(--nq-brown-mid)`, même bordure que celle validée sur `PatchInput.vue`.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
+| Capture d'écran barre de recherche, mobile et desktop | ✅ bordure nettement visible, design inchangé |

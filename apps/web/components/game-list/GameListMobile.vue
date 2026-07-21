@@ -297,7 +297,9 @@ const {
   width: 100%;
   padding: 7px 10px 7px 30px;
   border-radius: 10px;
-  border: 1px solid rgba(var(--nq-brown-rgb), 0.22);
+  /* WCAG 1.4.11 : la bordure à 0.22 d'opacité ne ressortait pas assez du
+     fond tricoté (1.46:1, Silktide). Même bordure que PatchInput.vue. */
+  border: 1.5px solid var(--nq-brown-mid);
   background: rgba(var(--nq-white-rgb), 0.65);
   font-family: var(--nq-font);
   font-size: 0.85rem;

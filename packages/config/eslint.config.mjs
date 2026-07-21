@@ -14,6 +14,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/.nuxt/**", "**/.expo/**"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/.nuxt/**", "**/.output/**", "**/.expo/**"],
   }
 );

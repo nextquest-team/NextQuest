@@ -75,8 +75,10 @@ const {
     <!-- Barre recherche + filtre -->
     <div class="gl__toolbar">
       <div class="gl__search-wrap">
+        <label for="gl-search" class="sr-only">{{ t('gameList.searchPlaceholder') }}</label>
         <v-icon class="gl__search-icon" size="18">mdi-magnify</v-icon>
         <input
+          id="gl-search"
           v-model="searchQuery"
           class="gl__search"
           type="search"

@@ -1439,3 +1439,26 @@ Scan Silktide sur `/game-list`, deux points liés au même thème (fond crème `
 | `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
 | `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
 | Capture d'écran carte de jeu (boutons de statut) + tiroir de filtres ouvert | ✅ texte plus lisible, design inchangé |
+
+## 2026-07-21 — Session 22 : Labels manquants sur /game-list (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/game-list` : "People using screen readers are not able to see the layout of a form" — 2 problèmes remontés.
+
+1. Champ de recherche ("Rechercher un jeu…") : seul un `placeholder` était présent, pas de label associé — un lecteur d'écran n'annonce pas de nom pour ce contrôle une fois le texte saisi (le placeholder disparaît du DOM accessible dans certains cas, et n'est de toute façon pas un substitut valide au label selon WCAG).
+2. Bouton filtre mobile (`role` bouton implicite) : icône seule (`mdi-tune-variant`), sans texte visible ni `aria-label` — aucun nom accessible.
+
+### Ce qui a été fait
+
+- `GameListDesktop.vue` et `GameListMobile.vue` — ajout d'un `<label for="..." class="sr-only">` (classe utilitaire déjà existante dans `main.css`) associé à l'`<input type="search">` via `id`/`for`, reprenant le texte de `gameList.searchPlaceholder`. Le placeholder visuel est conservé tel quel.
+- `GameListMobile.vue` — `aria-label="t('gameList.filterBtn')"` ajouté sur `.glm__filter-toggle` (icône seule sur mobile ; la version desktop a déjà le texte "Filtres" visible, non concernée).
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Nom accessible calculé (`input.labels[0]`, `button.getAttribute('aria-label')`) | ✅ "Search a game…" / "Filters" |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
+| Capture d'écran toolbar recherche + filtre, mobile et desktop | ✅ aucun changement visuel (label en `sr-only`) |

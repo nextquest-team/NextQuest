@@ -65,8 +65,10 @@ const {
       <!-- Toolbar recherche + filtre -->
       <div class="glm__toolbar">
         <div class="glm__search-wrap">
+          <label for="glm-search" class="sr-only">{{ t('gameList.searchPlaceholder') }}</label>
           <v-icon class="glm__search-icon" size="16">mdi-magnify</v-icon>
           <input
+            id="glm-search"
             v-model="searchQuery"
             class="glm__search"
             type="search"
@@ -76,6 +78,7 @@ const {
         <button
           class="glm__filter-toggle"
           :class="{ 'glm__filter-toggle--active': activeFilterCount > 0 }"
+          :aria-label="t('gameList.filterBtn')"
           @click="drawerOpen = true"
         >
           <v-icon size="16">mdi-tune-variant</v-icon>

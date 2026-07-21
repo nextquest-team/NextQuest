@@ -147,11 +147,12 @@ describe("importSteamLibrary", () => {
     expect(await importSteamLibrary(userId, [])).toBe(0);
   });
 
-  it("classe le statut initial selon le temps de jeu (playing si joue, sinon backlog)", async () => {
+  it("classe le statut initial selon le temps de jeu TOTAL (playing si joue meme sans partie recente, sinon backlog)", async () => {
     const userId = await createUser();
 
     await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 120 },
+      // Joue par le passe mais pas recemment (recent = 0) : doit rester "playing".
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 0 },
       { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 0, playtimeRecentMinutes: 0 },
     ]);
 

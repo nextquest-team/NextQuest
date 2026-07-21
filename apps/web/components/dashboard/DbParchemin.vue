@@ -42,8 +42,8 @@ const { t } = useI18n()
   font-size: clamp(0.875rem, 1.8vw, 0.95rem);
   padding: 5px 14px;
   border-radius: 5px;
-  background: #7a3e2a;
-  color: #edc78e;
+  background: var(--nq-brown-mid);
+  color: var(--nq-cream-light);
   white-space: nowrap;
   min-height: 44px;
   display: inline-flex;

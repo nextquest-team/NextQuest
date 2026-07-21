@@ -23,13 +23,68 @@
   unicode-range: U+0020-00A8, U+00AA-00AD, U+00AF-2121, U+2123-FFFF;
 }
 
+/*
+ * Ces variables dupliquent volontairement les couleurs du thème Vuetify
+ * (apps/web/nuxt.config.ts > vuetify.vuetifyOptions.theme.themes.nextquest.colors) :
+ * Vuetify a besoin de valeurs hex en JS, le CSS hors-composants (fonts, boutons
+ * "patch", focus...) a besoin de custom properties. Si tu changes une couleur
+ * pour l'accessibilité, mets à jour les DEUX endroits.
+ */
 :root {
-  --nq-brown: #5C3317;
-  --nq-brown-dark: #3A1A0A;
-  --nq-cream: #F8F4EA;
-  --nq-beige: #EDE8DC;
-  --nq-red: #8B1F1F;
+  --nq-brown: #5C3317;          /* = primary */
+  --nq-brown-light: #A07850;    /* = primary-light */
+  --nq-brown-mid: #7A3E2A;      /* = primary-dark */
+  --nq-brown-dark: #3A1A0A;     /* = on-background / on-surface */
+  --nq-cream: #F8F4EA;          /* = secondary / surface */
+  --nq-cream-light: #EDC78E;    /* = secondary-light */
+  --nq-gold: #C8A44A;           /* = gold (étoile de notation) */
+  --nq-beige: #EDE8DC;          /* = background */
+  --nq-red: #8B1F1F;            /* = error */
+  --nq-white: #FFFFFF;
+  --nq-black: #000000;
+  --nq-focus: #264a2e;
+  --nq-cream-alt: #F5EDDF;
+  --nq-gold-dark: #C8860A;
+  --nq-navy: #1A2F48;
+  --nq-text-alt: #332B25;
+  --nq-red-dark: #6E1818;
+  --nq-overlay-brown: #56311B;
+  --nq-overlay-sage: #5B6A5B;
+  --nq-gold-rgb: 200, 164, 74;
+  --nq-scrim-rgb: 30, 14, 4;
+  --nq-success-bg: #D4EDDA;
+  --nq-success-text: #1A5C2A;
+  --nq-warning-bg: #FDEBC8;
+  --nq-warning-text: #7A4A00;
+
+  /* Triplets RGB — pour les usages rgba(var(--nq-x-rgb), alpha) (survols, bordures, ombres) */
+  --nq-brown-rgb: 92, 51, 23;
+  --nq-brown-mid-rgb: 122, 62, 42;
+  --nq-brown-dark-rgb: 58, 26, 10;
+  --nq-cream-light-rgb: 237, 199, 142;
+  --nq-cream-alt-rgb: 245, 237, 223;
+  --nq-red-rgb: 139, 31, 31;
+  --nq-white-rgb: 255, 255, 255;
+  --nq-black-rgb: 0, 0, 0;
+
   --nq-font: 'Knights Quest', 'Georgia', serif;
+
+  /*
+   * Couleurs de marques tierces (logos officiels Steam/Google/Microsoft).
+   * Ne PAS les faire suivre le thème d'accessibilité : ce sont des identités
+   * visuelles externes imposées par ces marques, pas la palette de l'app.
+   */
+  --brand-steam-bg: #1B2838;
+  --brand-steam-bg-hover: #2A475E;
+  --brand-steam-text: #C6D4DF;
+  --brand-google-blue: #4285F4;
+  --brand-google-green: #34A853;
+  --brand-google-yellow: #FBBC05;
+  --brand-google-red: #EA4335;
+  --brand-microsoft-red: #F25022;
+  --brand-microsoft-green: #7FBA00;
+  --brand-microsoft-blue: #00A4EF;
+  --brand-microsoft-yellow: #FFB900;
 }
 
 *, *::before, *::after {
@@ -51,7 +106,7 @@ html, body {
 
 /* Focus visible sur tous les éléments interactifs */
 :focus-visible {
-  outline: 3px solid #264a2e;
+  outline: 3px solid var(--nq-focus);
   outline-offset: 4px;
   border-radius: 4px;
 }
@@ -119,6 +174,13 @@ html, body {
   transition: transform 0.15s ease, filter 0.15s ease;
 }
 
+/* outline: none plus haut réinitialise aussi le focus-visible global — on le restaure ici */
+.patch-btn:focus-visible {
+  outline: 3px solid var(--nq-focus);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
 .patch-btn:hover {
   transform: translateY(-1px);
   filter: brightness(0.95);
@@ -164,6 +226,13 @@ html, body {
   transition: transform 0.15s ease, filter 0.15s ease;
 }
 
+/* outline: none plus haut réinitialise aussi le focus-visible global — on le restaure ici */
+.patch-btn-back:focus-visible {
+  outline: 3px solid var(--nq-focus);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
 .patch-btn-back:hover {
   transform: translateY(-1px);
   filter: brightness(0.95);
@@ -182,7 +251,7 @@ html, body {
   font-family: var(--nq-font);
   font-variant: small-caps;
   letter-spacing: 0.04em;
-  color: #ffffff !important;
+  color: var(--nq-white) !important;
   cursor: pointer;
   transition: filter 0.15s ease, transform 0.15s ease;
   text-transform: none !important;

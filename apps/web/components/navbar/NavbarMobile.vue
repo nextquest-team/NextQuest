@@ -18,17 +18,19 @@ function isActive(to: string) {
 
 <template>
   <nav class="nm" :aria-label="t('nav.label')">
-    <NuxtLink
-      v-for="item in items"
-      :key="item.key"
-      :to="item.to"
-      class="nm__item"
-      :class="{ 'nm__item--active': isActive(item.to) }"
-      :aria-current="isActive(item.to) ? 'page' : undefined"
-    >
-      <v-icon class="nm__icon" aria-hidden="true">{{ item.icon }}</v-icon>
-      <span class="nm__label">{{ t(`nav.${item.key}`) }}</span>
-    </NuxtLink>
+    <ul class="nm__list">
+      <li v-for="item in items" :key="item.key">
+        <NuxtLink
+          :to="item.to"
+          class="nm__item"
+          :class="{ 'nm__item--active': isActive(item.to) }"
+          :aria-current="isActive(item.to) ? 'page' : undefined"
+        >
+          <v-icon class="nm__icon" aria-hidden="true">{{ item.icon }}</v-icon>
+          <span class="nm__label">{{ t(`nav.${item.key}`) }}</span>
+        </NuxtLink>
+      </li>
+    </ul>
   </nav>
 </template>
 
@@ -39,12 +41,25 @@ function isActive(to: string) {
   left: 0;
   right: 0;
   height: 64px;
+  background: #1e0f05;
+  border-top: 1.5px solid var(--nq-brown-mid);
+  z-index: 100;
+  box-shadow: 0 -2px 12px rgba(var(--nq-black-rgb), 0.4);
+}
+
+.nm__list {
   display: flex;
   align-items: stretch;
-  background: #1e0f05;
-  border-top: 1.5px solid #7a3e2a;
-  z-index: 100;
-  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.4);
+  height: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nm__list li {
+  flex: 1;
+  display: flex;
+  min-width: 0;
 }
 
 .nm__item {
@@ -55,7 +70,7 @@ function isActive(to: string) {
   justify-content: center;
   gap: 2px;
   text-decoration: none;
-  color: rgba(237, 199, 142, 0.6);
+  color: rgba(var(--nq-cream-light-rgb), 0.6);
   transition: color 0.2s;
   padding: 0 2px;
   min-width: 0;
@@ -63,16 +78,16 @@ function isActive(to: string) {
 }
 
 .nm__item--active {
-  color: #edc78e;
-  border-top-color: #edc78e;
+  color: var(--nq-cream-light);
+  border-top-color: var(--nq-cream-light);
 }
 
 .nm__item:hover {
-  color: rgba(237, 199, 142, 0.85);
+  color: rgba(var(--nq-cream-light-rgb), 0.85);
 }
 
 .nm__item:focus-visible {
-  outline: 2px solid #edc78e;
+  outline: 2px solid var(--nq-cream-light);
   outline-offset: -3px;
   border-radius: 4px;
 }

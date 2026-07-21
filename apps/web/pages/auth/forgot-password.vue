@@ -14,9 +14,7 @@ const { t } = useI18n()
   <div class="forgot-page">
     <div class="forgot-content">
       <div class="forgot-header">
-        <UiPatchButton variant="back" @click="navigateTo('/auth/login')">
-          <v-icon>mdi-arrow-left</v-icon>
-        </UiPatchButton>
+        <UiBackButton to="/auth/login" />
       </div>
 
       <div class="forgot-message">

@@ -1,4 +1,8 @@
 {
+  "meta": {
+    "landingTitle": "Welcome",
+    "landingHeading": "Welcome to My Next Quest is..."
+  },
   "auth": {
     "login": "Login",
     "register": "Sign up",
@@ -11,6 +15,8 @@
       "emailPlaceholder": "example{'@'}email.com",
       "password": "Password",
       "passwordConfirm": "Confirm password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
       "username": "Username",
       "usernamePlaceholder": "MyUsername"
     },
@@ -28,6 +34,7 @@
   },
   "nav": {
     "label": "Main navigation",
+    "back": "Back",
     "dashboard": "Home",
     "gameList": "My games",
     "actualites": "News",
@@ -86,6 +93,7 @@
     },
     "filterAll": "All",
     "filterBtn": "Filters",
+    "filterClose": "Close filters",
     "filterReset": "Reset",
     "filterApply": "Apply",
     "filterPlatform": "Platform",

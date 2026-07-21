@@ -57,7 +57,7 @@ function ratingStars(rating: number | null): string {
 <template>
   <!-- Slot vide -->
   <div v-if="!reco" class="nq-slot-empty">
-    <v-icon :size="isMain ? 28 : 24" color="rgba(92,51,23,0.4)">{{ emptyIcon }}</v-icon>
+    <v-icon :size="isMain ? 28 : 24" color="rgba(var(--nq-brown-rgb), 0.4)">{{ emptyIcon }}</v-icon>
     <p>{{ t('nextQuest.noReco') }}</p>
   </div>
 
@@ -89,7 +89,7 @@ function ratingStars(rating: number | null): string {
         </div>
 
         <p class="nq-card-reason">
-          <v-icon size="12" color="#a07850">mdi-lightning-bolt</v-icon>
+          <v-icon size="12" color="primary-light">mdi-lightning-bolt</v-icon>
           {{ reco.reason.text }}
         </p>
       </div>
@@ -98,7 +98,7 @@ function ratingStars(rating: number | null): string {
       <span role="link" tabindex="0" class="nq-hero-img" @click="goToGame()" @keydown.enter="goToGame()">
         <img v-if="reco.game.coverUrl" :src="reco.game.coverUrl" :alt="reco.game.title" />
         <div v-else class="nq-card-cover-ph">
-          <v-icon size="40" color="#a07850">mdi-gamepad-variant</v-icon>
+          <v-icon size="40" color="primary-light">mdi-gamepad-variant</v-icon>
         </div>
       </span>
 
@@ -126,7 +126,7 @@ function ratingStars(rating: number | null): string {
       <span role="link" tabindex="0" class="nq-card-cover nq-card-cover--sm" @click="goToGame()" @keydown.enter="goToGame()">
         <img v-if="reco.game.coverUrl" :src="reco.game.coverUrl" :alt="reco.game.title" />
         <div v-else class="nq-card-cover-ph">
-          <v-icon size="22" color="#a07850">mdi-gamepad-variant</v-icon>
+          <v-icon size="22" color="primary-light">mdi-gamepad-variant</v-icon>
         </div>
       </span>
 
@@ -192,8 +192,8 @@ function ratingStars(rating: number | null): string {
   border-bottom: 1px solid transparent;
 }
 
-.nq-card-badge--discovery { background: rgba(92,51,23,0.10);  color: #5C3317; border-bottom-color: rgba(92,51,23,0.14); }
-.nq-card-badge--library   { background: rgba(26,47,72,0.09);  color: #1A2F48; border-bottom-color: rgba(26,47,72,0.12); }
+.nq-card-badge--discovery { background: rgba(var(--nq-brown-rgb), 0.10);  color: var(--nq-brown); border-bottom-color: rgba(var(--nq-brown-rgb), 0.14); }
+.nq-card-badge--library   { background: rgba(26,47,72,0.09);  color: var(--nq-navy); border-bottom-color: rgba(26,47,72,0.12); }
 .nq-card-badge--upcoming  { background: rgba(40,65,40,0.09);  color: #284128; border-bottom-color: rgba(40,65,40,0.12); }
 
 /* ═══════════════════════════════════════════════════════
@@ -212,7 +212,7 @@ function ratingStars(rating: number | null): string {
   height: 120px;
   border-radius: 4px;
   overflow: hidden;
-  background: rgba(92, 51, 23, 0.06);
+  background: rgba(var(--nq-brown-rgb), 0.06);
 }
 
 .nq-card-cover--sm { width: 80px; height: 108px; }
@@ -293,7 +293,7 @@ function ratingStars(rating: number | null): string {
 
 .nq-card-reason {
   font-size: 0.85rem;
-  color: rgba(0, 0, 0, 0.65);
+  color: rgba(var(--nq-black-rgb), 0.65);
   font-style: italic;
   margin: 0;
   display: -webkit-box;
@@ -359,7 +359,7 @@ function ratingStars(rating: number | null): string {
   height: 173px;
   border-radius: 5px;
   overflow: hidden;
-  background: rgba(92, 51, 23, 0.06);
+  background: rgba(var(--nq-brown-rgb), 0.06);
   padding: 4px;
   box-sizing: border-box;
 }
@@ -413,8 +413,9 @@ function ratingStars(rating: number | null): string {
 }
 
 .nq-quest-cta {
-  background: #A65D52;
-  color: #F5EDDF;
+  /* WCAG 1.4.3 : #A65D52 sur #F5EDDF ne faisait que 4.19:1 (< 4.5:1 requis) */
+  background: var(--nq-brown-mid);
+  color: var(--nq-cream-alt);
   border: none;
   border-radius: 4px;
   padding: 7px 11px;
@@ -429,14 +430,14 @@ function ratingStars(rating: number | null): string {
   transition: background 0.15s;
   white-space: nowrap;
 }
-.nq-quest-cta:hover:not(:disabled) { background: #8B3D33; }
+.nq-quest-cta:hover:not(:disabled) { background: var(--nq-brown-dark); }
 .nq-quest-cta:disabled             { opacity: 0.5; cursor: not-allowed; }
 .nq-quest-cta--sm                  { padding: 5px 9px; font-size: 0.72rem; }
 
 .nq-quest-dismiss {
   background: transparent;
   border: none;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(var(--nq-black-rgb), 0.45);
   font-family: var(--nq-font);
   font-size: 0.76rem;
   padding: 5px 6px;
@@ -444,7 +445,7 @@ function ratingStars(rating: number | null): string {
   white-space: nowrap;
   transition: color 0.12s;
 }
-.nq-quest-dismiss:hover:not(:disabled) { color: rgba(0, 0, 0, 0.7); }
+.nq-quest-dismiss:hover:not(:disabled) { color: rgba(var(--nq-black-rgb), 0.7); }
 .nq-quest-dismiss:disabled             { opacity: 0.35; cursor: not-allowed; }
 .nq-quest-dismiss--sm                  { font-size: 0.62rem; }
 
@@ -467,7 +468,7 @@ function ratingStars(rating: number | null): string {
 
 .nq-slot-empty p {
   font-size: 0.72rem;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(var(--nq-brown-dark-rgb), 0.5);
   margin: 0;
 }
 
@@ -492,7 +493,7 @@ function ratingStars(rating: number | null): string {
 }
 
 .nq-rating {
-  color: #c8860a;
+  color: var(--nq-gold-dark);
   font-size: 0.84rem;
   display: flex;
   align-items: center;
@@ -501,7 +502,7 @@ function ratingStars(rating: number | null): string {
 
 .nq-rating__num {
   font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: rgba(var(--nq-black-rgb), 0.6);
 }
 
 .nq-date {
@@ -509,7 +510,7 @@ function ratingStars(rating: number | null): string {
   align-items: center;
   gap: 3px;
   font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: rgba(var(--nq-black-rgb), 0.6);
   margin: 0;
 }
 </style>

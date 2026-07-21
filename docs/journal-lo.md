@@ -1194,3 +1194,351 @@ Les tests existants ne couvraient pas : la vérification que le PATCH est bien e
 |---|---|
 | `vitest run useGameList.test.ts` | ✅ 19/19 |
 | `nuxi typecheck` | ✅ 0 nouvelles erreurs (2 erreurs pré-existantes catalog non liées) |
+
+## 2026-07-21 — Session 15 : Extension des tests e2e d'accessibilité à toutes les pages
+
+### Contexte
+
+Le scan axe-core + vérifs (lang/title/H1) ne couvrait que la home. Décision d'étendre à toutes les routes réelles de l'app pour avoir une régression a11y automatisée complète.
+
+### Ce qui a été fait
+
+- `accessibility-public.spec.ts` : `/auth/login`, `/auth/register`, `/auth/forgot-password`.
+- `accessibility-protected.spec.ts` : dashboard, game-list, profil, actualites, next-quest, timeline, add-game, détail jeu/catalogue — via une fixture qui mocke `/api/auth/refresh` et `/api/users/me` (le backend réel n'est pas nécessaire, les composants gèrent déjà les erreurs API en try/catch et retombent sur des états vides/introuvable, eux aussi testés).
+- Factorisation des vérifications communes dans `helpers/a11y.ts`.
+
+#### Violations réelles détectées et corrigées
+
+- H1 manquant sur ~9 pages/composants (login, register, dashboard, timeline, add-game, états "introuvable" des détails de jeu) — ajout de `<h1>` (masqué visuellement via `.sr-only` si déjà stylé autrement).
+- Profil avait 2 `<h1>` (titre de page + nom affiché) : le nom passe en `<h2>`.
+- `UiBackButton` (utilisé par `UiPageHeader` partout) sans nom accessible : ajout d'un `aria-label` (clé i18n `nav.back`).
+- Contraste insuffisant du libellé de la sidebar desktop (`.nd__label`, 3.15:1) et de plusieurs textes secondaires en beige/brun clair (jusqu'à 3.04:1) : opacité relevée pour atteindre 4.5:1 (WCAG AA).
+- Champs mot de passe (login/register) : le `label` de Vuetify n'était jamais rendu (prop absente), laissant un `aria-labelledby` orphelin. `PatchInput` passe désormais `label` à `v-text-field` et le masque visuellement en CSS (le `<span>` déjà affiché reste le seul label visible).
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/tests-e2e/accessibility-public.spec.ts`, `accessibility-protected.spec.ts`, `fixtures/auth.ts`, `helpers/a11y.ts` | Nouveaux — suite e2e étendue |
+| ~9 pages/composants (login, register, dashboard, timeline, add-game, détails jeu, `ProfilDesktop.vue`) | Ajout/correction H1 |
+| `apps/web/components/ui/BackButton.vue`, `pages/auth/forgot-password.vue` | aria-label + `UiBackButton` |
+| Sidebar + textes secondaires (`GameListDesktop.vue`, `GameDetailDesktop.vue`, `GameCatalogDetailDesktop.vue`, `ActualitesDesktop.vue`) | Contraste WCAG AA |
+| `apps/web/components/ui/PatchInput.vue` | Fix label Vuetify orphelin |
+| `apps/web/i18n/locales/{fr,en}.json` | Clé `nav.back` |
+| `apps/web/tests/pages/profil.test.ts` | Sélecteur h1→h2 |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm run test:e2e` | ✅ 14/14 |
+| `pnpm run test` | ✅ 252/252 |
+| `nuxi typecheck` | ✅ 0 nouvelle erreur |
+| `pnpm run lint` | ✅ inchangé (1709 erreurs pré-existantes, aucune introduite) |
+
+Commit `df89f14`, poussé sur `fix/accessibility`.
+
+## 2026-07-21 — Session 16 : Corrections Silktide sur /auth/login
+
+### Contexte
+
+Scan Silktide manuel sur `http://localhost:3001/auth/login` remontant 4 catégories non couvertes par la suite axe-core existante (14/14 verts malgré ces défauts réels) :
+- Field labels (WCAG 2.0 A 1.3.1) — 3 occurrences
+- Missing ARIA label IDs (WCAG 2.0 A 1.3.1) — 2 occurrences
+- Programmatic field purpose (WCAG 2.1 AA 1.3.5) — 1 occurrence
+- Form control contrast (WCAG 2.1 AA 1.4.11)
+
+### Ce qui a été fait
+
+#### Icône œil (afficher/masquer le mot de passe) sans nom accessible
+
+`append-inner-icon` de Vuetify générait un `aria-label` via la clé i18n `$vuetify.input.appendAction`, absente des fichiers de locale → texte brut non traduit exposé aux lecteurs d'écran (confirmé par un warning `[intlify] Not found '$vuetify.input.appendAction' key`).
+
+**Fix** : remplacement par le slot `#append-inner` avec un `<v-icon>` explicite, `aria-label` piloté par i18n (nouvelles clés `auth.fields.showPassword` / `hidePassword`), `role="button"`, `tabindex="0"`, et gestion clavier (`@keydown.enter.space.prevent`) en plus du clic souris.
+
+#### `autocomplete` manquant (WCAG 1.3.5 — Identify Input Purpose)
+
+Aucun attribut `autocomplete` sur les champs des formulaires auth. Ajout d'une prop `autocomplete` sur `PatchInput.vue` (forwardée à `v-text-field`), avec les valeurs WHATWG adaptées au contexte :
+- Login : `username` (email) + `current-password`.
+- Register : `username` (champ pseudo), `email`, `new-password` (mot de passe + confirmation).
+
+#### Contraste insuffisant du champ (WCAG 1.4.11 — Non-text Contrast)
+
+Le fond crème translucide du champ (`rgba(248,244,234,0.92)`) se fondait dans le fond beige de la page (`#EDE8DC`), sans limite visible (axe-core ne détecte pas ce cas, son `color-contrast` ne cible que le texte). Calcul de contraste WCAG (formule de luminance relative) : `--nq-brown-mid` (#7A3E2A) donne 6.74:1 contre le fond de page et 7.50:1 contre le fond du champ, largement au-dessus du seuil 3:1.
+
+**Fix** : `:deep(.v-field) { border: 1.5px solid var(--nq-brown-mid); }` dans `PatchInput.vue`.
+
+### Décisions techniques
+
+| Choix | Raison |
+|---|---|
+| Slot `#append-inner` plutôt que prop `append-inner-icon` | La prop Vuetify dépend d'une clé i18n interne non traduite dans l'app ; le slot donne un contrôle total sur l'`aria-label` et le clavier |
+| `autocomplete="username"` (et non `email`) sur le champ email du login | Convention WHATWG : en contexte de connexion, l'identifiant se mappe sur `username` même si visuellement c'est un email, pour s'apparier avec `current-password` |
+| Bordure plutôt que fond opaque | Ne change pas l'identité visuelle du champ (fond crème translucide voulu), ajoute juste une limite perceptible |
+
+### Bug découvert en cours de route (sans rapport avec ces fixes)
+
+Le conteneur `nextquest-web` a planté deux fois pendant les vérifications (`Exited (1)`) avec l'erreur `server.handleUpgrade() was called more than once with the same socket` — bug HMR connu de Vite en mode dev, déclenché par la charge de navigations répétées de Playwright (déjà documenté comme instabilité connue dans `playwright.config.ts`/`nuxt.config.ts`). Contournement suivi : build de prod (`pnpm run build` + `PORT=3001 node .output/server/index.mjs`) pour lancer la suite e2e, conteneur dev redémarré ensuite pour l'usage normal. Un test protégé (`/next-quest`) a également échoué une fois en exécution parallèle (spinner de chargement capturé en plein rendu) — confirmé flaky, passe systématiquement seul ou en re-run complet ; pas un vrai défaut a11y.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/ui/PatchInput.vue` | Slot icône œil + autocomplete + bordure contraste |
+| `apps/web/components/auth/LoginDesktop.vue`, `LoginMobile.vue` | `autocomplete="username"` / `current-password"` |
+| `apps/web/components/auth/RegisterDesktop.vue`, `RegisterMobile.vue` | `autocomplete="username"` / `"email"` / `"new-password"` |
+| `apps/web/i18n/locales/{fr,en}.json` | Clés `auth.fields.passwordConfirm`, `showPassword`, `hidePassword` |
+| `apps/web/tests/components/PatchInput.test.ts` | Passage en `@vitest-environment nuxt` + `mockNuxtImport('useI18n', ...)` (le nouveau `useI18n()` dans le composant cassait le montage en environnement happy-dom sans plugin i18n) |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm run test` | ✅ 252/252 |
+| `pnpm run test:e2e` (build prod) | ✅ 14/14 |
+| `nuxi typecheck` | ✅ 0 nouvelle erreur |
+| `pnpm run lint` | ✅ inchangé (1713 erreurs pré-existantes, aucune dans les fichiers modifiés) |
+
+### Points ouverts
+
+- [ ] Le mapping exact des 3 "Field labels" / 2 "Missing ARIA label IDs" de Silktide n'a pas été confirmé élément par élément au-delà du fix de l'icône œil — à revalider avec un nouveau scan Silktide une fois ces correctifs en ligne (le scan initial datait peut-être d'avant le fix du `label` Vuetify de la Session 15).
+
+## 2026-07-21 — Session 17 : Crash HMR du conteneur web (Vite 8.1.5) et double serveur Playwright
+
+### Contexte
+
+Le conteneur `nextquest-web` plantait (`Exited (1)`) avec `Error: server.handleUpgrade() was called more than once with the same socket`, systématiquement dès qu'un vrai navigateur se connectait au serveur dev.
+
+### Cause
+
+Deux bugs distincts :
+
+1. **`playwright.config.ts` spawnait un second serveur `nuxt dev` en doublon.** Le check `reuseExistingServer` interrogeait `http://localhost:3001` ; sur macOS, `localhost` résout d'abord en IPv6 (`::1`), or Docker Desktop ne publie le port du conteneur qu'en IPv4. Le check échouait donc à tort (`ECONNREFUSED ::1:3001`), Playwright croyait qu'aucun serveur ne tournait et relançait `pnpm run dev` directement sur l'hôte, en parallèle de celui de Docker — deux serveurs Vite/Nitro concurrents sur le même port.
+2. **Régression de Vite 8.1.5**, indépendante du point 1 : le conteneur plantait seul, sans aucune interférence extérieure, dès la première connexion websocket HMR d'un vrai navigateur. La version de Vite était passée de `8.0.16` à `8.1.5` en effet de bord d'un `pnpm install`, via le floor `overrides.vite: ">=8.0.5"`.
+
+En creusant cet override, découverte connexe : le bloc `pnpm.overrides` / `pnpm.onlyBuiltDependencies` du `package.json` racine n'était plus du tout appliqué depuis une montée de version de pnpm (les clés doivent vivre dans `pnpm-workspace.yaml` pour pnpm 10) — les pins de sécurité (CVEs Dependabot : `fast-jwt`, `undici`, `ws`, etc.) n'étaient donc plus honorés.
+
+### Ce qui a été fait
+
+- `apps/web/playwright.config.ts` : `webServer.url` → `http://127.0.0.1:3001` (évite le double-spawn IPv4/IPv6).
+- `pnpm-workspace.yaml` : migration de `pnpm.overrides` / `pnpm.onlyBuiltDependencies` depuis `package.json` (silencieusement ignorés), avec `vite` figé en exact `8.0.16` (au lieu du floor `>=8.0.5`) le temps que la régression HMR de 8.1.5 soit corrigée en amont.
+- `package.json` racine : suppression du bloc `pnpm.overrides`/`onlyBuiltDependencies` devenu mort.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Navigation réelle (Playwright, `/`, puis `/auth/login`, 20s d'attente) | ✅ aucun crash, restart Nitro interne survécu proprement |
+| `pnpm run test:e2e` (suite complète, conteneur dev, 14 tests en parallèle) | ✅ 13/14 — conteneur resté up tout du long, aucun crash HMR |
+| 1 échec restant (`/next-quest`, contraste `.nq-state__hint`) | Violation a11y réelle et indépendante (WCAG 1.4.3, "serious"), pas un flake HMR — à traiter séparément |
+| `pnpm run test` (web) | ✅ 252/252 |
+| `pnpm exec turbo run typecheck --filter=@nextquest/web` | ✅ 0 erreur |
+
+### Points ouverts
+
+- [ ] Traiter la violation a11y trouvée sur `/next-quest` (contraste insuffisant sur `.nq-state__hint`).
+- [ ] Repasser `vite` sur un floor (`>=8.0.5`) une fois une version ≥ 8.1.5 sans cette régression HMR disponible.
+
+## 2026-07-21 — Session 18 : Tests e2e d'accessibilité dans la CI
+
+### Ce qui a été fait
+
+Ajout de 3 étapes dans `.github/workflows/ci.yml`, après le `Build` existant :
+
+- Install des navigateurs Playwright (`chromium` uniquement, seul projet configuré).
+- Démarrage du build de prod (`node .output/server/index.mjs`) en arrière-plan, avec boucle d'attente sur `curl http://127.0.0.1:3001/`.
+- `pnpm --filter @nextquest/web test:e2e`.
+
+Tourne contre le build de prod plutôt que `nuxt dev`, pour écarter tout risque lié au HMR (voir Session 17 ci-dessus). L'auth des pages protégées étant mockée au niveau réseau (`tests-e2e/fixtures/auth.ts`), aucune dépendance à l'API ni à la DB n'était nécessaire pour cette étape.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Simulation en local du flux CI (build prod + démarrage + `test:e2e`) | ✅ 14/14 |
+| Validation syntaxique du YAML | ✅ |
+
+## 2026-07-21 — Session 19 : Bordure de contraste non détectée par Silktide
+
+### Contexte
+
+Nouveau scan Silktide sur `/auth/login` (branche actuelle) : contraste 1:1 toujours signalé en échec sur les champs email/mot de passe, alors que la bordure ajoutée en Session 16 (`:deep(.v-field) { border: 1.5px solid var(--nq-brown-mid); }`) est bien présente et rend correctement (vérifié via styles calculés + capture d'écran).
+
+### Cause
+
+La bordure est posée sur `.v-field`, le wrapper visuel de Vuetify — pas sur le `<input>` réel. Inspection du DOM généré : le `<input>` lui-même a `border: 0px none` et un fond transparent ; la bordure visible vient d'un ancêtre situé deux niveaux plus haut dans l'arbre. Un scanner qui évalue le contrôle de formulaire au sens strict (le tag `<input>`) ne voit donc aucune bordure sur l'élément qu'il inspecte, d'où le 1:1 persistant malgré un rendu visuel correct.
+
+### Pistes explorées puis abandonnées
+
+1. Dupliquer la bordure sur `.v-field__input` en plus de celle sur `.v-field`. Casse visuellement le champ mot de passe : le `<input>` s'arrête avant l'icône œil (`.v-field__append-inner`, un sibling), donc sa propre bordure droite retombe au milieu du champ — ligne verticale parasite.
+
+### Fix final
+
+Bordure retirée de `.v-field`, portée uniquement par `.v-field__input` (avec `border-radius: 12px`, valeur résolue de `rounded="lg"` sur ce thème — non hérité). Pour les champs avec icône (`.v-field--appended`, mot de passe) : bordure droite retirée de l'`<input>` et reportée sur `.v-field__append-inner`, avec `margin-right: -12px` / `padding-right: 12px` pour compenser le padding réservé à l'icône sur `.v-field` et faire coïncider exactement le bord droit de l'icône avec celui du champ. Résultat : cadre visuellement continu (mesures de rects confirmant l'alignement pixel-perfect entre `<input>` et `.v-field__append-inner`), bordure désormais portée par le contrôle de formulaire réel.
+
+Bug préexistant découvert en cours de route (sans rapport, non corrigé) : l'icône œil du champ mot de passe utilise la police décorative de l'app (`Knights Quest`) au lieu de la police d'icônes MDI — confirmé présent aussi sur `HEAD` avant ce fix (`git stash`), donc non introduit ici.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/ui/PatchInput.vue` | Bordure de contraste déplacée de `.v-field` vers `.v-field__input` + `.v-field__append-inner` |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-public.spec.ts` | ✅ 3/3 |
+| Rects `<input>` / `.v-field__append-inner` (mêmes top/bottom, contigus) | ✅ alignement pixel-perfect |
+| Captures d'écran login + register, mobile + desktop | ✅ bordure continue, sans ligne parasite |
+
+### Points ouverts
+
+- [ ] Icône œil rendue avec la mauvaise police (`Knights Quest` au lieu de MDI) — bug préexistant, hors scope de cette session.
+
+## 2026-07-21 — Session 20 : Listes sémantiques sur /dashboard (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/dashboard` : deux grilles de jeux (sac à dos, carrousel de sorties) sont des liens groupés sans structure de liste, remontées comme "looks like navigation, should be rewritten as a list". Un 3e point sur le contraste d'un lien "mot de passe oublié" a été écarté (mesure à la pipette imprécise, couleurs ne correspondant à rien dans le code actuel).
+
+### Ce qui a été fait
+
+- `DashboardDesktop.vue` — `.dd__bag-grid` : `<div>` + `NuxtLink` en boucle converti en `<ul>` + `<li>` (reset `list-style`/`margin`/`padding`, la grille CSS existante s'applique aux `<li>` sans changement visuel).
+- `DbGameCards.vue` (composant partagé mobile/desktop) — `.game-cards__track` : même conversion en `<ul>`/`<li>`. L'ancien balisage utilisait déjà `role="list"`/`role="listitem"`, mais sur des éléments non directement imbriqués (un `<div>` intermédiaire cassait la relation ARIA list/listitem), d'où le signalement malgré les rôles ARIA. `role="list"` sur `.game-cards__scroll` remplacé par `role="group"` (le scroll n'est plus la liste elle-même, seul le `<ul>` l'est).
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `nuxi typecheck` | ✅ 0 nouvelle erreur |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g dashboard` | ✅ 1/1 |
+| Capture d'écran dashboard desktop | ✅ layout identique |
+
+## 2026-07-21 — Session 21 : Contraste "Statut du jeu" sur /game-list (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/game-list`, deux points liés au même thème (fond crème `#F8F4EA` de la carte / du tiroir de filtres) :
+
+1. Texte des boutons de statut inactifs ("Terminé", "En cours", etc.) : contraste 4.19:1 (calcul manuel), sous le seuil 4.5:1 requis pour du petit texte.
+2. Titre de section "Statut du jeu" dans le tiroir de filtres : `#907C6F` sur `#F8F4EA`, 3.61:1 — correspondance exacte avec les valeurs remontées par Silktide (`rgba(--nq-brown-dark-rgb), 0.55)` recalculé donne pixel pour pixel `#907C6F`), confirmant que c'est bien cet élément-là qui était signalé.
+
+### Ce qui a été fait
+
+- `GameListCard.vue` — `.gl-card__status-btn` : `rgba(var(--nq-brown-dark-rgb), 0.6)` → `0.7`. Composant partagé entre `GameListMobile.vue` et `GameListDesktop.vue`, donc les deux vues sont couvertes par ce seul changement. Le style du bouton actif (fond marron plein, texte crème) n'est pas concerné.
+- `GameListMobile.vue` et `GameListDesktop.vue` — `.gl-drawer__section-title` (titre "Statut du jeu" / "Plateforme" / "Catégories" du tiroir de filtres) : `rgba(var(--nq-brown-dark-rgb), 0.55)` → `0.7`, dupliqué dans les deux fichiers (pas de composant partagé pour le tiroir).
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Contraste recalculé (formule WCAG) | ✅ boutons de statut ~5.7:1, titres de section ~5.7:1 (les deux passaient par `rgba(--nq-brown-dark-rgb), 0.7)` sur `#F8F4EA`) |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
+| Capture d'écran carte de jeu (boutons de statut) + tiroir de filtres ouvert | ✅ texte plus lisible, design inchangé |
+
+## 2026-07-21 — Session 22 : Labels manquants sur /game-list (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/game-list` : "People using screen readers are not able to see the layout of a form" — 2 problèmes remontés.
+
+1. Champ de recherche ("Rechercher un jeu…") : seul un `placeholder` était présent, pas de label associé — un lecteur d'écran n'annonce pas de nom pour ce contrôle une fois le texte saisi (le placeholder disparaît du DOM accessible dans certains cas, et n'est de toute façon pas un substitut valide au label selon WCAG).
+2. Bouton filtre mobile (`role` bouton implicite) : icône seule (`mdi-tune-variant`), sans texte visible ni `aria-label` — aucun nom accessible.
+
+### Ce qui a été fait
+
+- `GameListDesktop.vue` et `GameListMobile.vue` — ajout d'un `<label for="..." class="sr-only">` (classe utilitaire déjà existante dans `main.css`) associé à l'`<input type="search">` via `id`/`for`, reprenant le texte de `gameList.searchPlaceholder`. Le placeholder visuel est conservé tel quel.
+- `GameListMobile.vue` — `aria-label="t('gameList.filterBtn')"` ajouté sur `.glm__filter-toggle` (icône seule sur mobile ; la version desktop a déjà le texte "Filtres" visible, non concernée).
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Nom accessible calculé (`input.labels[0]`, `button.getAttribute('aria-label')`) | ✅ "Search a game…" / "Filters" |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
+| Capture d'écran toolbar recherche + filtre, mobile et desktop | ✅ aucun changement visuel (label en `sr-only`) |
+
+## 2026-07-21 — Session 23 : Contraste du champ de recherche /game-list (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/game-list` : bordure du champ de recherche (`.gl__search` / `.glm__search`) à `rgba(var(--nq-brown-rgb), 0.22)` — 1.46:1 sur le fond tricoté, sous le seuil 3:1 requis pour les contrôles de formulaire (WCAG 1.4.11). Même symptôme que la bordure des champs de connexion/inscription corrigée en session 19, sur un composant différent.
+
+### Ce qui a été fait
+
+- `GameListDesktop.vue` (`.gl__search`) et `GameListMobile.vue` (`.glm__search`) : bordure `rgba(var(--nq-brown-rgb), 0.22)` → `1.5px solid var(--nq-brown-mid)`, même bordure que celle validée sur `PatchInput.vue`.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
+| Capture d'écran barre de recherche, mobile et desktop | ✅ bordure nettement visible, design inchangé |
+
+## 2026-07-21 — Session 24 : Label manquant sur le bouton de fermeture du tiroir de filtres (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/game-list` : `.gl-drawer__close` (icône `mdi-close` du tiroir de filtres) n'a ni texte visible ni `aria-label` — aucun nom accessible.
+
+### Ce qui a été fait
+
+- Ajout de la clé `gameList.filterClose` ("Fermer les filtres" / "Close filters") dans `fr.json` et `en.json`.
+- `GameListDesktop.vue` et `GameListMobile.vue` — `aria-label="t('gameList.filterClose')"` ajouté sur `.gl-drawer__close`.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Nom accessible calculé (`button.getAttribute('aria-label')`) | ✅ "Close filters" |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
+
+## 2026-07-21 — Session 25 : Listes sémantiques sur la navigation (Silktide)
+
+### Contexte
+
+Scan Silktide sur `NavbarDesktop.vue` (sidebar) et `NavbarMobile.vue` (bottom nav) : les 6 liens de navigation (Accueil, Mes jeux, Actualités, Next Quest, Sorties de jeux, Profil) sont rendus comme une suite de `NuxtLink` sans structure de liste — même signalement "looks like navigation, should be rewritten as a list" que sur le dashboard (session 20).
+
+### Ce qui a été fait
+
+- `NavbarDesktop.vue` — les `NuxtLink` sont maintenant enveloppés dans `<ul class="nd__list"><li>`, sous le `<nav>` existant (le logo reste un `<div>` frère, hors de la liste). `list-style`/`margin`/`padding` réinitialisés, `display: flex; flex-direction: column` repris sur `.nd__list` (c'était sur `.nd` avant).
+- `NavbarMobile.vue` — même conversion. Le flex horizontal (`display: flex; align-items: stretch`) et la hauteur pleine sont déplacés de `.nm` vers `.nm__list` ; chaque `<li>` reçoit `flex: 1` (ce rôle tenait auparavant sur `.nm__item` directement) pour que les 6 items gardent une largeur égale.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts` | ✅ 8/9 (1 échec pré-existant sur `/next-quest`, contraste `.nq-state__hint`, confirmé sans lien avec ce changement via `git stash`) |
+| Capture d'écran sidebar desktop + bottom nav mobile | ✅ layout identique |
+
+### Points ouverts
+
+- [x] `.nq-state__hint` sur `/next-quest` — corrigé en session 26.
+
+## 2026-07-21 — Session 26 : Contraste texte sur /next-quest (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/next-quest` : catégorie "Text contrast", 3 problèmes remontés. Un seul détaillé par Silktide — le bouton "Accepter la quête" (`#F5EDDF` sur `#A65D52`, 4.19:1, sous le seuil 4.5:1 requis pour le petit texte). Les deux autres n'ont pas été précisés par l'outil ; investigation du fichier `next-quest.vue` et calcul manuel de luminance/contraste pour les retrouver.
+
+### Ce qui a été fait
+
+- `RecoCard.vue` (`.nq-quest-cta`, bouton CTA "Accepter la quête" / "Reprendre la quête" / "Suivre la sortie") : fond `#A65D52` (4.19:1) → `var(--nq-brown-mid)` (7.08:1), texte inchangé (`var(--nq-cream-alt)`). État `:hover` `#8B3D33` → `var(--nq-brown-dark)`, pour rester cohérent avec le nouveau fond.
+- `next-quest.vue` — deux autres textes utilisant le même motif `rgba(var(--nq-brown-dark-rgb), alpha)` sous le seuil, retrouvés par calcul de contraste sur fond `#F8F4EA` : `.nq-subtitle` (alpha 0.5 → 3.13:1) et `.nq-state__hint` (alpha 0.55 → 3.61:1, c'est le point ouvert de la session 25). Les deux passés à alpha `0.7` (5.74:1), même valeur que les fixes précédents sur `/game-list`.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Couleurs calculées appliquées (`getComputedStyle` via Playwright) | ✅ CTA `rgb(122,62,42)` / `rgb(245,237,223)`, subtitle `rgba(58,26,10,0.7)` |
+| Capture d'écran cartes Next Quest, mobile et desktop | ✅ teinte marron toujours cohérente avec le reste de l'UI, pas de régression |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g next-quest` | ✅ 1/1 (le point ouvert de la session 25 est résolu) |

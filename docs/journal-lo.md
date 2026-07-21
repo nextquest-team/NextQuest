@@ -1416,3 +1416,22 @@ Scan Silktide sur `/dashboard` : deux grilles de jeux (sac à dos, carrousel de 
 | `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
 | `playwright test tests-e2e/accessibility-protected.spec.ts -g dashboard` | ✅ 1/1 |
 | Capture d'écran dashboard desktop | ✅ layout identique |
+
+## 2026-07-21 — Session 21 : Contraste "Statut du jeu" sur /game-list (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/game-list` : le texte des boutons de statut inactifs ("Terminé", "En cours", etc.) affiche un contraste de 3.61:1 sur le fond crème de la carte, sous le seuil de 4.5:1 requis pour du petit texte (0.65rem).
+
+### Ce qui a été fait
+
+- `GameListCard.vue` — `.gl-card__status-btn` : couleur du texte `rgba(var(--nq-brown-dark-rgb), 0.6)` → `0.7`. Composant partagé entre `GameListMobile.vue` et `GameListDesktop.vue`, donc les deux vues sont couvertes par ce seul changement. Le style du bouton actif (fond marron plein, texte crème) n'est pas concerné.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Contraste recalculé (formule WCAG) | ✅ ~5.7:1 (couleur effective ≈ `#736153` sur `#F8F4EA`) |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
+| Capture d'écran carte de jeu (boutons de statut) | ✅ texte plus lisible, design inchangé |

@@ -200,7 +200,10 @@ function onDelete(e: Event) {
   border-radius: 6px;
   border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
   background: transparent;
-  color: rgba(var(--nq-brown-dark-rgb), 0.6);
+  /* WCAG 1.4.3 : 0.6 donnait ~3.6:1 sur le fond crème (Silktide), sous les
+     4.5:1 requis pour ce texte de petite taille (0.65rem). 0.7 remonte
+     à ~5.7:1 en restant visuellement discret par rapport aux statuts actifs. */
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
   font-family: var(--nq-font);
   font-size: 0.65rem;
   cursor: pointer;

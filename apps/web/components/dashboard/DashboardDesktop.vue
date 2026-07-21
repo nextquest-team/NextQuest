@@ -48,21 +48,23 @@ onMounted(fetchBagGames)
         {{ t('dashboard.sacoche.gameList') }}
       </NuxtLink>
       <!-- Grille 3×3 des derniers jeux ajoutés + encart ajout -->
-      <div class="dd__bag-grid">
-        <NuxtLink
-          v-for="game in bagGames"
-          :key="game.id"
-          :to="`/games/${game.id}`"
-          class="dd__bag-thumb"
-          :title="game.title"
-        >
-          <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" />
-          <v-icon v-else size="28" color="rgba(var(--nq-brown-mid-rgb), 0.4)">mdi-gamepad-variant-outline</v-icon>
-        </NuxtLink>
-        <NuxtLink to="/game-list" class="dd__bag-thumb dd__bag-thumb--add" :aria-label="t('dashboard.sacoche.addGame')">
-          <v-icon size="28" color="primary-dark">mdi-plus</v-icon>
-        </NuxtLink>
-      </div>
+      <ul class="dd__bag-grid">
+        <li v-for="game in bagGames" :key="game.id">
+          <NuxtLink
+            :to="`/games/${game.id}`"
+            class="dd__bag-thumb"
+            :title="game.title"
+          >
+            <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" />
+            <v-icon v-else size="28" color="rgba(var(--nq-brown-mid-rgb), 0.4)">mdi-gamepad-variant-outline</v-icon>
+          </NuxtLink>
+        </li>
+        <li>
+          <NuxtLink to="/game-list" class="dd__bag-thumb dd__bag-thumb--add" :aria-label="t('dashboard.sacoche.addGame')">
+            <v-icon size="28" color="primary-dark">mdi-plus</v-icon>
+          </NuxtLink>
+        </li>
+      </ul>
     </div>
 
     <!-- Colonne centrale : profil + boussole -->
@@ -176,6 +178,9 @@ onMounted(fetchBagGames)
   grid-template-columns: repeat(3, 1fr);
   gap: 4%;
   z-index: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .dd__bag-thumb {

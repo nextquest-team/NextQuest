@@ -58,25 +58,24 @@ function onKeydown(e: KeyboardEvent) {
     <div
       class="game-cards__scroll"
       ref="scrollEl"
-      role="list"
+      role="group"
       tabindex="0"
       aria-label="Liste de jeux, défiler horizontalement"
       @scroll="onScroll"
       @keydown="onKeydown"
     >
-      <div class="game-cards__track">
-        <NuxtLink
-          v-for="game in games"
-          :key="game.igdbId"
-          :to="`/games/catalog/${game.igdbId}`"
-          class="game-card"
-          role="listitem"
-          :aria-label="game.title"
-        >
-          <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="game-card__cover" />
-          <v-icon v-else class="game-card__placeholder" size="32" color="rgba(var(--nq-cream-light-rgb), 0.3)">mdi-gamepad-variant-outline</v-icon>
-        </NuxtLink>
-      </div>
+      <ul class="game-cards__track">
+        <li v-for="game in games" :key="game.igdbId">
+          <NuxtLink
+            :to="`/games/catalog/${game.igdbId}`"
+            class="game-card"
+            :aria-label="game.title"
+          >
+            <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="game-card__cover" />
+            <v-icon v-else class="game-card__placeholder" size="32" color="rgba(var(--nq-cream-light-rgb), 0.3)">mdi-gamepad-variant-outline</v-icon>
+          </NuxtLink>
+        </li>
+      </ul>
     </div>
 
   </div>
@@ -141,6 +140,8 @@ function onKeydown(e: KeyboardEvent) {
   gap: 4vw;
   padding: 0 6vw;
   width: max-content;
+  list-style: none;
+  margin: 0;
 }
 
 .game-card {

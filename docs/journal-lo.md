@@ -1396,3 +1396,23 @@ Bug préexistant découvert en cours de route (sans rapport, non corrigé) : l'i
 ### Points ouverts
 
 - [ ] Icône œil rendue avec la mauvaise police (`Knights Quest` au lieu de MDI) — bug préexistant, hors scope de cette session.
+
+## 2026-07-21 — Session 20 : Listes sémantiques sur /dashboard (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/dashboard` : deux grilles de jeux (sac à dos, carrousel de sorties) sont des liens groupés sans structure de liste, remontées comme "looks like navigation, should be rewritten as a list". Un 3e point sur le contraste d'un lien "mot de passe oublié" a été écarté (mesure à la pipette imprécise, couleurs ne correspondant à rien dans le code actuel).
+
+### Ce qui a été fait
+
+- `DashboardDesktop.vue` — `.dd__bag-grid` : `<div>` + `NuxtLink` en boucle converti en `<ul>` + `<li>` (reset `list-style`/`margin`/`padding`, la grille CSS existante s'applique aux `<li>` sans changement visuel).
+- `DbGameCards.vue` (composant partagé mobile/desktop) — `.game-cards__track` : même conversion en `<ul>`/`<li>`. L'ancien balisage utilisait déjà `role="list"`/`role="listitem"`, mais sur des éléments non directement imbriqués (un `<div>` intermédiaire cassait la relation ARIA list/listitem), d'où le signalement malgré les rôles ARIA. `role="list"` sur `.game-cards__scroll` remplacé par `role="group"` (le scroll n'est plus la liste elle-même, seul le `<ul>` l'est).
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `nuxi typecheck` | ✅ 0 nouvelle erreur |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g dashboard` | ✅ 1/1 |
+| Capture d'écran dashboard desktop | ✅ layout identique |

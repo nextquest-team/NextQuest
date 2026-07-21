@@ -1302,3 +1302,31 @@ Le conteneur `nextquest-web` a planté deux fois pendant les vérifications (`Ex
 ### Points ouverts
 
 - [ ] Le mapping exact des 3 "Field labels" / 2 "Missing ARIA label IDs" de Silktide n'a pas été confirmé élément par élément au-delà du fix de l'icône œil — à revalider avec un nouveau scan Silktide une fois ces correctifs en ligne (le scan initial datait peut-être d'avant le fix du `label` Vuetify de la Session 15).
+
+## 2026-07-21 — Session 17 : Correction définitive du crash HMR du conteneur web
+
+### Contexte
+
+Le conteneur `nextquest-web` plantait de façon récurrente (`Exited (1)`) avec `Error: server.handleUpgrade() was called more than once with the same socket`, documenté depuis la Session 15 comme "bug HMR connu" et jusqu'ici seulement contourné (redémarrage manuel du conteneur, build de prod pour les e2e). Le crash s'est mis à survenir dès le boot, sans lien avec la charge de tests — assez fréquent pour justifier une vraie investigation.
+
+### Analyse
+
+Le websocket HMR de Vite piggybackait par défaut sur le port 3001, le même `http.Server` que celui utilisé par Nitro pour servir l'app. Lors d'un redémarrage interne de Nitro (déclenché par le watcher en mode polling, ou par un changement de `nuxt.config.ts`), l'ancien `WebSocketServer` HMR restait accroché à l'event `'upgrade'` du socket partagé — le nouveau `WebSocketServer` créé par le restart s'ajoutait sans que l'ancien soit détaché, d'où la double registration et le crash au premier upgrade HTTP reçu (rechargement de page, navigation Playwright, etc.).
+
+### Ce qui a été fait
+
+- `nuxt.config.ts` : `vite.server.ws.port = 24678` — sort le websocket HMR sur un port dédié, avec son propre `WebSocketServer` autonome recréé proprement à chaque restart, au lieu de s'attacher au serveur HTTP partagé.
+- `docker/docker-compose.yml` : exposition du port `24678:24678` sur le service `web` pour que ce nouveau websocket soit joignable depuis le host.
+- Bug bloquant découvert en cours de route : `docker compose` (stop/up) échouait systématiquement avec `unexpected character "(" in variable name` à cause de 2 lignes de commentaire dans `.env` (`Steam`, `URLs Steam (...)`, `Twitch (IGDB)`) sans le `#` initial — invisibles avec `docker start`/`docker stop` directs sur le nom du conteneur, mais bloquantes dès qu'on passe par `docker compose`. Corrigé (`.env` n'est pas suivi par git, changement local uniquement).
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| 3 redémarrages consécutifs (`docker restart`) | ✅ 3/3 stables, HTTP 200 à chaque fois |
+| Déclenchement d'un vrai restart Nitro (édition de `nuxt.config.ts`) | ✅ `nuxt.config.ts updated. Restarting Nuxt...` sans erreur, aucune double registration |
+| `curl /auth/login` | ✅ HTTP 200 |
+
+### Points ouverts
+
+- [ ] Confirmer sur quelques jours d'usage normal que le crash ne réapparaît plus (le bug était intermittent, donc quelques redémarrages propres ne garantissent pas 100% de fiabilité — mais le mécanisme root-cause est désormais éliminé par construction).

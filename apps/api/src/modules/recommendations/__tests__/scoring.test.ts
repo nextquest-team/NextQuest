@@ -39,6 +39,7 @@ describe("cosine match (non-saturation)", () => {
         igdbRatingCount: 100,
         igdbHypes: null,
         similarVotes: 0,
+        platformIds: [],
       },
       "library_unplayed",
       1,
@@ -55,6 +56,7 @@ describe("cosine match (non-saturation)", () => {
         igdbRatingCount: 100,
         igdbHypes: null,
         similarVotes: 0,
+        platformIds: [],
       },
       "library_unplayed",
       1,
@@ -71,13 +73,13 @@ it("un jeu de qualite inconnue ne bat pas une valeur sure a profil egal", () => 
   const prof = new Map([["g:rpg", 1]]);
   const sur = scoreCandidate(
     prof,
-    { gameId: "a", genreIds: ["rpg"], tagIds: [], igdbRating: 93, igdbRatingCount: 1000, igdbHypes: null, similarVotes: 0 },
+    { gameId: "a", genreIds: ["rpg"], tagIds: [], igdbRating: 93, igdbRatingCount: 1000, igdbHypes: null, similarVotes: 0, platformIds: [] },
     "discovery",
     1,
   );
   const inconnu = scoreCandidate(
     prof,
-    { gameId: "b", genreIds: ["rpg"], tagIds: [], igdbRating: 95, igdbRatingCount: 4, igdbHypes: null, similarVotes: 0 },
+    { gameId: "b", genreIds: ["rpg"], tagIds: [], igdbRating: 95, igdbRatingCount: 4, igdbHypes: null, similarVotes: 0, platformIds: [] },
     "discovery",
     1,
   );
@@ -100,6 +102,7 @@ describe("quality-gated similarity scoring", () => {
         igdbRatingCount: 1000,
         igdbHypes: null,
         similarVotes: 80,
+        platformIds: [],
       },
       "discovery",
       100,
@@ -116,6 +119,7 @@ describe("quality-gated similarity scoring", () => {
         igdbRatingCount: 100,
         igdbHypes: null,
         similarVotes: 80,
+        platformIds: [],
       },
       "discovery",
       100,
@@ -140,6 +144,7 @@ describe("quality-gated similarity scoring", () => {
         igdbRatingCount: 100,
         igdbHypes: null,
         similarVotes: 80,
+        platformIds: [],
       },
       "discovery",
       100,
@@ -156,6 +161,7 @@ describe("quality-gated similarity scoring", () => {
         igdbRatingCount: 500,
         igdbHypes: null,
         similarVotes: 20,
+        platformIds: [],
       },
       "discovery",
       100,

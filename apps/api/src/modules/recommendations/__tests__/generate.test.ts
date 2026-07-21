@@ -392,6 +392,7 @@ describe("generateRecommendations", () => {
       igdbRatingCount: 1000,
       igdbHypes: null,
       similarVotes: 1,
+      platformIds: [],
     };
 
     const goodQualityCandidate = {
@@ -402,6 +403,7 @@ describe("generateRecommendations", () => {
       igdbRatingCount: 1000,
       igdbHypes: null,
       similarVotes: 1,
+      platformIds: [],
     };
 
     // Espionner getDiscoveryCandidates pour retourner nos candidats

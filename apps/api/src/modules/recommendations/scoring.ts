@@ -9,6 +9,7 @@ export type Candidate = {
   igdbRatingCount: number | null;
   igdbHypes: number | null;
   similarVotes: number; // proximite ponderee (0 si non applicable)
+  platformIds: string[]; // ids locaux des plateformes du jeu ; [] = inconnu (fail-open)
 };
 
 export type ScoreFactors = {

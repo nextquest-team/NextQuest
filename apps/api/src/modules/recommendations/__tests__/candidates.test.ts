@@ -6,10 +6,15 @@ import {
   userGames,
   gameGenres,
   gameTags,
+  gamePlatforms,
+  platforms,
+  services,
+  connectedServices,
   recommendations,
   genres,
   tags,
 } from "@nextquest/db";
+import { eq } from "drizzle-orm";
 import {
   getOwnedForProfile,
   getDimensionFrequencies,
@@ -17,6 +22,7 @@ import {
   getLibraryUnplayedCandidates,
   getDiscoveryCandidates,
   getUpcomingCandidates,
+  getOwnedPlatformIds,
 } from "../candidates.js";
 import { gameSimilar } from "@nextquest/db";
 import type { IgdbGame } from "../../games/igdb/igdb.client.js";
@@ -54,13 +60,17 @@ vi.mock("../hydrate.js", async () => {
 async function cleanup() {
   await db.delete(recommendations);
   await db.delete(gameSimilar);
+  await db.delete(connectedServices);
   await db.delete(userGames);
   await db.delete(gameTags);
   await db.delete(gameGenres);
+  await db.delete(gamePlatforms);
   await db.delete(games);
   await db.delete(users);
   await db.delete(tags);
   await db.delete(genres);
+  // platforms/services sont des donnees de reference (seedees par migration) : on ne
+  // les supprime jamais, seulement les jointures/possessions crees par les tests.
 }
 
 beforeEach(async () => {
@@ -398,6 +408,74 @@ describe("getSwipeDeltas", () => {
   });
 });
 
+describe("getOwnedPlatformIds", () => {
+  it("ne compte une plateforme qu'a partir de 2 jeux", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "owned-platforms@example.com",
+        username: "ownedplatformsuser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [pc] = await db.select({ id: platforms.id }).from(platforms).where(eq(platforms.code, "pc"));
+    const [switchPlatform] = await db
+      .select({ id: platforms.id })
+      .from(platforms)
+      .where(eq(platforms.code, "switch"));
+
+    // 3 jeux PC (plateforme reellement possedee) + 1 jeu Switch (jeu isole,
+    // pas assez pour prouver la possession de la console)
+    const pcGames = [];
+    for (let i = 0; i < 3; i++) {
+      const [game] = await db
+        .insert(games)
+        .values({ title: `PC Game ${i}`, slug: `pc-game-${i}`, isCustom: false })
+        .returning({ id: games.id });
+      pcGames.push(game);
+    }
+    const [switchGame] = await db
+      .insert(games)
+      .values({ title: "Switch Game", slug: "switch-game", isCustom: false })
+      .returning({ id: games.id });
+
+    await db.insert(userGames).values([
+      ...pcGames.map((g) => ({ userId: user.id, gameId: g.id, status: "backlog" as const, platformId: pc.id })),
+      { userId: user.id, gameId: switchGame.id, status: "backlog" as const, platformId: switchPlatform.id },
+    ]);
+
+    const owned = await getOwnedPlatformIds(user.id);
+
+    expect(owned.has(pc.id)).toBe(true);
+    expect(owned.has(switchPlatform.id)).toBe(false); // 1 seul jeu => pas possede
+  });
+
+  it("inclut PC si un compte Steam est lie, meme sans jeu importe sur PC", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "steam-linked@example.com",
+        username: "steamlinkeduser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [pc] = await db.select({ id: platforms.id }).from(platforms).where(eq(platforms.code, "pc"));
+    const [steamService] = await db.select({ id: services.id }).from(services).where(eq(services.code, "steam"));
+
+    await db.insert(connectedServices).values({
+      userId: user.id,
+      serviceId: steamService.id,
+      externalUserId: "76561198000000000",
+    });
+
+    const owned = await getOwnedPlatformIds(user.id);
+
+    expect(owned.has(pc.id)).toBe(true);
+  });
+});
+
 describe("getLibraryUnplayedCandidates", () => {
   it("exclut les jeux ignores (excluded_at) de library_unplayed", async () => {
     // Seed : user + un jeu backlog playtime 0 avec excluded_at = now
@@ -530,6 +608,38 @@ describe("getDiscoveryCandidates", () => {
     expect(candidates[0].gameId).toBe(gameB.id);
     expect(candidates[0].similarVotes).toBe(1);
     expect(candidates[0].igdbRating).toBe(75);
+  });
+
+  it("peuple platformIds a partir de game_platforms", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery-platforms@example.com",
+        username: "discoveryplatformsuser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [gameA] = await db
+      .insert(games)
+      .values({ title: "Game A", slug: "game-a-plat", igdbId: 100, isCustom: false })
+      .returning({ id: games.id });
+
+    const [gameB] = await db
+      .insert(games)
+      .values({ title: "Game B", slug: "game-b-plat", igdbId: 200, isCustom: false })
+      .returning({ id: games.id });
+
+    const [pc] = await db.select({ id: platforms.id }).from(platforms).where(eq(platforms.code, "pc"));
+    await db.insert(gamePlatforms).values({ gameId: gameB.id, platformId: pc.id });
+
+    await db.insert(userGames).values({ userId: user.id, gameId: gameA.id, status: "completed" });
+    await db.insert(gameSimilar).values({ gameId: gameA.id, similarIgdbId: 200 });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].platformIds).toEqual([pc.id]);
   });
 
   it("exclut les jeux possedes des candidats", async () => {

@@ -4,11 +4,15 @@ import {
   games,
   gameGenres,
   gameTags,
+  gamePlatforms,
+  platforms,
+  services,
+  connectedServices,
   recommendations,
   gameSimilar,
   genres,
 } from "@nextquest/db";
-import { and, eq, count, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, eq, count, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { OwnedGameForProfile, SwipeDelta } from "./profile.js";
 import type { Candidate } from "./scoring.js";
 import { fetchUpcomingByGenres, fetchAcclaimedByGenres, fetchGamesByDeveloper } from "../games/igdb/igdb.client.js";
@@ -34,6 +38,50 @@ async function genreTagIdsByGame(gameIds: string[]) {
   for (const r of gr) g.set(r.gameId, [...(g.get(r.gameId) ?? []), r.id]);
   for (const r of tr) t.set(r.gameId, [...(t.get(r.gameId) ?? []), r.id]);
   return { g, t };
+}
+
+// Plateformes par jeu (1 requete IN), meme motif que genreTagIdsByGame.
+async function platformIdsByGame(gameIds: string[]): Promise<Map<string, string[]>> {
+  const m = new Map<string, string[]>();
+  if (gameIds.length === 0) return m;
+  const rows = await db
+    .select({ gameId: gamePlatforms.gameId, id: gamePlatforms.platformId })
+    .from(gamePlatforms)
+    .where(inArray(gamePlatforms.gameId, gameIds));
+  for (const r of rows) m.set(r.gameId, [...(m.get(r.gameId) ?? []), r.id]);
+  return m;
+}
+
+// Petite requete locale (pas d'import depuis platforms/steam pour eviter un couplage
+// inter-modules) : un compte Steam lie implique un PC, l'import Steam ne concerne que le PC.
+async function isSteamLinked(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: connectedServices.id })
+    .from(connectedServices)
+    .innerJoin(services, eq(connectedServices.serviceId, services.id))
+    .where(and(eq(connectedServices.userId, userId), eq(services.code, "steam")))
+    .limit(1);
+  return !!row;
+}
+
+// Plateformes reellement possedees par l'user : au moins 2 jeux importes sur la
+// plateforme (un jeu isole ne prouve pas la possession -- cadeau revendu, mauvais
+// tag...). Le compte porte sur TOUS les user_games avec platform_id, ignores inclus :
+// posseder une console est un fait materiel, ignorer un jeu ne la desinstalle pas.
+// PC est toujours inclus si un compte Steam est lie, meme sans jeu tague PC.
+export async function getOwnedPlatformIds(userId: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ platformId: userGames.platformId, n: sql<number>`count(*)::int` })
+    .from(userGames)
+    .where(and(eq(userGames.userId, userId), isNotNull(userGames.platformId)))
+    .groupBy(userGames.platformId);
+  const owned = new Set(rows.filter((r) => r.n >= 2 && r.platformId).map((r) => r.platformId!));
+
+  if (await isSteamLinked(userId)) {
+    const [pc] = await db.select({ id: platforms.id }).from(platforms).where(eq(platforms.code, "pc"));
+    if (pc) owned.add(pc.id);
+  }
+  return owned;
 }
 
 export async function getOwnedForProfile(
@@ -140,6 +188,7 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
     igdbRatingCount: r.igdbRatingCount,
     igdbHypes: r.igdbHypes,
     similarVotes: 0, // pas de graphe similaire pour ce bucket
+    platformIds: [], // deja possede : pas de filtre plateforme a lui appliquer
   }));
 }
 
@@ -326,6 +375,7 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
   const { g: candidateGenres, t: candidateTags } = await genreTagIdsByGame(
     resolved.map((r) => r.gameId),
   );
+  const candidatePlatforms = await platformIdsByGame(resolved.map((r) => r.gameId));
 
   // Filtrer les candidats du graphe similaire par similarite de contenu.
   // Si peu d'info (genres manquants sur le jeu ou l'user), passer le seuil.
@@ -434,6 +484,7 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
       igdbRatingCount: r.igdbRatingCount,
       igdbHypes: r.igdbHypes,
       similarVotes: similarVotesByIgdb.get(r.igdbId!) ?? 0,
+      platformIds: candidatePlatforms.get(r.gameId) ?? [],
     }));
 }
 
@@ -528,6 +579,7 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
   const { g: resolvedGenres, t: resolvedTags } = await genreTagIdsByGame(
     resolved.map((r) => r.gameId),
   );
+  const resolvedPlatforms = await platformIdsByGame(resolved.map((r) => r.gameId));
 
   return resolved
     .filter((r) => !ownedGameIds.has(r.gameId) && !swipedGameIds.has(r.gameId))
@@ -539,5 +591,6 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
       igdbRatingCount: r.igdbRatingCount,
       igdbHypes: r.igdbHypes,
       similarVotes: 0, // pas de graphe similaire pour ce bucket
+      platformIds: resolvedPlatforms.get(r.gameId) ?? [],
     }));
 }

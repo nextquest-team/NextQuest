@@ -15,6 +15,8 @@
       "emailPlaceholder": "exemple{'@'}email.com",
       "password": "Mot de passe",
       "passwordConfirm": "Confirmation mot de passe",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe",
       "username": "Pseudo",
       "usernamePlaceholder": "MonPseudo"
     },

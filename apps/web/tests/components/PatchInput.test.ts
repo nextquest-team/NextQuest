@@ -1,10 +1,15 @@
-// @vitest-environment happy-dom
+// @vitest-environment nuxt
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import PatchInput from '~/components/ui/PatchInput.vue'
+
+mockNuxtImport('useI18n', () => () => ({
+  t: (key: string) => key,
+}))
 
 const vuetify = createVuetify({ components, directives })
 

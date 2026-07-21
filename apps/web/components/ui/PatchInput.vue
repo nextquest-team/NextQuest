@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 const props = defineProps<{
   label: string
   modelValue: string
@@ -6,6 +8,7 @@ const props = defineProps<{
   placeholder?: string
   rules?: ((v: string) => string | true)[]
   error?: string
+  autocomplete?: string
 }>()
 
 defineEmits<{
@@ -26,15 +29,25 @@ const isPassword = computed(() => props.type === 'password')
       :placeholder="placeholder"
       :rules="rules"
       :error-messages="error"
-      :append-inner-icon="isPassword ? (showPassword ? 'mdi-eye-off' : 'mdi-eye') : undefined"
+      :autocomplete="autocomplete"
       class="nq-input"
       variant="solo"
       bg-color="rgba(248, 244, 234, 0.92)"
       rounded="lg"
       hide-details="auto"
       @update:model-value="$emit('update:modelValue', $event)"
-      @click:append-inner="showPassword = !showPassword"
-    />
+    >
+      <template v-if="isPassword" #append-inner>
+        <v-icon
+          :icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+          role="button"
+          tabindex="0"
+          :aria-label="showPassword ? t('auth.fields.hidePassword') : t('auth.fields.showPassword')"
+          @click="showPassword = !showPassword"
+          @keydown.enter.space.prevent="showPassword = !showPassword"
+        />
+      </template>
+    </v-text-field>
   </div>
 </template>
 
@@ -54,13 +67,20 @@ const isPassword = computed(() => props.type === 'password')
 }
 
 /* Agrandit la zone cliquable du toggle œil à ~44px sans changer sa taille visuelle (24px) */
-:deep(.v-field__append-inner .v-icon--clickable) {
+:deep(.v-field__append-inner .v-icon) {
   position: relative;
+  cursor: pointer;
 }
 
-:deep(.v-field__append-inner .v-icon--clickable::before) {
+:deep(.v-field__append-inner .v-icon::before) {
   content: '';
   position: absolute;
   inset: -10px;
+}
+
+/* WCAG 1.4.11 : le champ (fond crème translucide) se fondait dans le fond
+   tricoté de la page, sans limite visible. Bordure ≥ 3:1 sur les deux fonds. */
+:deep(.v-field) {
+  border: 1.5px solid var(--nq-brown-mid);
 }
 </style>

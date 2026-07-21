@@ -1194,3 +1194,111 @@ Les tests existants ne couvraient pas : la vérification que le PATCH est bien e
 |---|---|
 | `vitest run useGameList.test.ts` | ✅ 19/19 |
 | `nuxi typecheck` | ✅ 0 nouvelles erreurs (2 erreurs pré-existantes catalog non liées) |
+
+## 2026-07-21 — Session 15 : Extension des tests e2e d'accessibilité à toutes les pages
+
+### Contexte
+
+Le scan axe-core + vérifs (lang/title/H1) ne couvrait que la home. Décision d'étendre à toutes les routes réelles de l'app pour avoir une régression a11y automatisée complète.
+
+### Ce qui a été fait
+
+- `accessibility-public.spec.ts` : `/auth/login`, `/auth/register`, `/auth/forgot-password`.
+- `accessibility-protected.spec.ts` : dashboard, game-list, profil, actualites, next-quest, timeline, add-game, détail jeu/catalogue — via une fixture qui mocke `/api/auth/refresh` et `/api/users/me` (le backend réel n'est pas nécessaire, les composants gèrent déjà les erreurs API en try/catch et retombent sur des états vides/introuvable, eux aussi testés).
+- Factorisation des vérifications communes dans `helpers/a11y.ts`.
+
+#### Violations réelles détectées et corrigées
+
+- H1 manquant sur ~9 pages/composants (login, register, dashboard, timeline, add-game, états "introuvable" des détails de jeu) — ajout de `<h1>` (masqué visuellement via `.sr-only` si déjà stylé autrement).
+- Profil avait 2 `<h1>` (titre de page + nom affiché) : le nom passe en `<h2>`.
+- `UiBackButton` (utilisé par `UiPageHeader` partout) sans nom accessible : ajout d'un `aria-label` (clé i18n `nav.back`).
+- Contraste insuffisant du libellé de la sidebar desktop (`.nd__label`, 3.15:1) et de plusieurs textes secondaires en beige/brun clair (jusqu'à 3.04:1) : opacité relevée pour atteindre 4.5:1 (WCAG AA).
+- Champs mot de passe (login/register) : le `label` de Vuetify n'était jamais rendu (prop absente), laissant un `aria-labelledby` orphelin. `PatchInput` passe désormais `label` à `v-text-field` et le masque visuellement en CSS (le `<span>` déjà affiché reste le seul label visible).
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/tests-e2e/accessibility-public.spec.ts`, `accessibility-protected.spec.ts`, `fixtures/auth.ts`, `helpers/a11y.ts` | Nouveaux — suite e2e étendue |
+| ~9 pages/composants (login, register, dashboard, timeline, add-game, détails jeu, `ProfilDesktop.vue`) | Ajout/correction H1 |
+| `apps/web/components/ui/BackButton.vue`, `pages/auth/forgot-password.vue` | aria-label + `UiBackButton` |
+| Sidebar + textes secondaires (`GameListDesktop.vue`, `GameDetailDesktop.vue`, `GameCatalogDetailDesktop.vue`, `ActualitesDesktop.vue`) | Contraste WCAG AA |
+| `apps/web/components/ui/PatchInput.vue` | Fix label Vuetify orphelin |
+| `apps/web/i18n/locales/{fr,en}.json` | Clé `nav.back` |
+| `apps/web/tests/pages/profil.test.ts` | Sélecteur h1→h2 |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm run test:e2e` | ✅ 14/14 |
+| `pnpm run test` | ✅ 252/252 |
+| `nuxi typecheck` | ✅ 0 nouvelle erreur |
+| `pnpm run lint` | ✅ inchangé (1709 erreurs pré-existantes, aucune introduite) |
+
+Commit `df89f14`, poussé sur `fix/accessibility`.
+
+## 2026-07-21 — Session 16 : Corrections Silktide sur /auth/login
+
+### Contexte
+
+Scan Silktide manuel sur `http://localhost:3001/auth/login` remontant 4 catégories non couvertes par la suite axe-core existante (14/14 verts malgré ces défauts réels) :
+- Field labels (WCAG 2.0 A 1.3.1) — 3 occurrences
+- Missing ARIA label IDs (WCAG 2.0 A 1.3.1) — 2 occurrences
+- Programmatic field purpose (WCAG 2.1 AA 1.3.5) — 1 occurrence
+- Form control contrast (WCAG 2.1 AA 1.4.11)
+
+### Ce qui a été fait
+
+#### Icône œil (afficher/masquer le mot de passe) sans nom accessible
+
+`append-inner-icon` de Vuetify générait un `aria-label` via la clé i18n `$vuetify.input.appendAction`, absente des fichiers de locale → texte brut non traduit exposé aux lecteurs d'écran (confirmé par un warning `[intlify] Not found '$vuetify.input.appendAction' key`).
+
+**Fix** : remplacement par le slot `#append-inner` avec un `<v-icon>` explicite, `aria-label` piloté par i18n (nouvelles clés `auth.fields.showPassword` / `hidePassword`), `role="button"`, `tabindex="0"`, et gestion clavier (`@keydown.enter.space.prevent`) en plus du clic souris.
+
+#### `autocomplete` manquant (WCAG 1.3.5 — Identify Input Purpose)
+
+Aucun attribut `autocomplete` sur les champs des formulaires auth. Ajout d'une prop `autocomplete` sur `PatchInput.vue` (forwardée à `v-text-field`), avec les valeurs WHATWG adaptées au contexte :
+- Login : `username` (email) + `current-password`.
+- Register : `username` (champ pseudo), `email`, `new-password` (mot de passe + confirmation).
+
+#### Contraste insuffisant du champ (WCAG 1.4.11 — Non-text Contrast)
+
+Le fond crème translucide du champ (`rgba(248,244,234,0.92)`) se fondait dans le fond beige de la page (`#EDE8DC`), sans limite visible (axe-core ne détecte pas ce cas, son `color-contrast` ne cible que le texte). Calcul de contraste WCAG (formule de luminance relative) : `--nq-brown-mid` (#7A3E2A) donne 6.74:1 contre le fond de page et 7.50:1 contre le fond du champ, largement au-dessus du seuil 3:1.
+
+**Fix** : `:deep(.v-field) { border: 1.5px solid var(--nq-brown-mid); }` dans `PatchInput.vue`.
+
+### Décisions techniques
+
+| Choix | Raison |
+|---|---|
+| Slot `#append-inner` plutôt que prop `append-inner-icon` | La prop Vuetify dépend d'une clé i18n interne non traduite dans l'app ; le slot donne un contrôle total sur l'`aria-label` et le clavier |
+| `autocomplete="username"` (et non `email`) sur le champ email du login | Convention WHATWG : en contexte de connexion, l'identifiant se mappe sur `username` même si visuellement c'est un email, pour s'apparier avec `current-password` |
+| Bordure plutôt que fond opaque | Ne change pas l'identité visuelle du champ (fond crème translucide voulu), ajoute juste une limite perceptible |
+
+### Bug découvert en cours de route (sans rapport avec ces fixes)
+
+Le conteneur `nextquest-web` a planté deux fois pendant les vérifications (`Exited (1)`) avec l'erreur `server.handleUpgrade() was called more than once with the same socket` — bug HMR connu de Vite en mode dev, déclenché par la charge de navigations répétées de Playwright (déjà documenté comme instabilité connue dans `playwright.config.ts`/`nuxt.config.ts`). Contournement suivi : build de prod (`pnpm run build` + `PORT=3001 node .output/server/index.mjs`) pour lancer la suite e2e, conteneur dev redémarré ensuite pour l'usage normal. Un test protégé (`/next-quest`) a également échoué une fois en exécution parallèle (spinner de chargement capturé en plein rendu) — confirmé flaky, passe systématiquement seul ou en re-run complet ; pas un vrai défaut a11y.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/ui/PatchInput.vue` | Slot icône œil + autocomplete + bordure contraste |
+| `apps/web/components/auth/LoginDesktop.vue`, `LoginMobile.vue` | `autocomplete="username"` / `current-password"` |
+| `apps/web/components/auth/RegisterDesktop.vue`, `RegisterMobile.vue` | `autocomplete="username"` / `"email"` / `"new-password"` |
+| `apps/web/i18n/locales/{fr,en}.json` | Clés `auth.fields.passwordConfirm`, `showPassword`, `hidePassword` |
+| `apps/web/tests/components/PatchInput.test.ts` | Passage en `@vitest-environment nuxt` + `mockNuxtImport('useI18n', ...)` (le nouveau `useI18n()` dans le composant cassait le montage en environnement happy-dom sans plugin i18n) |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm run test` | ✅ 252/252 |
+| `pnpm run test:e2e` (build prod) | ✅ 14/14 |
+| `nuxi typecheck` | ✅ 0 nouvelle erreur |
+| `pnpm run lint` | ✅ inchangé (1713 erreurs pré-existantes, aucune dans les fichiers modifiés) |
+
+### Points ouverts
+
+- [ ] Le mapping exact des 3 "Field labels" / 2 "Missing ARIA label IDs" de Silktide n'a pas été confirmé élément par élément au-delà du fix de l'icône œil — à revalider avec un nouveau scan Silktide une fois ces correctifs en ligne (le scan initial datait peut-être d'avant le fix du `label` Vuetify de la Session 15).

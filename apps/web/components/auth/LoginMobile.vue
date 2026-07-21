@@ -27,6 +27,7 @@ const {
             v-model="email"
             :label="t('auth.fields.email')"
             type="email"
+            autocomplete="username"
             :placeholder="t('auth.fields.emailPlaceholder')"
             :rules="emailRules"
           />
@@ -35,6 +36,7 @@ const {
             v-model="password"
             :label="t('auth.fields.password')"
             type="password"
+            autocomplete="current-password"
             :rules="passwordRules"
           />
         </div>

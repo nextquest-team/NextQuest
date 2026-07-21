@@ -231,7 +231,8 @@ onMounted(() => fetchRecos())
 
 .nq-subtitle {
   font-size: 1rem;
-  color: rgba(var(--nq-brown-dark-rgb), 0.5);
+  /* WCAG 1.4.3 : alpha 0.5 ne faisait que ~3.13:1 (< 4.5:1 requis) */
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin: 0;
   font-style: italic;
 }
@@ -268,7 +269,8 @@ onMounted(() => fetchRecos())
 
 .nq-state__hint {
   font-size: 0.85rem;
-  color: rgba(var(--nq-brown-dark-rgb), 0.55);
+  /* WCAG 1.4.3 : alpha 0.55 ne faisait que 3.61:1 (< 4.5:1 requis) */
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin: 0;
   max-width: 300px;
 }

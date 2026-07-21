@@ -1521,4 +1521,24 @@ Scan Silktide sur `NavbarDesktop.vue` (sidebar) et `NavbarMobile.vue` (bottom na
 
 ### Points ouverts
 
-- [ ] `.nq-state__hint` sur `/next-quest` : contraste 3.47:1 (texte `#8b7768` sur fond `#ede8dc`), sous le seuil 4.5:1. Pré-existant, découvert incidemment en lançant la suite e2e complète, hors scope de cette session.
+- [x] `.nq-state__hint` sur `/next-quest` — corrigé en session 26.
+
+## 2026-07-21 — Session 26 : Contraste texte sur /next-quest (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/next-quest` : catégorie "Text contrast", 3 problèmes remontés. Un seul détaillé par Silktide — le bouton "Accepter la quête" (`#F5EDDF` sur `#A65D52`, 4.19:1, sous le seuil 4.5:1 requis pour le petit texte). Les deux autres n'ont pas été précisés par l'outil ; investigation du fichier `next-quest.vue` et calcul manuel de luminance/contraste pour les retrouver.
+
+### Ce qui a été fait
+
+- `RecoCard.vue` (`.nq-quest-cta`, bouton CTA "Accepter la quête" / "Reprendre la quête" / "Suivre la sortie") : fond `#A65D52` (4.19:1) → `var(--nq-brown-mid)` (7.08:1), texte inchangé (`var(--nq-cream-alt)`). État `:hover` `#8B3D33` → `var(--nq-brown-dark)`, pour rester cohérent avec le nouveau fond.
+- `next-quest.vue` — deux autres textes utilisant le même motif `rgba(var(--nq-brown-dark-rgb), alpha)` sous le seuil, retrouvés par calcul de contraste sur fond `#F8F4EA` : `.nq-subtitle` (alpha 0.5 → 3.13:1) et `.nq-state__hint` (alpha 0.55 → 3.61:1, c'est le point ouvert de la session 25). Les deux passés à alpha `0.7` (5.74:1), même valeur que les fixes précédents sur `/game-list`.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Couleurs calculées appliquées (`getComputedStyle` via Playwright) | ✅ CTA `rgb(122,62,42)` / `rgb(245,237,223)`, subtitle `rgba(58,26,10,0.7)` |
+| Capture d'écran cartes Next Quest, mobile et desktop | ✅ teinte marron toujours cohérente avec le reste de l'UI, pas de régression |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g next-quest` | ✅ 1/1 (le point ouvert de la session 25 est résolu) |

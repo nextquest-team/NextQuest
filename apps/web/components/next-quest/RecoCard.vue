@@ -413,7 +413,8 @@ function ratingStars(rating: number | null): string {
 }
 
 .nq-quest-cta {
-  background: #A65D52;
+  /* WCAG 1.4.3 : #A65D52 sur #F5EDDF ne faisait que 4.19:1 (< 4.5:1 requis) */
+  background: var(--nq-brown-mid);
   color: var(--nq-cream-alt);
   border: none;
   border-radius: 4px;
@@ -429,7 +430,7 @@ function ratingStars(rating: number | null): string {
   transition: background 0.15s;
   white-space: nowrap;
 }
-.nq-quest-cta:hover:not(:disabled) { background: #8B3D33; }
+.nq-quest-cta:hover:not(:disabled) { background: var(--nq-brown-dark); }
 .nq-quest-cta:disabled             { opacity: 0.5; cursor: not-allowed; }
 .nq-quest-cta--sm                  { padding: 5px 9px; font-size: 0.72rem; }
 

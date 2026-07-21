@@ -56,9 +56,11 @@ function ratingStars(rating: number | null): string {
 
 <template>
   <!-- Slot vide -->
-  <div v-if="!reco" class="nq-slot-empty">
-    <v-icon :size="isMain ? 28 : 24" color="rgba(var(--nq-brown-rgb), 0.4)">{{ emptyIcon }}</v-icon>
-    <p>{{ t('nextQuest.noReco') }}</p>
+  <div v-if="!reco" class="nq-slot-empty" :class="{ 'nq-slot-empty--main': isMain && !compact }">
+    <div class="nq-slot-empty-inner">
+      <v-icon :size="isMain ? 28 : 24" color="rgba(var(--nq-brown-rgb), 0.4)">{{ emptyIcon }}</v-icon>
+      <p>{{ t('nextQuest.noReco') }}</p>
+    </div>
   </div>
 
   <!-- ── Card HERO (Découverte) — colonne : info → image → boutons ── -->
@@ -168,12 +170,13 @@ function ratingStars(rating: number | null): string {
   border: 20px solid transparent;
   border-image: url('/images/buttons/wooly-btn-final.png') 350 fill round;
   background: transparent;
+  overflow: hidden;
 }
 
 .nq-quest-card--main { border-width: 24px; }
 
 @media (min-width: 960px) {
-  .nq-quest-card       { border-width: 14px; width: 100%; }
+  .nq-quest-card       { border-width: 14px; width: 100%; flex: 1; min-height: 0; }
   .nq-quest-card--main { border-width: 20px; flex: 1; min-height: 0; overflow: hidden; }
 }
 
@@ -202,6 +205,8 @@ function ratingStars(rating: number | null): string {
 .nq-card-body {
   display: flex;
   align-items: stretch;
+  flex: 1;
+  min-height: 0;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
 }
@@ -235,6 +240,7 @@ function ratingStars(rating: number | null): string {
 .nq-card-info {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -453,9 +459,15 @@ function ratingStars(rating: number | null): string {
    SLOT VIDE
 ═══════════════════════════════════════════════════════ */
 .nq-slot-empty {
-  border: 18px solid transparent;
+  border: 20px solid transparent;
   border-image: url('/images/buttons/wooly-btn-final.png') 350 fill round;
   background: transparent;
+  display: flex;
+}
+
+.nq-slot-empty-inner {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -463,6 +475,18 @@ function ratingStars(rating: number | null): string {
   gap: 0.5rem;
   padding: 1.5rem 1rem;
   text-align: center;
+}
+
+.nq-slot-empty--main {
+  border-width: 24px;
+}
+
+@media (min-width: 960px) {
+  .nq-slot-empty       { border-width: 14px; width: 100%; flex: 1; min-height: 0; }
+  .nq-slot-empty--main { border-width: 20px; flex: 1; min-height: 0; }
+}
+
+.nq-slot-empty .v-icon {
   opacity: 0.55;
 }
 
@@ -470,6 +494,7 @@ function ratingStars(rating: number | null): string {
   font-size: 0.72rem;
   color: rgba(var(--nq-brown-dark-rgb), 0.5);
   margin: 0;
+  opacity: 0.55;
 }
 
 /* ═══════════════════════════════════════════════════════

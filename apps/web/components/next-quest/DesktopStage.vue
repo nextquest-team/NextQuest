@@ -83,7 +83,7 @@ const { t } = useI18n()
   min-height: 0;
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   gap: 1rem;
 }
@@ -91,18 +91,25 @@ const { t } = useI18n()
 /* Slot discovery : colonne gauche */
 .nq-slot--discovery {
   display: flex;
-  align-self: center;
   max-width: 320px;
+  min-width: 320px;
   width: 100%;
 }
 
-/* Secondaires : colonne droite */
+/* Secondaires : colonne droite — les 2 cartes se partagent la hauteur à parts égales */
 .nq-secondary {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 0.6rem;
   max-width: 480px;
+  min-width: 480px;
   width: 100%;
+  min-height: 0;
+}
+
+.nq-secondary > * {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 /* Bouton régénérer */

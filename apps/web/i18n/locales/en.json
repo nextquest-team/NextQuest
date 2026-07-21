@@ -225,5 +225,8 @@
     "wheel": {
       "alt": "Next Quest"
     }
+  },
+  "common": {
+    "loading": "Loading"
   }
 }

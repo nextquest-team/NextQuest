@@ -93,7 +93,7 @@ const {
 
       <!-- Loader -->
       <div v-if="gamesLoading" class="glm__loader">
-        <v-progress-circular indeterminate size="28" color="primary" />
+        <v-progress-circular :aria-label="t('common.loading')" indeterminate size="28" color="primary" />
       </div>
 
       <!-- Vide -->

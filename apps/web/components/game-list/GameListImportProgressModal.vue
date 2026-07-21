@@ -47,7 +47,7 @@ const covers = computed(() =>
         <div class="ip-modal__body">
           <!-- Indicateur de chargement (pas de compteur textuel) -->
           <div class="ip-modal__loader" aria-live="polite" :aria-label="t('gameList.importProgress.title')">
-            <v-progress-circular indeterminate size="34" width="3" color="#5c3317" />
+            <v-progress-circular :aria-label="t('common.loading')" indeterminate size="34" width="3" color="#5c3317" />
           </div>
 
           <!-- Jaquettes qui arrivent au fur et a mesure -->

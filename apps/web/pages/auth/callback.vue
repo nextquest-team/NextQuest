@@ -86,7 +86,7 @@ onMounted(async () => {
       </UiPatchButton>
     </div>
     <div v-else class="callback-loading">
-      <v-progress-circular indeterminate color="primary" size="48" />
+      <v-progress-circular aria-label="Connexion en cours" indeterminate color="primary" size="48" />
       <p>Connexion en cours…</p>
     </div>
   </div>

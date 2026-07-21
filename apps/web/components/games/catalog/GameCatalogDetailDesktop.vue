@@ -20,7 +20,7 @@ function ratingStars(rating: number | null): string {
     <UiPageHeader />
 
     <div v-if="loading" class="cdd__not-found">
-      <v-progress-circular indeterminate size="32" color="primary" />
+      <v-progress-circular :aria-label="t('common.loading')" indeterminate size="32" color="primary" />
     </div>
 
     <div v-else-if="!game" class="cdd__not-found">

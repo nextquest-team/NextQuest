@@ -178,7 +178,7 @@ async function confirmAdd(platformId: string | null) {
         <!-- Resultats -->
         <div v-else class="gl-add__content">
           <div v-if="loading" class="gl-add__state">
-            <v-progress-circular indeterminate size="28" color="#5c3317" />
+            <v-progress-circular :aria-label="t('common.loading')" indeterminate size="28" color="#5c3317" />
           </div>
 
           <div v-else-if="searched && results.length === 0" class="gl-add__state">

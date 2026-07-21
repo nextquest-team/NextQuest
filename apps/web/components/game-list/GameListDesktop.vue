@@ -156,7 +156,7 @@ const {
 
     <!-- Loader -->
     <div v-if="gamesLoading" class="gl__loader">
-      <v-progress-circular indeterminate size="32" color="primary" />
+      <v-progress-circular :aria-label="t('common.loading')" indeterminate size="32" color="primary" />
     </div>
 
     <!-- Liste vide -->

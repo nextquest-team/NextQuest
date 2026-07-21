@@ -168,6 +168,8 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
       igdbRating: games.igdbRating,
       igdbRatingCount: games.igdbRatingCount,
       igdbHypes: games.igdbHypes,
+      gameType: games.gameType,
+      versionParentIgdbId: games.versionParentIgdbId,
     })
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
@@ -189,6 +191,8 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
     igdbHypes: r.igdbHypes,
     similarVotes: 0, // pas de graphe similaire pour ce bucket
     platformIds: [], // deja possede : pas de filtre plateforme a lui appliquer
+    gameType: r.gameType,
+    versionParentIgdbId: r.versionParentIgdbId,
   }));
 }
 
@@ -368,6 +372,8 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
       igdbHypes: games.igdbHypes,
       developer: games.developer,
       publisher: games.publisher,
+      gameType: games.gameType,
+      versionParentIgdbId: games.versionParentIgdbId,
     })
     .from(games)
     .where(inArray(games.igdbId, candidateIgdbIds));
@@ -485,6 +491,8 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
       igdbHypes: r.igdbHypes,
       similarVotes: similarVotesByIgdb.get(r.igdbId!) ?? 0,
       platformIds: candidatePlatforms.get(r.gameId) ?? [],
+      gameType: r.gameType,
+      versionParentIgdbId: r.versionParentIgdbId,
     }));
 }
 
@@ -572,6 +580,8 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
       igdbRating: games.igdbRating,
       igdbRatingCount: games.igdbRatingCount,
       igdbHypes: games.igdbHypes,
+      gameType: games.gameType,
+      versionParentIgdbId: games.versionParentIgdbId,
     })
     .from(games)
     .where(inArray(games.igdbId, upcomingGames.map((g) => g.igdbId)));
@@ -592,5 +602,7 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
       igdbHypes: r.igdbHypes,
       similarVotes: 0, // pas de graphe similaire pour ce bucket
       platformIds: resolvedPlatforms.get(r.gameId) ?? [],
+      gameType: r.gameType,
+      versionParentIgdbId: r.versionParentIgdbId,
     }));
 }

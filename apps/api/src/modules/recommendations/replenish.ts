@@ -5,6 +5,7 @@ import {
   getDiscoveryCandidates,
   getUpcomingCandidates,
   getOwnedForProfile,
+  getOwnedPlatformIds,
   getDimensionFrequencies,
   getSwipeDeltas,
 } from "./candidates.js";
@@ -13,6 +14,7 @@ import { buildIdfMap } from "./idf.js";
 import { scoreCandidate, type Bucket, type Candidate, type ScoreFactors } from "./scoring.js";
 import { buildReason } from "./recommendations.dto.js";
 import { diversify } from "./diversify.js";
+import { filterCandidates } from "./reco-filters.js";
 
 const PER_BUCKET = 20;
 
@@ -181,7 +183,14 @@ export async function replenishRecommendations(
   }
 
   // Exclure tous les jeux déjà recommandés
-  const filteredCandidates = candidates.filter((c) => !alreadyRecommended.has(c.gameId));
+  const notAlreadyRecommended = candidates.filter((c) => !alreadyRecommended.has(c.gameId));
+
+  // Filtre plateforme possedee + exclusion DLC/editions (library_unplayed est
+  // deja possede, pas de filtre a lui appliquer).
+  const filteredCandidates =
+    bucket === "library_unplayed"
+      ? notAlreadyRecommended
+      : filterCandidates(notAlreadyRecommended, await getOwnedPlatformIds(userId));
 
   // 4. Scorer, diversifier et construire les recos
   const toInsert = await buildBucketRecos(profile, filteredCandidates, bucket);

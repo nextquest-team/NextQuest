@@ -9,6 +9,7 @@ import {
   recommendations,
   genres,
   tags,
+  platforms,
 } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { generateRecommendations, type RecoLogger } from "../generate.js";
@@ -393,6 +394,8 @@ describe("generateRecommendations", () => {
       igdbHypes: null,
       similarVotes: 1,
       platformIds: [],
+      gameType: null,
+      versionParentIgdbId: null,
     };
 
     const goodQualityCandidate = {
@@ -404,6 +407,8 @@ describe("generateRecommendations", () => {
       igdbHypes: null,
       similarVotes: 1,
       platformIds: [],
+      gameType: null,
+      versionParentIgdbId: null,
     };
 
     // Espionner getDiscoveryCandidates pour retourner nos candidats
@@ -432,6 +437,85 @@ describe("generateRecommendations", () => {
     const lowQualityReco = discoveryRecos.find((r) => r.gameId === lowQualityGame.id);
     const goodQualityReco = discoveryRecos.find((r) => r.gameId === goodQualityGame.id);
     expect(Number(goodQualityReco!.score)).toBeGreaterThan(Number(lowQualityReco!.score));
+  });
+
+  it("filtre plateforme + DLC : exclut un candidat sur plateforme non possedee et un DLC", async () => {
+    // Seed : user possedant du PC (2 jeux PC), pour que getOwnedPlatformIds detecte la plateforme
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "platform-filter-test@example.com",
+        username: "platformfilteruser",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [pc] = await db.select({ id: platforms.id }).from(platforms).where(eq(platforms.code, "pc"));
+    const [ps5] = await db.select({ id: platforms.id }).from(platforms).where(eq(platforms.code, "ps5"));
+
+    // 2 jeux PC possedes pour prouver la possession de la plateforme (seuil >= 2)
+    for (let i = 0; i < 2; i++) {
+      const [ownedGame] = await db
+        .insert(games)
+        .values({
+          title: `Owned PC Game ${i}`,
+          slug: `owned-pc-game-${i}`,
+          isCustom: false,
+        })
+        .returning({ id: games.id });
+      await db
+        .insert(userGames)
+        .values({ userId: user.id, gameId: ownedGame.id, status: "completed", platformId: pc.id });
+    }
+
+    // Candidat A : sur PC (possede) -> doit rester
+    const [pcCandidateGame] = await db
+      .insert(games)
+      .values({ title: "PC Candidate", slug: "pc-candidate", isCustom: false })
+      .returning({ id: games.id });
+
+    // Candidat B : uniquement sur PS5 (non possede) -> doit etre exclu
+    const [ps5CandidateGame] = await db
+      .insert(games)
+      .values({ title: "PS5 Candidate", slug: "ps5-candidate", isCustom: false })
+      .returning({ id: games.id });
+
+    // Candidat C : DLC sur PC (possede) -> doit quand meme etre exclu (game_type)
+    const [dlcCandidateGame] = await db
+      .insert(games)
+      .values({ title: "DLC Candidate", slug: "dlc-candidate", isCustom: false })
+      .returning({ id: games.id });
+
+    const baseCandidate = {
+      genreIds: [],
+      tagIds: [],
+      igdbRating: 80,
+      igdbRatingCount: 100,
+      igdbHypes: null,
+      similarVotes: 0,
+    };
+
+    vi.spyOn(candidates, "getDiscoveryCandidates").mockResolvedValueOnce([
+      { ...baseCandidate, gameId: pcCandidateGame.id, platformIds: [pc.id], gameType: 0, versionParentIgdbId: null },
+      { ...baseCandidate, gameId: ps5CandidateGame.id, platformIds: [ps5.id], gameType: 0, versionParentIgdbId: null },
+      { ...baseCandidate, gameId: dlcCandidateGame.id, platformIds: [pc.id], gameType: 1, versionParentIgdbId: null },
+    ]);
+    vi.spyOn(candidates, "getLibraryUnplayedCandidates").mockResolvedValueOnce([]);
+    vi.spyOn(candidates, "getUpcomingCandidates").mockResolvedValueOnce([]);
+
+    const fakeLogger: RecoLogger = { info: vi.fn() };
+    await generateRecommendations(user.id, fakeLogger);
+
+    const recos = await db
+      .select()
+      .from(recommendations)
+      .where(eq(recommendations.userId, user.id));
+
+    const discoveryRecos = recos.filter((r) => r.bucket === "discovery");
+    const discoveryGameIds = discoveryRecos.map((r) => r.gameId);
+    expect(discoveryGameIds).toContain(pcCandidateGame.id);
+    expect(discoveryGameIds).not.toContain(ps5CandidateGame.id);
+    expect(discoveryGameIds).not.toContain(dlcCandidateGame.id);
   });
 
   it("concurrence : deux generations simultanees du meme user ne creent pas de doublons", async () => {

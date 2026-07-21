@@ -10,6 +10,8 @@ export type Candidate = {
   igdbHypes: number | null;
   similarVotes: number; // proximite ponderee (0 si non applicable)
   platformIds: string[]; // ids locaux des plateformes du jeu ; [] = inconnu (fail-open)
+  gameType: number | null; // type IGDB (0=main, 1=dlc, 2=expansion, 3=bundle, 4=standalone_expansion, 13=pack)
+  versionParentIgdbId: number | null; // igdb_id du jeu de base si ce jeu est une edition/version
 };
 
 export type ScoreFactors = {

@@ -392,6 +392,24 @@
         }
       }
     },
+    "/api/platforms/steam/import/status": {
+      "get": {
+        "summary": "Statut de la progression d'enrichissement de la bibliotheque",
+        "tags": [
+          "Platforms"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/collection/{userGameId}/status": {
       "patch": {
         "summary": "Changer le statut d'un jeu de la collection",
@@ -510,6 +528,19 @@
             },
             "in": "query",
             "name": "includeHidden",
+            "required": false
+          },
+          {
+            "schema": {
+              "default": "library",
+              "type": "string",
+              "enum": [
+                "library",
+                "ignored"
+              ]
+            },
+            "in": "query",
+            "name": "view",
             "required": false
           }
         ],
@@ -656,6 +687,110 @@
       },
       "delete": {
         "summary": "Retirer un jeu de la collection",
+        "tags": [
+          "Collection"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "userGameId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/collection/from-igdb": {
+      "post": {
+        "summary": "Ajouter un jeu IGDB (absent ou non du catalogue) a la collection",
+        "tags": [
+          "Collection"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "igdbId": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991
+                  },
+                  "platformId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "igdbId"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/collection/{userGameId}/ignore": {
+      "post": {
+        "summary": "Ignorer un jeu de la collection (statut preserve)",
+        "tags": [
+          "Collection"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "userGameId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/collection/{userGameId}/restore": {
+      "post": {
+        "summary": "Restaurer un jeu ignore dans la collection",
         "tags": [
           "Collection"
         ],
@@ -934,6 +1069,47 @@
             "in": "path",
             "name": "igdbId",
             "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/games/igdb/search": {
+      "get": {
+        "summary": "Recherche live de jeux IGDB par nom",
+        "tags": [
+          "Games"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "in": "query",
+            "name": "q",
+            "required": true
+          },
+          {
+            "schema": {
+              "default": 18,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
           }
         ],
         "security": [

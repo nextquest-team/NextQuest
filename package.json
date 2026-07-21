@@ -30,6 +30,7 @@
       "@parcel/watcher"
     ],
     "//overrides": "Forcer les versions patch sur les transitives flaggees par Dependabot. A revoir periodiquement quand les parents (expo, nuxt, drizzle-kit) sont updates.",
+    "//vite": "vite est borne <8 : Nuxt 3.21 exige vite 7 (@nuxt/vite-builder ^7.3.3), vite 8 casse le HMR (double attach de l'upgrade WebSocket) et fait crasher le dev server. Le CVE-2026-39363 est backporte des vite 7.3.2, donc >=7.3.3 couvre la faille. Relacher quand Nuxt supportera vite 8.",
     "overrides": {
       "fast-jwt": ">=6.2.4",
       "fast-uri": ">=3.1.2",
@@ -40,7 +41,7 @@
       "tar": ">=7.5.16",
       "undici": ">=6.27.0",
       "js-yaml": ">=4.2.0",
-      "vite": ">=8.0.5",
+      "vite": ">=7.3.3 <8",
       "@fastify/static": ">=9.1.1",
       "esbuild": ">=0.25.0",
       "postcss": ">=8.5.10",

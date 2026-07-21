@@ -1499,3 +1499,26 @@ Scan Silktide sur `/game-list` : `.gl-drawer__close` (icône `mdi-close` du tiro
 | Nom accessible calculé (`button.getAttribute('aria-label')`) | ✅ "Close filters" |
 | `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
 | `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
+
+## 2026-07-21 — Session 25 : Listes sémantiques sur la navigation (Silktide)
+
+### Contexte
+
+Scan Silktide sur `NavbarDesktop.vue` (sidebar) et `NavbarMobile.vue` (bottom nav) : les 6 liens de navigation (Accueil, Mes jeux, Actualités, Next Quest, Sorties de jeux, Profil) sont rendus comme une suite de `NuxtLink` sans structure de liste — même signalement "looks like navigation, should be rewritten as a list" que sur le dashboard (session 20).
+
+### Ce qui a été fait
+
+- `NavbarDesktop.vue` — les `NuxtLink` sont maintenant enveloppés dans `<ul class="nd__list"><li>`, sous le `<nav>` existant (le logo reste un `<div>` frère, hors de la liste). `list-style`/`margin`/`padding` réinitialisés, `display: flex; flex-direction: column` repris sur `.nd__list` (c'était sur `.nd` avant).
+- `NavbarMobile.vue` — même conversion. Le flex horizontal (`display: flex; align-items: stretch`) et la hauteur pleine sont déplacés de `.nm` vers `.nm__list` ; chaque `<li>` reçoit `flex: 1` (ce rôle tenait auparavant sur `.nm__item` directement) pour que les 6 items gardent une largeur égale.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts` | ✅ 8/9 (1 échec pré-existant sur `/next-quest`, contraste `.nq-state__hint`, confirmé sans lien avec ce changement via `git stash`) |
+| Capture d'écran sidebar desktop + bottom nav mobile | ✅ layout identique |
+
+### Points ouverts
+
+- [ ] `.nq-state__hint` sur `/next-quest` : contraste 3.47:1 (texte `#8b7768` sur fond `#ede8dc`), sous le seuil 4.5:1. Pré-existant, découvert incidemment en lançant la suite e2e complète, hors scope de cette session.

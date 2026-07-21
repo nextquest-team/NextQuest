@@ -22,17 +22,19 @@ function isActive(to: string) {
       <img src="/images/logo/logo.png" alt="NextQuest" class="nd__logo-img" />
     </div>
 
-    <NuxtLink
-      v-for="item in items"
-      :key="item.key"
-      :to="item.to"
-      class="nd__item"
-      :class="{ 'nd__item--active': isActive(item.to) }"
-      :aria-current="isActive(item.to) ? 'page' : undefined"
-    >
-      <v-icon class="nd__icon" aria-hidden="true">{{ item.icon }}</v-icon>
-      <span class="nd__label">{{ t(`nav.${item.key}`) }}</span>
-    </NuxtLink>
+    <ul class="nd__list">
+      <li v-for="item in items" :key="item.key">
+        <NuxtLink
+          :to="item.to"
+          class="nd__item"
+          :class="{ 'nd__item--active': isActive(item.to) }"
+          :aria-current="isActive(item.to) ? 'page' : undefined"
+        >
+          <v-icon class="nd__icon" aria-hidden="true">{{ item.icon }}</v-icon>
+          <span class="nd__label">{{ t(`nav.${item.key}`) }}</span>
+        </NuxtLink>
+      </li>
+    </ul>
   </nav>
 </template>
 
@@ -64,6 +66,14 @@ function isActive(to: string) {
   width: 75%;
   height: auto;
   object-fit: contain;
+}
+
+.nd__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .nd__item {

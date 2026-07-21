@@ -2,12 +2,16 @@
 import { ref, watch } from 'vue'
 import type { IgdbSearchResult } from '~/types/game'
 
-defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; added: [] }>()
 
 const { t } = useI18n()
 const { authFetch, apiBase } = useAuthFetch()
 const { push } = useToast()
+
+// Focus-trap + Echap (WCAG 2.4.3, 2.1.2) : voir useFocusTrap.ts
+const modalBox = ref<HTMLElement | null>(null)
+useFocusTrap(modalBox, () => props.open, () => emit('close'))
 
 const MIN_QUERY = 2
 const DEBOUNCE_MS = 300
@@ -121,7 +125,7 @@ async function confirmAdd(platformId: string | null) {
       :aria-label="t('gameList.addModal.title')"
       @click.self="emit('close')"
     >
-      <div class="gl-modal__box">
+      <div ref="modalBox" class="gl-modal__box">
         <!-- En-tete -->
         <div class="gl-modal__header">
           <h2 class="gl-modal__title">{{ t('gameList.addModal.title') }}</h2>

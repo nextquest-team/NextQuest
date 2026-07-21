@@ -88,4 +88,30 @@ describe('useImportProgress', () => {
     await vi.advanceTimersByTimeAsync(500)
     expect(pushMock).not.toHaveBeenCalled()
   })
+
+  it('ignore la reponse d\'un tick() en vol si close() a ete appele entre-temps (pas de double finish, pas de reprogrammation)', async () => {
+    let resolveFetch!: (value: unknown) => void
+    authFetchMock.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveFetch = resolve }),
+    )
+    const done = vi.fn()
+    const { open, start, close, onDone } = useImportProgress()
+    onDone(done)
+    start()
+    // Le premier tick() est en vol (attend la resolution de authFetch).
+    close()
+    expect(open.value).toBe(false)
+    expect(done).toHaveBeenCalledTimes(1) // close() a bien appele finish() une fois
+
+    done.mockClear()
+    authFetchMock.mockClear()
+    // La requete resout maintenant, apres la fermeture : reponse obsolete, generation perimee.
+    resolveFetch({ status: 'done', total: 3, done: 3, games: [] })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(done).not.toHaveBeenCalled() // pas de second finish()/doneHandler
+
+    // Pas de reprogrammation de polling non plus.
+    await vi.advanceTimersByTimeAsync(500)
+    expect(authFetchMock).not.toHaveBeenCalled()
+  })
 })

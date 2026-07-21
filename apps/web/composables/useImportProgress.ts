@@ -13,6 +13,11 @@ let timer: ReturnType<typeof setTimeout> | null = null
 let deadline = 0
 let inBackground = false
 let doneHandler: (() => void) | null = null
+// Incrementee a chaque start()/close() : un tick() en vol dont la generation
+// ne correspond plus a la generation courante voit sa reponse ignoree (evite
+// un finish() en double ou une reprogrammation de polling si la modale a ete
+// fermee pendant que la requete de status etait en l'air).
+let generation = 0
 
 export function useImportProgress() {
   const { authFetch, apiBase } = useAuthFetch()
@@ -27,6 +32,7 @@ export function useImportProgress() {
   }
 
   function finish() {
+    generation++
     clearTimer()
     const wasBackground = inBackground
     open.value = false
@@ -40,16 +46,19 @@ export function useImportProgress() {
   }
 
   async function tick() {
+    const gen = generation
     try {
       const res = await authFetch<ImportStatus>(
         `${apiBase}/api/platforms/steam/import/status`,
       )
+      if (gen !== generation) return // modale fermee/relancee pendant la requete : reponse obsolete
       status.value = res
       if (res.status === 'done') {
         finish()
         return
       }
     } catch {
+      if (gen !== generation) return
       // Erreur transitoire (reseau, refresh token) : on retente au prochain tick.
     }
     if (Date.now() >= deadline) {
@@ -60,6 +69,7 @@ export function useImportProgress() {
   }
 
   function start() {
+    generation++
     clearTimer()
     inBackground = false
     status.value = null
@@ -101,4 +111,5 @@ export function __resetImportProgress() {
   deadline = 0
   inBackground = false
   doneHandler = null
+  generation++
 }

@@ -11,7 +11,7 @@ const {
   gamesLoading, games, fetchGames,
   onStatusChange, onIgnoreGame, onRestoreGame, onCardClick,
   addModalOpen,
-  progressOpen, progressStatus, onProgressBackground, onProgressClose,
+  progressOpen, progressStatus, onProgressBackground,
 } = inject<ReturnType<typeof useGameList>>('gameList')!
 </script>
 
@@ -195,7 +195,6 @@ const {
       :open="progressOpen"
       :status="progressStatus"
       @background="onProgressBackground"
-      @close="onProgressClose"
     />
   </div>
 </template>

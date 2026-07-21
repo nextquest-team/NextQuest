@@ -1,6 +1,6 @@
 // @vitest-environment nuxt
 import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import GameListImportProgressModal from '~/components/game-list/GameListImportProgressModal.vue'
 import type { ImportStatus } from '~/types/game'
@@ -57,5 +57,17 @@ describe('GameListImportProgressModal', () => {
     })
     await wrapper.find('.ip-modal__bg-btn').trigger('click')
     expect(wrapper.emitted('background')).toBeTruthy()
+  })
+
+  it('Echap emet background (pas de fermeture : l\'import continue en fond)', async () => {
+    const wrapper = mount(GameListImportProgressModal, {
+      props: { open: true, status: statusWith(1, 0) },
+      global: { stubs },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(wrapper.emitted('background')).toBeTruthy()
+    wrapper.unmount()
   })
 })

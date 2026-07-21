@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { ImportStatus } from '~/types/game'
 
 const props = defineProps<{ open: boolean; status: ImportStatus | null }>()
-const emit = defineEmits<{ background: []; close: [] }>()
+// Pas de vraie "fermeture" ici : l'action utilisateur est de continuer
+// l'import en arriere-plan (cf GameListDesktop/Mobile, qui ne cablent que
+// @background). Echap fait donc la meme chose que le bouton.
+const emit = defineEmits<{ background: [] }>()
 
 const { t } = useI18n()
+
+// Focus-trap + Echap (WCAG 2.4.3, 2.1.2) : voir useFocusTrap.ts
+const modalBox = ref<HTMLElement | null>(null)
+useFocusTrap(modalBox, () => props.open, () => emit('background'))
 
 // Grille plafonnee : sur une grosse biblio (200+ jeux) on n'affiche pas tout,
 // juste les jaquettes deja recuperees jusqu'a un maximum. Le loader indique
@@ -25,7 +32,7 @@ const covers = computed(() =>
       aria-modal="true"
       :aria-label="t('gameList.importProgress.title')"
     >
-      <div class="gl-modal__box ip-modal">
+      <div ref="modalBox" class="gl-modal__box ip-modal">
         <div class="gl-modal__header">
           <h2 class="gl-modal__title">{{ t('gameList.importProgress.title') }}</h2>
           <button

@@ -101,4 +101,55 @@ describe('GameListAddModal', () => {
     expect(pushMock).toHaveBeenCalled()
     expect(wrapper.emitted('added')).toBeTruthy()
   })
+
+  it('affiche un toast d\'erreur sur echec reseau et laisse l\'utilisateur reessayer', async () => {
+    authFetchMock.mockResolvedValueOnce({
+      items: [{ igdbId: 1, name: 'Celeste', coverUrl: null, releaseYear: 2018, alreadyInCollection: false, platforms: [{ id: 'p1', name: 'PC' }] }],
+    })
+    const wrapper = mount(GameListAddModal, { props: { open: true }, global: { stubs } })
+    await wrapper.find('.gl-modal__search').setValue('celeste')
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
+    await wrapper.find('.gl-add__plus').trigger('click')
+
+    authFetchMock.mockRejectedValueOnce(new Error('network'))
+    const platformBtns = wrapper.findAll('.gl-add__platform-btn')
+    await platformBtns[0].trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', text: 'addError' }))
+    expect(wrapper.emitted('added')).toBeFalsy()
+    // L'etat "adding" est reinitialise : le bouton n'est plus bloque, l'utilisateur
+    // reste sur l'ecran de choix de plateforme pour reessayer.
+    expect(wrapper.find('.gl-add__platform-btn').attributes('disabled')).toBeUndefined()
+  })
+
+  it('gere le 409 "deja dans la collection" : toast info + retour a la liste avec le badge', async () => {
+    authFetchMock.mockResolvedValueOnce({
+      items: [{ igdbId: 1, name: 'Celeste', coverUrl: null, releaseYear: 2018, alreadyInCollection: false, platforms: [{ id: 'p1', name: 'PC' }] }],
+    })
+    const wrapper = mount(GameListAddModal, { props: { open: true }, global: { stubs } })
+    await wrapper.find('.gl-modal__search').setValue('celeste')
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
+    await wrapper.find('.gl-add__plus').trigger('click')
+
+    authFetchMock.mockRejectedValueOnce({ status: 409 })
+    const platformBtns = wrapper.findAll('.gl-add__platform-btn')
+    await platformBtns[0].trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'info', text: 'alreadyIn' }))
+    // Retour a la liste de resultats (l'ecran de choix de plateforme se referme).
+    expect(wrapper.find('.gl-add__platform-btn').exists()).toBe(false)
+    expect(wrapper.find('.gl-add__badge').exists()).toBe(true)
+  })
+
+  it('Echap ferme la modale', async () => {
+    const wrapper = mount(GameListAddModal, { props: { open: true }, global: { stubs }, attachTo: document.body })
+    await flushPromises()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(wrapper.emitted('close')).toBeTruthy()
+    wrapper.unmount()
+  })
 })

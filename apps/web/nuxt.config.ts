@@ -16,15 +16,6 @@ export default defineNuxtConfig({
         // node_modules et .git sont déjà ignorés par défaut par Vite.
         ignored: ['**/.nuxt/**'],
       },
-      // Le websocket HMR piggybackait par défaut sur le port 3001 (même
-      // http.Server que Nitro). Lors d'un restart interne de Nitro, l'ancien
-      // WebSocketServer restait accroché à l'event 'upgrade' du socket,
-      // provoquant "handleUpgrade() was called more than once" et un crash
-      // du conteneur. Port HMR dédié = un WebSocketServer autonome, recréé
-      // proprement à chaque restart.
-      ws: {
-        port: 24678,
-      },
     },
   },
 

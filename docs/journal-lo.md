@@ -1303,30 +1303,38 @@ Le conteneur `nextquest-web` a planté deux fois pendant les vérifications (`Ex
 
 - [ ] Le mapping exact des 3 "Field labels" / 2 "Missing ARIA label IDs" de Silktide n'a pas été confirmé élément par élément au-delà du fix de l'icône œil — à revalider avec un nouveau scan Silktide une fois ces correctifs en ligne (le scan initial datait peut-être d'avant le fix du `label` Vuetify de la Session 15).
 
-## 2026-07-21 — Session 17 : Correction définitive du crash HMR du conteneur web
+## 2026-07-21 — Session 17 : Crash HMR du conteneur web (Vite 8.1.5) et double serveur Playwright
 
 ### Contexte
 
-Le conteneur `nextquest-web` plantait de façon récurrente (`Exited (1)`) avec `Error: server.handleUpgrade() was called more than once with the same socket`, documenté depuis la Session 15 comme "bug HMR connu" et jusqu'ici seulement contourné (redémarrage manuel du conteneur, build de prod pour les e2e). Le crash s'est mis à survenir dès le boot, sans lien avec la charge de tests — assez fréquent pour justifier une vraie investigation.
+Le conteneur `nextquest-web` plantait (`Exited (1)`) avec `Error: server.handleUpgrade() was called more than once with the same socket`, systématiquement dès qu'un vrai navigateur se connectait au serveur dev.
 
-### Analyse
+### Cause
 
-Le websocket HMR de Vite piggybackait par défaut sur le port 3001, le même `http.Server` que celui utilisé par Nitro pour servir l'app. Lors d'un redémarrage interne de Nitro (déclenché par le watcher en mode polling, ou par un changement de `nuxt.config.ts`), l'ancien `WebSocketServer` HMR restait accroché à l'event `'upgrade'` du socket partagé — le nouveau `WebSocketServer` créé par le restart s'ajoutait sans que l'ancien soit détaché, d'où la double registration et le crash au premier upgrade HTTP reçu (rechargement de page, navigation Playwright, etc.).
+Deux bugs distincts :
+
+1. **`playwright.config.ts` spawnait un second serveur `nuxt dev` en doublon.** Le check `reuseExistingServer` interrogeait `http://localhost:3001` ; sur macOS, `localhost` résout d'abord en IPv6 (`::1`), or Docker Desktop ne publie le port du conteneur qu'en IPv4. Le check échouait donc à tort (`ECONNREFUSED ::1:3001`), Playwright croyait qu'aucun serveur ne tournait et relançait `pnpm run dev` directement sur l'hôte, en parallèle de celui de Docker — deux serveurs Vite/Nitro concurrents sur le même port.
+2. **Régression de Vite 8.1.5**, indépendante du point 1 : le conteneur plantait seul, sans aucune interférence extérieure, dès la première connexion websocket HMR d'un vrai navigateur. La version de Vite était passée de `8.0.16` à `8.1.5` en effet de bord d'un `pnpm install`, via le floor `overrides.vite: ">=8.0.5"`.
+
+En creusant cet override, découverte connexe : le bloc `pnpm.overrides` / `pnpm.onlyBuiltDependencies` du `package.json` racine n'était plus du tout appliqué depuis une montée de version de pnpm (les clés doivent vivre dans `pnpm-workspace.yaml` pour pnpm 10) — les pins de sécurité (CVEs Dependabot : `fast-jwt`, `undici`, `ws`, etc.) n'étaient donc plus honorés.
 
 ### Ce qui a été fait
 
-- `nuxt.config.ts` : `vite.server.ws.port = 24678` — sort le websocket HMR sur un port dédié, avec son propre `WebSocketServer` autonome recréé proprement à chaque restart, au lieu de s'attacher au serveur HTTP partagé.
-- `docker/docker-compose.yml` : exposition du port `24678:24678` sur le service `web` pour que ce nouveau websocket soit joignable depuis le host.
-- Bug bloquant découvert en cours de route : `docker compose` (stop/up) échouait systématiquement avec `unexpected character "(" in variable name` à cause de 2 lignes de commentaire dans `.env` (`Steam`, `URLs Steam (...)`, `Twitch (IGDB)`) sans le `#` initial — invisibles avec `docker start`/`docker stop` directs sur le nom du conteneur, mais bloquantes dès qu'on passe par `docker compose`. Corrigé (`.env` n'est pas suivi par git, changement local uniquement).
+- `apps/web/playwright.config.ts` : `webServer.url` → `http://127.0.0.1:3001` (évite le double-spawn IPv4/IPv6).
+- `pnpm-workspace.yaml` : migration de `pnpm.overrides` / `pnpm.onlyBuiltDependencies` depuis `package.json` (silencieusement ignorés), avec `vite` figé en exact `8.0.16` (au lieu du floor `>=8.0.5`) le temps que la régression HMR de 8.1.5 soit corrigée en amont.
+- `package.json` racine : suppression du bloc `pnpm.overrides`/`onlyBuiltDependencies` devenu mort.
 
 ### Vérifications
 
 | Check | Résultat |
 |---|---|
-| 3 redémarrages consécutifs (`docker restart`) | ✅ 3/3 stables, HTTP 200 à chaque fois |
-| Déclenchement d'un vrai restart Nitro (édition de `nuxt.config.ts`) | ✅ `nuxt.config.ts updated. Restarting Nuxt...` sans erreur, aucune double registration |
-| `curl /auth/login` | ✅ HTTP 200 |
+| Navigation réelle (Playwright, `/`, puis `/auth/login`, 20s d'attente) | ✅ aucun crash, restart Nitro interne survécu proprement |
+| `pnpm run test:e2e` (suite complète, conteneur dev, 14 tests en parallèle) | ✅ 13/14 — conteneur resté up tout du long, aucun crash HMR |
+| 1 échec restant (`/next-quest`, contraste `.nq-state__hint`) | Violation a11y réelle et indépendante (WCAG 1.4.3, "serious"), pas un flake HMR — à traiter séparément |
+| `pnpm run test` (web) | ✅ 252/252 |
+| `pnpm exec turbo run typecheck --filter=@nextquest/web` | ✅ 0 erreur |
 
 ### Points ouverts
 
-- [ ] Confirmer sur quelques jours d'usage normal que le crash ne réapparaît plus (le bug était intermittent, donc quelques redémarrages propres ne garantissent pas 100% de fiabilité — mais le mécanisme root-cause est désormais éliminé par construction).
+- [ ] Traiter la violation a11y trouvée sur `/next-quest` (contraste insuffisant sur `.nq-state__hint`).
+- [ ] Repasser `vite` sur un floor (`>=8.0.5`) une fois une version ≥ 8.1.5 sans cette régression HMR disponible.

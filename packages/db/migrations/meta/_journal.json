@@ -71,6 +71,13 @@
       "when": 1784617762025,
       "tag": "0009_calm_ricochet",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784640236863,
+      "tag": "0010_next_sleeper",
+      "breakpoints": true
     }
   ]
 }

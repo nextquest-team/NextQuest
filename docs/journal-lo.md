@@ -1357,3 +1357,42 @@ Tourne contre le build de prod plutôt que `nuxt dev`, pour écarter tout risque
 |---|---|
 | Simulation en local du flux CI (build prod + démarrage + `test:e2e`) | ✅ 14/14 |
 | Validation syntaxique du YAML | ✅ |
+
+## 2026-07-21 — Session 19 : Bordure de contraste non détectée par Silktide
+
+### Contexte
+
+Nouveau scan Silktide sur `/auth/login` (branche actuelle) : contraste 1:1 toujours signalé en échec sur les champs email/mot de passe, alors que la bordure ajoutée en Session 16 (`:deep(.v-field) { border: 1.5px solid var(--nq-brown-mid); }`) est bien présente et rend correctement (vérifié via styles calculés + capture d'écran).
+
+### Cause
+
+La bordure est posée sur `.v-field`, le wrapper visuel de Vuetify — pas sur le `<input>` réel. Inspection du DOM généré : le `<input>` lui-même a `border: 0px none` et un fond transparent ; la bordure visible vient d'un ancêtre situé deux niveaux plus haut dans l'arbre. Un scanner qui évalue le contrôle de formulaire au sens strict (le tag `<input>`) ne voit donc aucune bordure sur l'élément qu'il inspecte, d'où le 1:1 persistant malgré un rendu visuel correct.
+
+### Pistes explorées puis abandonnées
+
+1. Dupliquer la bordure sur `.v-field__input` en plus de celle sur `.v-field`. Casse visuellement le champ mot de passe : le `<input>` s'arrête avant l'icône œil (`.v-field__append-inner`, un sibling), donc sa propre bordure droite retombe au milieu du champ — ligne verticale parasite.
+
+### Fix final
+
+Bordure retirée de `.v-field`, portée uniquement par `.v-field__input` (avec `border-radius: 12px`, valeur résolue de `rounded="lg"` sur ce thème — non hérité). Pour les champs avec icône (`.v-field--appended`, mot de passe) : bordure droite retirée de l'`<input>` et reportée sur `.v-field__append-inner`, avec `margin-right: -12px` / `padding-right: 12px` pour compenser le padding réservé à l'icône sur `.v-field` et faire coïncider exactement le bord droit de l'icône avec celui du champ. Résultat : cadre visuellement continu (mesures de rects confirmant l'alignement pixel-perfect entre `<input>` et `.v-field__append-inner`), bordure désormais portée par le contrôle de formulaire réel.
+
+Bug préexistant découvert en cours de route (sans rapport, non corrigé) : l'icône œil du champ mot de passe utilise la police décorative de l'app (`Knights Quest`) au lieu de la police d'icônes MDI — confirmé présent aussi sur `HEAD` avant ce fix (`git stash`), donc non introduit ici.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/ui/PatchInput.vue` | Bordure de contraste déplacée de `.v-field` vers `.v-field__input` + `.v-field__append-inner` |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-public.spec.ts` | ✅ 3/3 |
+| Rects `<input>` / `.v-field__append-inner` (mêmes top/bottom, contigus) | ✅ alignement pixel-perfect |
+| Captures d'écran login + register, mobile + desktop | ✅ bordure continue, sans ligne parasite |
+
+### Points ouverts
+
+- [ ] Icône œil rendue avec la mauvaise police (`Knights Quest` au lieu de MDI) — bug préexistant, hors scope de cette session.

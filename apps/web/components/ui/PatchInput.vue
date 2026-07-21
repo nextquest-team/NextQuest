@@ -79,8 +79,36 @@ const isPassword = computed(() => props.type === 'password')
 }
 
 /* WCAG 1.4.11 : le champ (fond crème translucide) se fondait dans le fond
-   tricoté de la page, sans limite visible. Bordure ≥ 3:1 sur les deux fonds. */
-:deep(.v-field) {
+   tricoté de la page, sans limite visible. Bordure ≥ 3:1 sur les deux fonds.
+   Portée directement sur .v-field__input (le <input> réel) plutôt que sur
+   .v-field (le wrapper) : certains scanners (Silktide) inspectent le
+   contrôle de formulaire au sens strict et ne créditent pas une bordure
+   posée deux niveaux plus haut dans le DOM. 12px = rayon résolu de
+   `rounded="lg"` sur ce thème Vuetify (border-radius n'étant pas hérité). */
+:deep(.v-field__input) {
   border: 1.5px solid var(--nq-brown-mid);
+  border-radius: 12px;
+}
+
+/* Champs avec icône en fin (œil mot de passe) : .v-field__append-inner est
+   un sibling du <input>, en dehors de son rectangle. On répartit la même
+   bordure sur les deux pour obtenir un cadre visuellement continu, sans
+   ligne verticale parasite entre le texte et l'icône. Le margin/padding
+   négatif compense le padding-right de .v-field (12px, réservé à l'icône)
+   pour que le bord droit de l'icône rejoigne exactement celui du champ. */
+:deep(.v-field--appended .v-field__input) {
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+:deep(.v-field--appended .v-field__append-inner) {
+  border: 1.5px solid var(--nq-brown-mid);
+  border-left: none;
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+  margin-right: -12px;
+  padding-right: 12px;
+  box-sizing: border-box;
 }
 </style>

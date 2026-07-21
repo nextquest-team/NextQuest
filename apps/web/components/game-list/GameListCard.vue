@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { GameStatus, UserGame } from '~/types/game'
 
-const props = defineProps<{ game: UserGame }>()
+const props = withDefaults(
+  defineProps<{ game: UserGame; view?: 'library' | 'ignored' }>(),
+  { view: 'library' },
+)
 const emit = defineEmits<{
   statusChange: [id: string, status: GameStatus]
-  delete: [id: string]
+  ignore: [id: string]
+  restore: [id: string]
   click: [userGameId: string]
 }>()
 
@@ -24,9 +28,14 @@ function onStatusClick(e: Event, status: GameStatus) {
   }
 }
 
-function onDelete(e: Event) {
+function onIgnore(e: Event) {
   e.stopPropagation()
-  emit('delete', props.game.id)
+  emit('ignore', props.game.id)
+}
+
+function onRestore(e: Event) {
+  e.stopPropagation()
+  emit('restore', props.game.id)
 }
 </script>
 
@@ -90,14 +99,24 @@ function onDelete(e: Event) {
       </div>
     </div>
 
-    <!-- Supprimer -->
+    <!-- Action : ignorer (bibliotheque) ou remettre (ignores) -->
     <button
-      class="gl-card__delete"
-      :aria-label="t('gameList.delete')"
-      :title="t('gameList.delete')"
-      @click="onDelete"
+      v-if="view === 'ignored'"
+      class="gl-card__action gl-card__action--restore"
+      :aria-label="t('gameList.restore')"
+      :title="t('gameList.restore')"
+      @click="onRestore"
     >
-      <v-icon size="18">mdi-trash-can-outline</v-icon>
+      <v-icon size="18">mdi-backup-restore</v-icon>
+    </button>
+    <button
+      v-else
+      class="gl-card__action gl-card__action--ignore"
+      :aria-label="t('gameList.ignore')"
+      :title="t('gameList.ignore')"
+      @click="onIgnore"
+    >
+      <v-icon size="18">mdi-eye-off-outline</v-icon>
     </button>
 
   </div>
@@ -249,22 +268,21 @@ function onDelete(e: Event) {
   .gl-card__status-select-wrap { display: block; }
 }
 
-/* ── Supprimer ── */
-.gl-card__delete {
+/* ── Action (ignorer / remettre) ── */
+.gl-card__action {
   flex-shrink: 0;
   align-self: flex-start;
   margin: 10px 10px 0 0;
   background: none;
   border: none;
   cursor: pointer;
-  color: rgba(var(--nq-red-rgb), 0.5);
   padding: 4px;
   border-radius: 4px;
   transition: color 0.1s, background 0.1s;
 }
 
-.gl-card__delete:hover {
-  color: var(--nq-red);
-  background: rgba(var(--nq-red-rgb), 0.08);
-}
+.gl-card__action--ignore { color: rgba(var(--nq-brown-rgb), 0.45); }
+.gl-card__action--ignore:hover { color: var(--nq-brown); background: rgba(var(--nq-brown-rgb), 0.1); }
+.gl-card__action--restore { color: var(--nq-brown); }
+.gl-card__action--restore:hover { color: var(--nq-brown-dark, #3A1A0A); background: rgba(var(--nq-brown-rgb), 0.12); }
 </style>

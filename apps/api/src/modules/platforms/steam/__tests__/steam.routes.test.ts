@@ -16,6 +16,7 @@ vi.mock("../../../games/igdb/igdb.service.js", () => ({
 
 import Fastify from "fastify";
 import { ZodError } from "zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { db, users, connectedServices, userGames, games } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { registerJwt } from "../../../../plugins/jwt.js";
@@ -25,6 +26,7 @@ import { verifySteamAssertion } from "../steam.openid.js";
 import { getOwnedGames, getPlayerSummary } from "../steam.client.js";
 import { linkSteamAccount } from "../steam.service.js";
 import * as igdbService from "../../../games/igdb/igdb.service.js";
+import { markEnrichStart } from "../../../games/igdb/enrich-progress.js";
 
 const mockedVerify = vi.mocked(verifySteamAssertion);
 const mockedGetOwnedGames = vi.mocked(getOwnedGames);
@@ -33,6 +35,8 @@ const mockedEnrichGames = vi.mocked(igdbService.enrichGames);
 
 async function buildApp() {
   const app = Fastify();
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   app.setErrorHandler(
     (error: Error & { statusCode?: number }, _request, reply) => {
       if (error instanceof ZodError) {
@@ -281,5 +285,54 @@ describe("POST /api/platforms/steam/import", () => {
 
     expect(res.statusCode).toBe(200);
     expect(mockedEnrichGames).toHaveBeenCalledWith({ userId });
+  });
+});
+
+describe("GET /api/platforms/steam/import/status", () => {
+  it("renvoie 401 sans JWT", async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/platforms/steam/import/status",
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("renvoie idle quand aucun enrichissement n'est en cours", async () => {
+    const app = await buildApp();
+    const { token } = await createUserAndToken(app);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/platforms/steam/import/status",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({
+      status: "idle",
+      total: 0,
+      done: 0,
+      games: [],
+    });
+  });
+
+  it("renvoie la progression en cours", async () => {
+    const app = await buildApp();
+    const { userId, token } = await createUserAndToken(app);
+    await markEnrichStart(userId, ["ug-1", "ug-2", "ug-3", "ug-4", "ug-5"]);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/platforms/steam/import/status",
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.status).toBe("running");
+    expect(body.total).toBe(5);
+    expect(body.done).toBe(0);
+    expect(body.games).toEqual([]);
   });
 });

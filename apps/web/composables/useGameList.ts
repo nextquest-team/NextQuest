@@ -1,10 +1,19 @@
 import type { UserGame, GameStatus, CollectionListResponse } from '~/types/game'
 import { toUserGame } from '~/types/game'
 
+export type CollectionView = 'library' | 'ignored'
+
 export function useGameList() {
   const { t } = useI18n()
   const { authFetch, apiBase } = useAuthFetch()
   const route = useRoute()
+
+  // Modale de progression d'import (jaquettes live). Le re-fetch final de la
+  // collection est declenche a la fin de l'enrichissement, via onDone.
+  const progress = useImportProgress()
+  progress.onDone(() => {
+    void fetchGames()
+  })
 
   // ── Steam ────────────────────────────────────────────────
   const steamConnected = ref(false)
@@ -49,7 +58,9 @@ export function useGameList() {
         type: 'success',
         text: res.warning ?? `${res.imported} ${t('gameList.importSuccess')}`,
       }
-      await fetchGames()
+      // Ouvre la modale de progression : elle poll l'enrichissement IGDB et
+      // re-fetch la collection a la fin (via progress.onDone).
+      progress.start()
     } catch {
       importMessage.value = { type: 'error', text: t('gameList.importError') }
     } finally {
@@ -57,18 +68,13 @@ export function useGameList() {
     }
   }
 
-  // ── IGDB — enrichissement ────────────────────────────────
-  const enrichLoading = ref(false)
-
-  async function enrichGames() {
-    enrichLoading.value = true
-    try {
-      await authFetch(`${apiBase}/api/users/me/library/enrich`, { method: 'POST' })
-      await fetchGames()
-    } catch (e) {
-      console.error('[useGameList] enrichGames', e)
-      importMessage.value = { type: 'error', text: t('gameList.enrichError') }
-    } finally { enrichLoading.value = false }
+  // ── Vue : bibliotheque (defaut) ou jeux ignores ──────────
+  const view = ref<CollectionView>('library')
+  function setView(v: CollectionView) {
+    if (view.value === v) return
+    view.value = v
+    currentPage.value = 1
+    fetchGames()
   }
 
   // ── Filtres, recherche, drawer ───────────────────────────
@@ -134,6 +140,7 @@ export function useGameList() {
     gamesError.value = false
     try {
       const query: Record<string, string | number> = {
+        view: view.value,
         limit: LIMIT,
         offset: (currentPage.value - 1) * LIMIT,
       }
@@ -168,12 +175,29 @@ export function useGameList() {
     }
   }
 
-  async function onDeleteGame(userGameId: string) {
+  // Retire de la liste courante (optimiste) et POST l'action. En cas d'echec, on
+  // re-fetch pour resynchroniser.
+  function removeFromList(userGameId: string) {
     games.value = games.value.filter(g => g.id !== userGameId)
     total.value = Math.max(0, total.value - 1)
     if (games.value.length === 0 && currentPage.value > 1) currentPage.value--
+  }
+
+  // Ignorer un jeu (vue bibliotheque) : il quitte la biblio mais garde son statut.
+  async function onIgnoreGame(userGameId: string) {
+    removeFromList(userGameId)
     try {
-      await authFetch(`${apiBase}/api/collection/${userGameId}`, { method: 'DELETE' })
+      await authFetch(`${apiBase}/api/collection/${userGameId}/ignore`, { method: 'POST' })
+    } catch {
+      await fetchGames()
+    }
+  }
+
+  // Remettre un jeu ignore dans la bibliotheque (vue ignores).
+  async function onRestoreGame(userGameId: string) {
+    removeFromList(userGameId)
+    try {
+      await authFetch(`${apiBase}/api/collection/${userGameId}/restore`, { method: 'POST' })
     } catch {
       await fetchGames()
     }
@@ -192,8 +216,15 @@ export function useGameList() {
     fetchGames()
 
     if (route.query.steam === 'linked') {
-      importMessage.value = { type: 'success', text: t('gameList.steamLinkedSuccess') }
+      const firstLink = route.query.first === '1'
+      // On nettoie l'URL tout de suite pour ne pas re-declencher au refresh.
       navigateTo('/game-list', { replace: true })
+      if (firstLink) {
+        // Premiere liaison : on importe automatiquement + modale de progression.
+        void importSteam()
+      } else {
+        importMessage.value = { type: 'success', text: t('gameList.steamLinkedSuccess') }
+      }
     }
   }
 
@@ -201,8 +232,8 @@ export function useGameList() {
     // Steam
     steamConnected, steamPersona, steamLoading, importLoading, importMessage,
     linkSteam, importSteam,
-    // IGDB
-    enrichLoading, enrichGames,
+    // Vue
+    view, setView,
     // Filtres
     drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
     toggleStatus, applyFilters, resetFilters,
@@ -211,9 +242,14 @@ export function useGameList() {
     // Jeux
     gamesLoading, gamesError, games, fetchGames,
     // Actions
-    onStatusChange, onDeleteGame, onCardClick,
-    // Modale
+    onStatusChange, onIgnoreGame, onRestoreGame, onCardClick,
+    // Modale d'ajout
     addModalOpen,
+    // Modale de progression d'import
+    progressOpen: progress.open,
+    progressStatus: progress.status,
+    onProgressBackground: progress.stopBackground,
+    onProgressClose: progress.close,
     // Init
     init,
   }

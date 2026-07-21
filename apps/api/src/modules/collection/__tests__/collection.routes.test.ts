@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Fastify from "fastify";
 import { db, users, games, userGames } from "@nextquest/db";
-import { validatorCompiler } from "fastify-type-provider-zod";
+import { eq } from "drizzle-orm";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
 import { registerSwagger } from "../../../plugins/swagger.js";
@@ -11,6 +12,7 @@ import type { GameStatus } from "../collection.schemas.js";
 async function buildApp() {
   const app = Fastify();
   app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandler(app);
   await registerSwagger(app);
   await registerJwt(app);
@@ -305,5 +307,187 @@ describe("POST /api/collection", () => {
       payload: { gameId: "00000000-0000-0000-0000-000000000000" },
     });
     expect(res.statusCode).toBe(404);
+  });
+  it("404 (pas 500) si platformId est un uuid valide mais inexistant", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const [g] = await db
+      .insert(games)
+      .values({ title: "Add Me Platform", slug: "add-me-platform-1" })
+      .returning({ id: games.id });
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { gameId: g.id, platformId: "00000000-0000-0000-0000-000000000000" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("POST /api/collection/:userGameId/ignore", () => {
+  it("401 sans JWT", async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection/00000000-0000-0000-0000-000000000000/ignore",
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("400 sur un userGameId non-uuid", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection/not-a-uuid/ignore",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("204 ignore le jeu, statut preserve", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame("completed");
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/collection/${userGameId}/ignore`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(204);
+
+    const [row] = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.id, userGameId));
+    expect(row.status).toBe("completed");
+    expect(row.excludedAt).not.toBeNull();
+  });
+
+  it("404 si non possede", async () => {
+    const app = await buildApp();
+    const { userGameId } = await seedUserGame();
+    const [other] = await db
+      .insert(users)
+      .values({ email: "o4@test.com", username: "o4", passwordHash: "x" })
+      .returning({ id: users.id });
+    const token = app.jwt.sign({ sub: other.id });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/collection/${userGameId}/ignore`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("POST /api/collection/:userGameId/restore", () => {
+  it("401 sans JWT", async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection/00000000-0000-0000-0000-000000000000/restore",
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("400 sur un userGameId non-uuid", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection/not-a-uuid/restore",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("204 restaure un jeu ignore, statut TOUJOURS intact", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame("completed");
+    const token = app.jwt.sign({ sub: userId });
+
+    await app.inject({
+      method: "POST",
+      url: `/api/collection/${userGameId}/ignore`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/collection/${userGameId}/restore`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(204);
+
+    const [row] = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.id, userGameId));
+    expect(row.status).toBe("completed");
+    expect(row.excludedAt).toBeNull();
+  });
+
+  it("404 si non possede", async () => {
+    const app = await buildApp();
+    const { userGameId } = await seedUserGame();
+    const [other] = await db
+      .insert(users)
+      .values({ email: "o5@test.com", username: "o5", passwordHash: "x" })
+      .returning({ id: users.id });
+    const token = app.jwt.sign({ sub: other.id });
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/collection/${userGameId}/restore`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("GET /api/collection?view=ignored", () => {
+  it("liste les jeux ignores avec leur statut, absents de view=library", async () => {
+    const app = await buildApp();
+    const { userId, userGameId } = await seedUserGame("completed");
+    const token = app.jwt.sign({ sub: userId });
+
+    await app.inject({
+      method: "POST",
+      url: `/api/collection/${userGameId}/ignore`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    const ignoredRes = await app.inject({
+      method: "GET",
+      url: "/api/collection?view=ignored",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(ignoredRes.statusCode).toBe(200);
+    const ignoredBody = JSON.parse(ignoredRes.body);
+    expect(ignoredBody.items).toHaveLength(1);
+    expect(ignoredBody.items[0].userGameId).toBe(userGameId);
+    expect(ignoredBody.items[0].status).toBe("completed");
+
+    const libraryRes = await app.inject({
+      method: "GET",
+      url: "/api/collection?view=library",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(JSON.parse(libraryRes.body).items).toHaveLength(0);
+  });
+
+  it("400 sur une valeur de view invalide", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/collection?view=nope",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });

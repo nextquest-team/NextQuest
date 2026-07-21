@@ -86,6 +86,8 @@ Une fois lance, voici les URLs disponibles :
 |---------|-----|
 | API | http://localhost:3000 |
 | **Swagger UI (doc API)** | **http://localhost:3000/docs** |
+| Spec OpenAPI (JSON) | http://localhost:3000/docs/json |
+| Spec OpenAPI (YAML) | http://localhost:3000/docs/yaml |
 | Health check | http://localhost:3000/api/health |
 | Drizzle Studio (BDD) | https://local.drizzle.studio (apres `pnpm --filter @nextquest/db db:studio`) |
 | Web (Nuxt) | http://localhost:3001 |

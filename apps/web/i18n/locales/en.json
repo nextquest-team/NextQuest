@@ -109,9 +109,30 @@
     "addModal": {
       "title": "Add a game",
       "searchPlaceholder": "Search for a game…",
-      "noResults": "No results",
-      "add": "Add",
-      "comingSoon": "IGDB search is coming soon — this feature will be available once the API is ready."
+      "add": "Add to my collection",
+      "hint": "Search a game by name to add it to your collection.",
+      "empty": "No game found for this search.",
+      "added": "{title} added to your collection",
+      "alreadyIn": "This game is already in your collection.",
+      "addError": "Could not add the game. Try again.",
+      "alreadyBadge": "Already added",
+      "choosePlatform": "Which platform do you own {title} on?",
+      "noPlatform": "No platform",
+      "back": "Back"
+    },
+    "importProgress": {
+      "title": "Import in progress",
+      "count": "{done} / {total} covers fetched",
+      "background": "Continue in the background"
+    },
+    "enrichDone": "Covers updated!",
+    "ignore": "Ignore",
+    "restore": "Move back to my library",
+    "view": {
+      "label": "View",
+      "library": "My library",
+      "ignored": "Ignored",
+      "emptyIgnored": "No ignored games."
     }
   },
   "gameDetail": {
@@ -204,5 +225,8 @@
     "wheel": {
       "alt": "Next Quest"
     }
+  },
+  "common": {
+    "loading": "Loading"
   }
 }

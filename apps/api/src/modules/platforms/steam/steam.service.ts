@@ -9,17 +9,23 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import type { SteamOwnedGame } from "./steam.client.js";
 
-// Statut initial à l'import : joué dans les 2 dernières semaines => en cours, sinon à faire.
-// On ne se base PAS sur le temps total (un jeu avec 200h l'an dernier n'est pas "en cours").
+// Statut initial a l'import, base sur le temps de jeu TOTAL : un jeu deja joue
+// (peu importe quand) arrive "en cours", un jeu jamais lance reste "a faire".
+// On se basait avant sur le temps recent (2 semaines), donc un jeu joue il y a
+// longtemps retombait a tort en "a faire".
 export function mapSteamStatus(
-  playtimeRecentMinutes: number,
+  playtimeMinutes: number,
 ): "playing" | "backlog" {
-  return playtimeRecentMinutes > 0 ? "playing" : "backlog";
+  return playtimeMinutes > 0 ? "playing" : "backlog";
 }
 
 export interface SteamConnection {
   steamId: string;
   personaName: string | null;
+}
+
+export interface SteamLinkResult extends SteamConnection {
+  isFirstLink: boolean;
 }
 
 // Slug deterministe et unique : on suffixe l'appid (unique) pour eviter toute
@@ -64,8 +70,22 @@ export async function linkSteamAccount(
   userId: string,
   steamId: string,
   personaName: string | null,
-): Promise<SteamConnection> {
+): Promise<SteamLinkResult> {
   const serviceId = await getServiceId("steam");
+
+  // On verifie l'existence AVANT l'upsert pour distinguer une premiere
+  // liaison d'un relink : le front en a besoin pour adapter l'onboarding
+  // post-callback (proposer l'import ou non).
+  const [existing] = await db
+    .select({ id: connectedServices.id })
+    .from(connectedServices)
+    .where(
+      and(
+        eq(connectedServices.userId, userId),
+        eq(connectedServices.serviceId, serviceId),
+      ),
+    )
+    .limit(1);
 
   await db
     .insert(connectedServices)
@@ -84,7 +104,7 @@ export async function linkSteamAccount(
       },
     });
 
-  return { steamId, personaName };
+  return { steamId, personaName, isFirstLink: !existing };
 }
 
 export async function getSteamConnection(
@@ -191,14 +211,15 @@ export async function importSteamLibrary(
           // "en cours", un jeu jamais lance reste "a faire". L'user n'ajuste que
           // les exceptions (termines / abandonnes). Steam n'expose pas de date
           // de premiere partie, donc pas de started_at ici.
-          status: mapSteamStatus(g.playtimeRecentMinutes),
+          status: mapSteamStatus(g.playtimeMinutes),
         })),
       )
       .onConflictDoUpdate({
         target: [userGames.userId, userGames.gameId, userGames.platformId],
         set: {
-          // status volontairement absent du set : un reimport ne doit jamais
-          // reecrire le statut que l'user a ajuste depuis l'import initial.
+          // status et excluded_at volontairement absents du set : un reimport
+          // ne doit jamais reecrire le statut ajuste par l'user, ni reactiver
+          // un jeu que l'user a explicitement ignore de sa collection.
           playtimeMinutes: sql.raw(
             `excluded.${userGames.playtimeMinutes.name}`,
           ),

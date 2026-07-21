@@ -29,6 +29,8 @@ export const userGameParamsSchema = z.object({
 // d'ou le coerce. includeHidden : on parse explicitement la chaine plutot que
 // z.coerce.boolean(), qui est piegeux (toute string non vide est truthy, donc
 // "false" donnerait true).
+// view distingue la collection visible ("library", defaut) des jeux ignores
+// ("ignored") : un meme jeu ignore garde son statut, il change juste de vue.
 export const listCollectionQuerySchema = z.object({
   status: z.enum(GAME_STATUSES).optional(),
   search: z.string().trim().min(1).max(100).optional(),
@@ -38,6 +40,7 @@ export const listCollectionQuerySchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  view: z.enum(["library", "ignored"]).default("library"),
 });
 
 export type ListCollectionQuery = z.infer<typeof listCollectionQuerySchema>;
@@ -66,3 +69,13 @@ export const addGameSchema = z.object({
 });
 
 export type AddGameInput = z.infer<typeof addGameSchema>;
+
+// Ajout d'un jeu IGDB potentiellement absent de notre catalogue : on identifie
+// le jeu par son igdbId plutot que notre uuid interne (le front ne le connait pas
+// forcement encore), le service hydrate le catalogue si besoin.
+export const addIgdbGameSchema = z.object({
+  igdbId: z.number().int().positive(),
+  platformId: z.string().uuid().optional(),
+});
+
+export type AddIgdbGameInput = z.infer<typeof addIgdbGameSchema>;

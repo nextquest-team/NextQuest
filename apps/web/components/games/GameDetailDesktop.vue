@@ -19,7 +19,7 @@ onMounted(load)
 
     <!-- Chargement -->
     <div v-if="loading" class="gdd__not-found">
-      <v-progress-circular indeterminate size="40" color="primary" />
+      <v-progress-circular :aria-label="t('common.loading')" indeterminate size="40" color="primary" />
     </div>
 
     <!-- Jeu introuvable -->

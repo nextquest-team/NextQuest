@@ -7,9 +7,18 @@ import {
   getSteamConnection,
   importSteamLibrary,
 } from "./steam.service.js";
+import { getImportStatus } from "./import-status.service.js";
 import { enrichGames } from "../../games/igdb/igdb.service.js";
 import { generateRecommendations } from "../../recommendations/generate.js";
 import { requireAuth, userIdOf } from "../../../lib/guards.js";
+import { errorResponses } from "../../../lib/openapi.js";
+import {
+  steamLinkSchema,
+  steamStatusSchema,
+  steamUnlinkResultSchema,
+  steamImportResultSchema,
+  steamImportStatusSchema,
+} from "./steam.schemas.js";
 
 // URL publique de l'API (joignable par le browser) pour realm + return_to OpenID.
 const CALLBACK_BASE =
@@ -27,8 +36,15 @@ export async function steamRoutes(app: FastifyInstance) {
       preHandler: app.rateLimit({ max: 30, timeWindow: "1 minute" }),
       schema: {
         tags: ["Platforms"],
+        operationId: "linkSteam",
         summary: "Demarrer la liaison du compte Steam (OpenID)",
+        description:
+          "Renvoie l'URL OpenID Steam vers laquelle le front doit rediriger l'utilisateur. L'identite du user est portee a travers la redirection Steam par un state JWT signe ici (valide 10 min).",
         security: [{ bearerAuth: [] }],
+        response: {
+          200: steamLinkSchema,
+          ...errorResponses(401),
+        },
       },
     },
     async (request) => {
@@ -50,7 +66,13 @@ export async function steamRoutes(app: FastifyInstance) {
       preHandler: app.rateLimit({ max: 20, timeWindow: "1 minute" }),
       schema: {
         tags: ["Platforms"],
+        operationId: "steamCallback",
         summary: "Callback OpenID Steam",
+        description:
+          "Appelee par Steam apres authentification OpenID. Verifie le state et l'assertion, lie le compte Steam au user, puis redirige (302) vers le front (/game-list?steam=linked&first=0|1). Pas de reponse JSON en cas de succes.",
+        response: {
+          ...errorResponses(401),
+        },
       },
     },
     async (request, reply) => {
@@ -77,9 +99,15 @@ export async function steamRoutes(app: FastifyInstance) {
         steamId,
         process.env.STEAM_API_KEY ?? "",
       );
-      await linkSteamAccount(userId, steamId, summary?.personaName ?? null);
+      const result = await linkSteamAccount(
+        userId,
+        steamId,
+        summary?.personaName ?? null,
+      );
 
-      return reply.redirect(`${FRONTEND_URL}/game-list?steam=linked`);
+      return reply.redirect(
+        `${FRONTEND_URL}/game-list?steam=linked&first=${result.isFirstLink ? 1 : 0}`,
+      );
     },
   );
 
@@ -90,8 +118,15 @@ export async function steamRoutes(app: FastifyInstance) {
       onRequest: [requireAuth],
       schema: {
         tags: ["Platforms"],
+        operationId: "getSteamStatus",
         summary: "Statut de la connexion Steam",
+        description:
+          "Renvoie si un compte Steam est lie a l'utilisateur, et son SteamID/pseudo le cas echeant.",
         security: [{ bearerAuth: [] }],
+        response: {
+          200: steamStatusSchema,
+          ...errorResponses(401),
+        },
       },
     },
     async (request) => {
@@ -111,8 +146,15 @@ export async function steamRoutes(app: FastifyInstance) {
       onRequest: [requireAuth],
       schema: {
         tags: ["Platforms"],
+        operationId: "unlinkSteam",
         summary: "Delier le compte Steam",
+        description:
+          "Supprime le lien Steam de l'utilisateur. `unlinked` vaut false si aucun lien n'existait.",
         security: [{ bearerAuth: [] }],
+        response: {
+          200: steamUnlinkResultSchema,
+          ...errorResponses(401),
+        },
       },
     },
     async (request) => {
@@ -129,8 +171,15 @@ export async function steamRoutes(app: FastifyInstance) {
       preHandler: app.rateLimit({ max: 10, timeWindow: "1 minute" }),
       schema: {
         tags: ["Platforms"],
+        operationId: "importSteamLibrary",
         summary: "Importer la bibliotheque Steam",
+        description:
+          "Recupere la bibliotheque du compte Steam lie et l'importe dans la collection. Declenche ensuite (en tache de fond) l'enrichissement IGDB puis la generation des recommandations. `warning` est present si le profil Steam ne renvoie aucun jeu (details du profil non publics).",
         security: [{ bearerAuth: [] }],
+        response: {
+          200: steamImportResultSchema,
+          ...errorResponses(401, 409, 502),
+        },
       },
     },
     async (request, reply) => {
@@ -174,6 +223,30 @@ export async function steamRoutes(app: FastifyInstance) {
         });
 
       return reply.send({ imported });
+    },
+  );
+
+  // Statut de l'enrichissement IGDB en cours, poll par le front pour la modale
+  // de progression apres un import (jaquettes qui arrivent au fil de l'eau).
+  app.get(
+    "/platforms/steam/import/status",
+    {
+      onRequest: [requireAuth],
+      schema: {
+        tags: ["Platforms"],
+        operationId: "getSteamImportStatus",
+        summary: "Statut de la progression d'enrichissement de la bibliotheque",
+        description:
+          "Poll par le front pour la modale de progression apres un import : avancement de l'enrichissement IGDB (jaquettes) jeu par jeu.",
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: steamImportStatusSchema,
+          ...errorResponses(401),
+        },
+      },
+    },
+    async (request) => {
+      return getImportStatus(userIdOf(request));
     },
   );
 }

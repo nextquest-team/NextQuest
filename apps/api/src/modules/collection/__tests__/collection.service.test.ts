@@ -10,8 +10,9 @@ import {
   gameGenres,
   gameTags,
   gameSimilar,
+  platforms,
 } from "@nextquest/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   updateGameStatus,
   listCollection,
@@ -19,6 +20,8 @@ import {
   updateCollectionItem,
   deleteCollectionItem,
   addGameToCollection,
+  ignoreUserGame,
+  restoreUserGame,
 } from "../collection.service.js";
 import type { GameStatus } from "../collection.schemas.js";
 
@@ -26,6 +29,10 @@ async function cleanup() {
   // La FK user_game_status_history / user_game_tags -> user_games est ON DELETE
   // CASCADE : supprimer user_games purge aussi l'historique et les tags du jeu.
   await db.delete(userGames);
+  // Plateforme de test creee a la volee (cf. describe "ignoreUserGame"), nettoyee
+  // par code plutot que de vider toute la table, qui porte les donnees de
+  // reference partagees (pc, steam...) utilisees ailleurs.
+  await db.delete(platforms).where(eq(platforms.code, "switch-excl-test"));
   await db.delete(gameTags);
   await db.delete(gameGenres);
   await db.delete(gameSimilar);
@@ -282,6 +289,31 @@ describe("listCollection", () => {
     expect(res.total).toBe(0);
     expect(res.items).toEqual([]);
   });
+  it("view=ignored ne renvoie que les jeux ignores, view=library (defaut) les exclut", async () => {
+    const { userId, ug1 } = await seedCollection();
+    await db
+      .update(userGames)
+      .set({ excludedAt: new Date() })
+      .where(eq(userGames.id, ug1));
+
+    const library = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(library.items.find((i) => i.userGameId === ug1)).toBeUndefined();
+
+    const ignored = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+      view: "ignored",
+    });
+    expect(ignored.total).toBe(1);
+    expect(ignored.items[0].userGameId).toBe(ug1);
+  });
 });
 
 describe("getCollectionItem", () => {
@@ -391,9 +423,148 @@ describe("addGameToCollection", () => {
     });
     expect(res).toEqual({ ok: false, reason: "game_not_found" });
   });
+  it("renvoie platform_not_found si le platformId n'existe pas (uuid valide mais absent)", async () => {
+    const { userId } = await seedCollection();
+    const [g3] = await db
+      .insert(games)
+      .values({ title: "Dead Cells", slug: "dc-platform-test" })
+      .returning({ id: games.id });
+    const res = await addGameToCollection(userId, {
+      gameId: g3.id,
+      platformId: "00000000-0000-0000-0000-000000000000",
+    });
+    expect(res).toEqual({ ok: false, reason: "platform_not_found" });
+
+    // Pas d'insertion partielle en cas de platformId invalide.
+    const rows = await db
+      .select()
+      .from(userGames)
+      .where(and(eq(userGames.userId, userId), eq(userGames.gameId, g3.id)));
+    expect(rows).toHaveLength(0);
+  });
   it("renvoie conflict si deja present (meme platformId null)", async () => {
     const { userId, gameId2 } = await seedCollection(); // gameId2 deja ajoute, platformId null
     const res = await addGameToCollection(userId, { gameId: gameId2 });
     expect(res).toEqual({ ok: false, reason: "conflict" });
+  });
+  it("reactive un jeu ignore lors de l'ajout (au lieu de conflict)", async () => {
+    const { userId } = await seedCollection();
+    const [g3] = await db
+      .insert(games)
+      .values({ title: "Dead Cells", slug: "dc-2" })
+      .returning({ id: games.id });
+    const [ug3] = await db
+      .insert(userGames)
+      .values({ userId, gameId: g3.id, status: "completed" })
+      .returning({ id: userGames.id });
+    await ignoreUserGame(userId, ug3.id);
+
+    const res = await addGameToCollection(userId, { gameId: g3.id });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      // Reactivation de la ligne existante : statut preserve, pas de doublon.
+      expect(res.item.userGameId).toBe(ug3.id);
+      expect(res.item.status).toBe("completed");
+    }
+
+    const rows = await db
+      .select()
+      .from(userGames)
+      .where(and(eq(userGames.userId, userId), eq(userGames.gameId, g3.id)));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].excludedAt).toBeNull();
+  });
+});
+
+describe("ignoreUserGame / restoreUserGame", () => {
+  it("ignore un jeu : disparait de listCollection(view=library) mais garde son statut", async () => {
+    const { userId, ug1 } = await seedCollection(); // ug1 status "playing"
+    await updateGameStatus(userId, ug1, "completed");
+
+    expect(await ignoreUserGame(userId, ug1)).toBe(true);
+
+    const library = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+      view: "library",
+    });
+    expect(library.items.find((i) => i.userGameId === ug1)).toBeUndefined();
+
+    const ignored = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+      view: "ignored",
+    });
+    const item = ignored.items.find((i) => i.userGameId === ug1);
+    expect(item?.status).toBe("completed");
+  });
+
+  it("restore un jeu ignore : statut TOUJOURS intact (cas cle)", async () => {
+    const { userId, ug1 } = await seedCollection();
+    await updateGameStatus(userId, ug1, "completed");
+
+    expect(await ignoreUserGame(userId, ug1)).toBe(true);
+    expect(await restoreUserGame(userId, ug1)).toBe(true);
+
+    const [row] = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.id, ug1));
+    expect(row.status).toBe("completed");
+    expect(row.excludedAt).toBeNull();
+
+    const library = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+      view: "library",
+    });
+    expect(library.items.find((i) => i.userGameId === ug1)?.status).toBe(
+      "completed",
+    );
+  });
+
+  it("renvoie false si le user_game n'appartient pas au user", async () => {
+    const { ug1 } = await seedCollection();
+    expect(
+      await ignoreUserGame("00000000-0000-0000-0000-000000000000", ug1),
+    ).toBe(false);
+    expect(
+      await restoreUserGame("00000000-0000-0000-0000-000000000000", ug1),
+    ).toBe(false);
+  });
+
+  it("ne plante pas si le meme jeu (sur 2 plateformes) a 2 lignes ignorees independamment", async () => {
+    // Un meme jeu peut avoir 2 lignes user_games (une par plateforme, ex: PC + Switch).
+    // Ignorer/restaurer chaque ligne est independant (le flag vit sur user_games,
+    // plus de contrainte d'unicite globale par jeu).
+    const { userId, gameId1, ug1 } = await seedCollection();
+    const [platform] = await db
+      .insert(platforms)
+      .values({ name: "Switch", code: "switch-excl-test" })
+      .returning({ id: platforms.id });
+    const [ug1bis] = await db
+      .insert(userGames)
+      .values({
+        userId,
+        gameId: gameId1,
+        platformId: platform.id,
+        status: "backlog",
+      })
+      .returning({ id: userGames.id });
+
+    expect(await ignoreUserGame(userId, ug1)).toBe(true);
+    expect(await ignoreUserGame(userId, ug1bis.id)).toBe(true);
+
+    const rows = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.gameId, gameId1));
+    expect(rows.every((r) => r.excludedAt !== null)).toBe(true);
   });
 });

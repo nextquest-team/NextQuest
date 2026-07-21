@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { db, users, connectedServices, userGames, games } from "@nextquest/db";
+import {
+  db,
+  users,
+  connectedServices,
+  userGames,
+  games,
+} from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import {
   linkSteamAccount,
@@ -59,6 +65,16 @@ describe("linkSteamAccount / getSteamConnection", () => {
   it("renvoie null quand aucun compte Steam n'est lie", async () => {
     const userId = await createUser();
     expect(await getSteamConnection(userId)).toBeNull();
+  });
+
+  it("signale isFirstLink:true pour une premiere liaison, puis false pour un relink", async () => {
+    const userId = await createUser();
+
+    const first = await linkSteamAccount(userId, "76561198000000000", "Gaben");
+    expect(first.isFirstLink).toBe(true);
+
+    const second = await linkSteamAccount(userId, "76561198000000001", "NewName");
+    expect(second.isFirstLink).toBe(false);
   });
 });
 
@@ -131,11 +147,12 @@ describe("importSteamLibrary", () => {
     expect(await importSteamLibrary(userId, [])).toBe(0);
   });
 
-  it("classe le statut initial selon le temps de jeu (playing si joue, sinon backlog)", async () => {
+  it("classe le statut initial selon le temps de jeu TOTAL (playing si joue meme sans partie recente, sinon backlog)", async () => {
     const userId = await createUser();
 
     await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 120 },
+      // Joue par le passe mais pas recemment (recent = 0) : doit rester "playing".
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 0 },
       { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 0, playtimeRecentMinutes: 0 },
     ]);
 
@@ -181,5 +198,40 @@ describe("importSteamLibrary", () => {
     expect(ug).toHaveLength(1);
     expect(ug[0].status).toBe("completed");
     expect(ug[0].playtimeMinutes).toBe(1500);
+  });
+
+  it("ne reactive pas un jeu ignore par l'user lors d'un reimport", async () => {
+    const userId = await createUser();
+
+    await importSteamLibrary(userId, [
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 0 },
+      { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 0, playtimeRecentMinutes: 0 },
+    ]);
+
+    const [dota] = await db.select().from(games).where(eq(games.steamAppid, 570));
+    // L'user ignore Dota 2 depuis sa collection (flag sur user_games, pas de
+    // suppression -- le statut reste en base).
+    await db
+      .update(userGames)
+      .set({ excludedAt: new Date() })
+      .where(eq(userGames.gameId, dota.id));
+
+    const count = await importSteamLibrary(userId, [
+      { appid: 570, name: "Dota 2", playtimeMinutes: 1300, playtimeRecentMinutes: 0 },
+      { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 10, playtimeRecentMinutes: 0 },
+    ]);
+
+    // Les deux jeux sont traites (compteur inclut aussi Dota, dont seul le
+    // temps de jeu est mis a jour), mais Dota reste ignore.
+    expect(count).toBe(2);
+
+    const ug = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.userId, userId));
+    expect(ug).toHaveLength(2);
+    const dotaUg = ug.find((r) => r.gameId === dota.id);
+    expect(dotaUg?.excludedAt).not.toBeNull();
+    expect(dotaUg?.playtimeMinutes).toBe(1300);
   });
 });

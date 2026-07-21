@@ -1,5 +1,7 @@
 // @vitest-environment nuxt
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ref } from 'vue'
+import { flushPromises } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { useGameList } from '~/composables/useGameList'
 
@@ -7,10 +9,8 @@ mockNuxtImport('useI18n', () => () => ({
   t: (key: string) => key.split('.').pop() ?? key,
 }))
 
-mockNuxtImport('useRoute', () => () => ({
-  params: {},
-  query: {},
-}))
+const routeMock = { params: {} as Record<string, string>, query: {} as Record<string, string> }
+mockNuxtImport('useRoute', () => () => routeMock)
 
 const authFetchMock = vi.fn()
 mockNuxtImport('useAuthFetch', () => () => ({
@@ -20,10 +20,22 @@ mockNuxtImport('useAuthFetch', () => () => ({
 
 mockNuxtImport('navigateTo', () => vi.fn())
 
+const startProgressMock = vi.fn()
+mockNuxtImport('useImportProgress', () => () => ({
+  open: ref(false),
+  status: ref(null),
+  start: startProgressMock,
+  stopBackground: vi.fn(),
+  close: vi.fn(),
+  onDone: vi.fn(),
+}))
+
 describe('useGameList', () => {
   beforeEach(() => {
     authFetchMock.mockReset()
     authFetchMock.mockResolvedValue({ items: [], total: 0 })
+    startProgressMock.mockReset()
+    routeMock.query = {}
   })
 
   describe('STATUS_OPTIONS', () => {
@@ -98,44 +110,44 @@ describe('useGameList', () => {
     })
   })
 
-  describe('onDeleteGame', () => {
-    it('supprime le jeu de la liste de façon optimiste', async () => {
+  describe('onIgnoreGame', () => {
+    it('retire le jeu de la liste de façon optimiste', async () => {
       authFetchMock.mockResolvedValue({})
-      const { games, total, onDeleteGame } = useGameList()
+      const { games, total, onIgnoreGame } = useGameList()
       games.value = [
         { id: 'ug-1', title: 'Jeu A', status: 'backlog' },
         { id: 'ug-2', title: 'Jeu B', status: 'playing' },
       ] as any[]
       total.value = 2
 
-      await onDeleteGame('ug-1')
+      await onIgnoreGame('ug-1')
       expect(games.value.find(g => g.id === 'ug-1')).toBeUndefined()
       expect(total.value).toBe(1)
     })
 
     it('décremente le total au minimum à 0', async () => {
       authFetchMock.mockResolvedValue({})
-      const { games, total, onDeleteGame } = useGameList()
+      const { games, total, onIgnoreGame } = useGameList()
       games.value = [{ id: 'ug-1', title: 'Jeu A', status: 'backlog' }] as any[]
       total.value = 1
 
-      await onDeleteGame('ug-1')
+      await onIgnoreGame('ug-1')
       expect(total.value).toBe(0)
     })
 
-    it("refetch la liste si l'API DELETE échoue", async () => {
+    it("refetch la liste si l'API ignore échoue", async () => {
       authFetchMock
         .mockRejectedValueOnce(new Error('network'))
         .mockResolvedValueOnce({ items: [{ id: 'ug-2', title: 'Jeu B', status: 'playing', game: { id: 'g-2', title: 'Jeu B', coverUrl: null, releaseDate: null, isEnriched: false }, genres: [], tags: [], similarGames: [] }], total: 1 })
 
-      const { games, total, onDeleteGame } = useGameList()
+      const { games, total, onIgnoreGame } = useGameList()
       games.value = [
         { id: 'ug-1', title: 'Jeu A', status: 'backlog' },
         { id: 'ug-2', title: 'Jeu B', status: 'playing' },
       ] as any[]
       total.value = 2
 
-      await onDeleteGame('ug-1')
+      await onIgnoreGame('ug-1')
       expect(authFetchMock).toHaveBeenCalledTimes(2)
       expect(total.value).toBe(1)
     })
@@ -206,6 +218,32 @@ describe('useGameList', () => {
       const { total, totalPages } = useGameList()
       total.value = 0
       expect(totalPages.value).toBe(0)
+    })
+  })
+
+  describe('init — auto-import a la 1re liaison', () => {
+    it('auto-importe et ouvre la modale quand steam=linked & first=1', async () => {
+      routeMock.query = { steam: 'linked', first: '1' }
+      const { init } = useGameList()
+      init()
+      await flushPromises()
+      expect(startProgressMock).toHaveBeenCalled()
+    })
+
+    it("n'auto-importe pas sur un relink (first=0) mais affiche un message", async () => {
+      routeMock.query = { steam: 'linked', first: '0' }
+      const { init, importMessage } = useGameList()
+      init()
+      await flushPromises()
+      expect(startProgressMock).not.toHaveBeenCalled()
+      expect(importMessage.value?.type).toBe('success')
+    })
+
+    it("n'auto-importe pas sans param steam", async () => {
+      const { init } = useGameList()
+      init()
+      await flushPromises()
+      expect(startProgressMock).not.toHaveBeenCalled()
     })
   })
 })

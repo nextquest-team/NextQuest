@@ -27,7 +27,7 @@ function ratingStars(rating: number | null): string {
     <div class="cdm__body">
 
       <div v-if="loading" class="cdm__not-found">
-        <v-progress-circular indeterminate size="32" color="primary" />
+        <v-progress-circular :aria-label="t('common.loading')" indeterminate size="32" color="primary" />
       </div>
 
       <div v-else-if="!game" class="cdm__not-found">

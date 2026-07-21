@@ -4,13 +4,14 @@ const { t } = useI18n()
 const {
   steamConnected, steamPersona, steamLoading, importLoading, importMessage,
   linkSteam, importSteam,
-  enrichLoading, enrichGames,
+  view, setView,
   drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
   toggleStatus, applyFilters, resetFilters,
   currentPage, totalPages, goToPage,
-  gamesLoading, games,
-  onStatusChange, onDeleteGame, onCardClick,
+  gamesLoading, games, fetchGames,
+  onStatusChange, onIgnoreGame, onRestoreGame, onCardClick,
   addModalOpen,
+  progressOpen, progressStatus, onProgressBackground,
 } = inject<ReturnType<typeof useGameList>>('gameList')!
 </script>
 
@@ -41,17 +42,6 @@ const {
             {{ importLoading ? t('gameList.importing') : t('gameList.importSteam') }}
           </button>
         </div>
-
-        <button
-          v-if="games.length > 0"
-          class="gl__btn gl__btn--igdb"
-          :disabled="enrichLoading"
-          :title="t('gameList.enrichIgdb')"
-          @click="enrichGames"
-        >
-          <v-icon size="18">mdi-database-refresh-outline</v-icon>
-          {{ enrichLoading ? t('gameList.enriching') : t('gameList.enrichIgdb') }}
-        </button>
 
         <button class="gl__btn gl__btn--add" @click="addModalOpen = true">
           <v-icon size="18">mdi-plus</v-icon>
@@ -108,6 +98,26 @@ const {
         </div>
 
         <div class="gl-drawer__section">
+          <p class="gl-drawer__section-title">{{ t('gameList.view.label') }}</p>
+          <div class="gl-drawer__seg">
+            <button
+              class="gl-drawer__seg-btn"
+              :class="{ 'gl-drawer__seg-btn--active': view === 'library' }"
+              @click="setView('library')"
+            >
+              {{ t('gameList.view.library') }}
+            </button>
+            <button
+              class="gl-drawer__seg-btn"
+              :class="{ 'gl-drawer__seg-btn--active': view === 'ignored' }"
+              @click="setView('ignored')"
+            >
+              {{ t('gameList.view.ignored') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="gl-drawer__section">
           <p class="gl-drawer__section-title">{{ t('gameList.status.label') }}</p>
           <div class="gl-drawer__checks">
             <label v-for="s in STATUS_OPTIONS" :key="s.key" class="gl-drawer__check-item">
@@ -146,14 +156,14 @@ const {
 
     <!-- Loader -->
     <div v-if="gamesLoading" class="gl__loader">
-      <v-progress-circular indeterminate size="32" color="primary" />
+      <v-progress-circular :aria-label="t('common.loading')" indeterminate size="32" color="primary" />
     </div>
 
     <!-- Liste vide -->
     <div v-else-if="games.length === 0" class="gl__empty">
       <v-icon size="56" color="primary-light">mdi-gamepad-variant-outline</v-icon>
-      <p class="gl__empty-title">{{ t('gameList.empty') }}</p>
-      <p class="gl__empty-hint">{{ t('gameList.emptyHint') }}</p>
+      <p class="gl__empty-title">{{ view === 'ignored' ? t('gameList.view.emptyIgnored') : t('gameList.empty') }}</p>
+      <p v-if="view !== 'ignored'" class="gl__empty-hint">{{ t('gameList.emptyHint') }}</p>
     </div>
 
     <!-- Grille de cards -->
@@ -162,8 +172,10 @@ const {
         v-for="game in games"
         :key="game.id"
         :game="game"
+        :view="view"
         @status-change="onStatusChange"
-        @delete="onDeleteGame"
+        @ignore="onIgnoreGame"
+        @restore="onRestoreGame"
         @click="onCardClick"
       />
     </div>
@@ -183,7 +195,12 @@ const {
       </button>
     </div>
 
-    <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" />
+    <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" @added="fetchGames" />
+    <GameListImportProgressModal
+      :open="progressOpen"
+      :status="progressStatus"
+      @background="onProgressBackground"
+    />
   </div>
 </template>
 
@@ -428,6 +445,25 @@ const {
 .gl-drawer__soon-hint { font-size: 0.78rem; color: rgba(var(--nq-brown-dark-rgb), 0.45); margin: 0; }
 
 .gl-drawer__checks { display: flex; flex-direction: column; gap: 6px; }
+
+.gl-drawer__seg { display: flex; gap: 6px; }
+.gl-drawer__seg-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 51, 23, 0.25);
+  background: transparent;
+  color: rgba(58, 26, 10, 0.6);
+  font-family: var(--nq-font);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.gl-drawer__seg-btn--active {
+  background: var(--nq-brown, #5C3317);
+  color: #edc78e;
+  border-color: var(--nq-brown, #5C3317);
+}
 
 .gl-drawer__check-item {
   display: flex;

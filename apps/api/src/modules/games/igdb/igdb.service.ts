@@ -19,6 +19,7 @@ import {
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
 import { redis } from "../../../lib/redis.js";
+import { markEnrichStart, markEnrichDone } from "./enrich-progress.js";
 
 // Jeux re-synchronises au-dela de ce delai (garde-fou de fraicheur). Au MVP la
 // re-sync periodique n'est pas branchee (cf. #70) ; ce seuil n'agit que si un jeu
@@ -197,78 +198,92 @@ export async function enrichGames(
 
   const candidates = await selectCandidates(opts.userId);
   summary.scanned = candidates.length;
-  if (candidates.length === 0) return summary;
+  // Progression Redis (best-effort) : demarree des qu'on connait le batch, cloturee
+  // dans le finally pour couvrir aussi bien le retour anticipe (aucun candidat) que
+  // les echecs en cours de route. Ne change ni le retry ni le EnrichSummary retourne.
+  // Le runId recu ici est repasse a markEnrichDone : si un autre enrichissement
+  // demarre pour ce user avant la fin de celui-ci, ce finally ne doit pas cloturer
+  // (ou ecraser) le suivi du run plus recent.
+  const runId = opts.userId
+    ? await markEnrichStart(opts.userId, candidates.map((c) => c.id))
+    : null;
 
-  const token = await deps.getToken();
+  try {
+    if (candidates.length === 0) return summary;
 
-  // 1) Mapping appid -> igdbId pour les jeux qui ont un appid mais pas d'igdbId.
-  const needMapping = candidates.filter((c) => c.igdbId == null && c.steamAppid != null);
-  const appidToIgdb = new Map<number, number>();
-  for (const part of chunk(needMapping.map((c) => c.steamAppid as number), BATCH)) {
-    const m = await deps.findGameIdsBySteamAppids(part, token, clientId);
-    for (const [k, v] of m) appidToIgdb.set(k, v);
-    await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
-  }
+    const token = await deps.getToken();
 
-  // Resoudre l'igdbId final de chaque candidat (existant ou nouvellement mappe).
-  const resolved = candidates
-    .map((c) => ({
-      gameId: c.id,
-      igdbId: c.igdbId ?? (c.steamAppid != null ? appidToIgdb.get(c.steamAppid) ?? null : null),
-    }))
-    .filter((c): c is { gameId: string; igdbId: number } => c.igdbId != null);
-  summary.mapped = resolved.length;
-
-  // Jeux non resolus : introuvables sur IGDB -> marquer last_synced_at.
-  const resolvedIds = new Set(resolved.map((r) => r.gameId));
-  const unresolvedIds = candidates
-    .filter((c) => !resolvedIds.has(c.id))
-    .map((c) => c.id);
-  summary.notFound = unresolvedIds.length;
-  if (unresolvedIds.length > 0) {
-    await withDbRetry(() =>
-      db
-        .update(games)
-        .set({ lastSyncedAt: new Date() })
-        .where(inArray(games.id, unresolvedIds)),
-    );
-  }
-
-  // 2) Fetch metadonnees en lots, puis upsert.
-  const igdbIdToGameIds = new Map<number, string[]>();
-  for (const r of resolved) {
-    const list = igdbIdToGameIds.get(r.igdbId) ?? [];
-    list.push(r.gameId);
-    igdbIdToGameIds.set(r.igdbId, list);
-  }
-
-  for (const part of chunk([...igdbIdToGameIds.keys()], BATCH)) {
-    let fetched: IgdbGame[];
-    let timeToBeat: Map<number, { normallyMinutes: number; count: number }>;
-    try {
-      fetched = await deps.fetchGamesByIds(part, token, clientId);
-      timeToBeat = await deps.fetchTimeToBeats(part, token, clientId);
-    } catch {
-      summary.failed += part.length;
-      continue; // IGDB en panne sur ce lot : on n'ecrit rien, retente plus tard.
+    // 1) Mapping appid -> igdbId pour les jeux qui ont un appid mais pas d'igdbId.
+    const needMapping = candidates.filter((c) => c.igdbId == null && c.steamAppid != null);
+    const appidToIgdb = new Map<number, number>();
+    for (const part of chunk(needMapping.map((c) => c.steamAppid as number), BATCH)) {
+      const m = await deps.findGameIdsBySteamAppids(part, token, clientId);
+      for (const [k, v] of m) appidToIgdb.set(k, v);
+      await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
     }
-    for (const data of fetched) {
-      for (const gameId of igdbIdToGameIds.get(data.igdbId) ?? []) {
-        await withDbRetry(() =>
-          upsertEnrichedGame(
-            gameId,
-            data,
-            timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
-            data.hypes,
-          ),
-        );
-        summary.enriched += 1;
+
+    // Resoudre l'igdbId final de chaque candidat (existant ou nouvellement mappe).
+    const resolved = candidates
+      .map((c) => ({
+        gameId: c.id,
+        igdbId: c.igdbId ?? (c.steamAppid != null ? appidToIgdb.get(c.steamAppid) ?? null : null),
+      }))
+      .filter((c): c is { gameId: string; igdbId: number } => c.igdbId != null);
+    summary.mapped = resolved.length;
+
+    // Jeux non resolus : introuvables sur IGDB -> marquer last_synced_at.
+    const resolvedIds = new Set(resolved.map((r) => r.gameId));
+    const unresolvedIds = candidates
+      .filter((c) => !resolvedIds.has(c.id))
+      .map((c) => c.id);
+    summary.notFound = unresolvedIds.length;
+    if (unresolvedIds.length > 0) {
+      await withDbRetry(() =>
+        db
+          .update(games)
+          .set({ lastSyncedAt: new Date() })
+          .where(inArray(games.id, unresolvedIds)),
+      );
+    }
+
+    // 2) Fetch metadonnees en lots, puis upsert.
+    const igdbIdToGameIds = new Map<number, string[]>();
+    for (const r of resolved) {
+      const list = igdbIdToGameIds.get(r.igdbId) ?? [];
+      list.push(r.gameId);
+      igdbIdToGameIds.set(r.igdbId, list);
+    }
+
+    for (const part of chunk([...igdbIdToGameIds.keys()], BATCH)) {
+      let fetched: IgdbGame[];
+      let timeToBeat: Map<number, { normallyMinutes: number; count: number }>;
+      try {
+        fetched = await deps.fetchGamesByIds(part, token, clientId);
+        timeToBeat = await deps.fetchTimeToBeats(part, token, clientId);
+      } catch {
+        summary.failed += part.length;
+        continue; // IGDB en panne sur ce lot : on n'ecrit rien, retente plus tard.
       }
+      for (const data of fetched) {
+        for (const gameId of igdbIdToGameIds.get(data.igdbId) ?? []) {
+          await withDbRetry(() =>
+            upsertEnrichedGame(
+              gameId,
+              data,
+              timeToBeat.get(data.igdbId)?.normallyMinutes ?? null,
+              data.hypes,
+            ),
+          );
+          summary.enriched += 1;
+        }
+      }
+      await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
     }
-    await deps.sleep(SLEEP_MS_BETWEEN_BATCHES);
-  }
 
-  return summary;
+    return summary;
+  } finally {
+    if (opts.userId && runId) await markEnrichDone(opts.userId, runId);
+  }
 }
 
 // Hydrate des jeux manquants dans le catalogue a partir d'igdbIds. Idempotent :

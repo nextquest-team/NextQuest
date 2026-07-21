@@ -409,6 +409,7 @@ Table user_games {
   is_hidden boolean [default: false, note: 'Masquer de la bibliotheque sans supprimer']
   started_at date
   completed_at date
+  excluded_at timestamptz [note: 'Jeu "ignore" par l"user : retire de la vue bibliotheque sans perdre statut/notes/historique. Non-null = ignore depuis cette date. Un reimport (Steam...) ne le reactive jamais tout seul (onConflictDoUpdate exclut ce champ) -- seul un ajout explicite ou la route restore le remet a NULL.']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz
 

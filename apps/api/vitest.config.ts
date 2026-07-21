@@ -6,6 +6,19 @@ import { defineConfig } from "vitest/config";
 // secrets/env du workflow et dotenv ne fait rien (pas de fichier .env la-bas).
 config({ path: "../../.env" });
 
+// Les tests d'integration TRUNCATE les tables : on les isole systematiquement
+// sur une base dediee "<db>_test" pour ne jamais toucher la base de dev.
+// En CI, DATABASE_URL pointe deja sur nextquest_test (suffixe deja present,
+// on ne double donc pas). Le suffixe se pose une seule fois.
+if (process.env.DATABASE_URL) {
+  const url = new URL(process.env.DATABASE_URL);
+  const dbName = url.pathname.replace(/^\//, "");
+  if (dbName && !dbName.endsWith("_test")) {
+    url.pathname = `/${dbName}_test`;
+    process.env.DATABASE_URL = url.toString();
+  }
+}
+
 export default defineConfig({
   test: {
     globals: false,

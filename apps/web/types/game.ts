@@ -116,6 +116,42 @@ export interface CollectionListResponse {
   offset: number
 }
 
+// ── Plateformes (referentiel, GET /api/platforms) ───────
+
+export interface Platform {
+  id: string
+  name: string
+  code: string
+  iconUrl: string | null
+}
+
+// ── Statut d'import Steam (GET /api/platforms/steam/import/status) ─
+
+export interface ImportStatusGame {
+  id: string
+  coverUrl: string | null
+  isEnriched: boolean
+}
+
+export interface ImportStatus {
+  status: 'running' | 'done' | 'idle'
+  total: number
+  done: number
+  games: ImportStatusGame[]
+}
+
+// ── Recherche live IGDB (GET /api/games/igdb/search) ─────
+
+export interface IgdbSearchResult {
+  igdbId: number
+  name: string
+  coverUrl: string | null
+  releaseYear: number | null
+  alreadyInCollection: boolean
+  // Plateformes locales sur lesquelles le jeu existe (mappees depuis IGDB).
+  platforms: { id: string; name: string }[]
+}
+
 // ── Type carte (interface allégée pour GameListCard) ─────
 
 export interface UserGame {

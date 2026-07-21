@@ -336,6 +336,99 @@ export async function fetchGamesByDeveloper(
   return requestIgdbGames(body, token, clientId, fetchImpl);
 }
 
+// Resultat leger de recherche par nom (autocomplete ajout manuel cote front).
+// gameType/totalRatingCount/hypes servent au service pour filtrer les non-jeux
+// (DLC, bundles...) et reclasser par popularite (cf. igdb.discovery.service.ts).
+// Note : le champ IGDB `category` est deprecie et renvoie toujours null en
+// pratique sur /games -- c'est `game_type` qu'il faut lire. Idem `follows`,
+// toujours null : `total_rating_count` (+ `hypes` pour les jeux pas encore notes)
+// est le seul signal de popularite fiable observe sur cet endpoint.
+export interface IgdbSearchGame {
+  igdbId: number;
+  name: string;
+  coverImageId: string | null;
+  firstReleaseDate: number | null; // epoch secondes
+  platformIds: number[]; // ids IGDB des plateformes sur lesquelles le jeu existe
+  gameType: number | null; // enum IGDB game_type (0=main_game, 1=dlc, 3=bundle, ...)
+  totalRatingCount: number | null; // nombre total d'avis, proxy de popularite
+  hypes: number | null; // nombre d'anticipations, proxy de popularite pre-sortie
+  versionParent: number | null; // id du jeu de base si ce candidat est une edition (Deluxe/Ultimate/...)
+}
+
+const SEARCH_FIELDS =
+  "name,cover.image_id,first_release_date,platforms,game_type,total_rating_count,hypes,version_parent";
+
+interface RawSearchGame {
+  id: number;
+  name: string;
+  cover?: { image_id?: string };
+  first_release_date?: number;
+  platforms?: number[];
+  game_type?: number;
+  total_rating_count?: number;
+  hypes?: number;
+  version_parent?: number;
+}
+
+// Recherche IGDB par nom : fusionne deux pools de candidats, aucun des deux ne
+// suffisant seul (constate en E2E reel) --
+//   - Pool A (`search`) : tokenise, gere apostrophes/typos/multi-mots (ex.
+//     "assassins creed" -> Assassin's Creed), mais classe par pertinence texte
+//     pure -- un jeu tres populaire peut finir loin dans la liste (ex. The Sims 4
+//     observe en position ~56 sur la requete "sims").
+//   - Pool B (`where name ~ *"mot"*`, un mot a la fois en AND, trie par
+//     total_rating_count) : remonte les jeux populaires en tete, mais `~ *"..."*`
+//     ne matche pas les titres avec apostrophe (ex. "assassins" ne matche jamais
+//     "Assassin's Creed" cote IGDB) -- insuffisant seul pour ces titres.
+// La fusion (dedupliquee par id) recupere les deux forces. `limit` dimensionne
+// chacun des deux pools (pas le nombre final : le service filtre/reclasse et
+// coupe ensuite). Nom (et chaque mot du pool B) echappes avant injection pour
+// eviter une casse de la requete (memes regles que fetchGamesByDeveloper).
+export async function searchGamesByName(
+  name: string,
+  limit: number,
+  token: string,
+  clientId: string,
+  fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+): Promise<IgdbSearchGame[]> {
+  const escape = (s: string) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+  const poolABody = `search "${escape(name)}"; fields ${SEARCH_FIELDS}; limit ${limit};`;
+  const poolA = (await igdbPost("games", poolABody, token, clientId, fetchImpl)) as RawSearchGame[];
+
+  const words = name
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 0);
+
+  let poolB: RawSearchGame[] = [];
+  if (words.length > 0) {
+    const conds = words.map((w) => `name ~ *"${escape(w)}"*`).join(" & ");
+    const poolBBody =
+      `fields ${SEARCH_FIELDS}; ` +
+      `where ${conds} & game_type = (0,4,8,9,10,11) & version_parent = null; ` +
+      `sort total_rating_count desc; limit ${limit};`;
+    poolB = (await igdbPost("games", poolBBody, token, clientId, fetchImpl)) as RawSearchGame[];
+  }
+
+  const merged = new Map<number, RawSearchGame>();
+  for (const r of [...poolA, ...poolB]) {
+    if (!merged.has(r.id)) merged.set(r.id, r);
+  }
+
+  return Array.from(merged.values()).map((r) => ({
+    igdbId: r.id,
+    name: r.name,
+    coverImageId: r.cover?.image_id ?? null,
+    firstReleaseDate: r.first_release_date ?? null,
+    platformIds: r.platforms ?? [],
+    gameType: r.game_type ?? null,
+    totalRatingCount: r.total_rating_count ?? null,
+    hypes: r.hypes ?? null,
+    versionParent: r.version_parent ?? null,
+  }));
+}
+
 interface RawPlatform {
   id: number;
   name: string;

@@ -109,9 +109,30 @@
     "addModal": {
       "title": "Ajouter un jeu",
       "searchPlaceholder": "Rechercher un jeu…",
-      "noResults": "Aucun résultat",
-      "add": "Ajouter",
-      "comingSoon": "La recherche IGDB arrive bientôt — cette fonctionnalité sera disponible dès que l'API sera prête."
+      "add": "Ajouter à ma collection",
+      "hint": "Cherche un jeu par son nom pour l'ajouter à ta collection.",
+      "empty": "Aucun jeu trouvé pour cette recherche.",
+      "added": "{title} ajouté à ta collection",
+      "alreadyIn": "Ce jeu est déjà dans ta collection.",
+      "addError": "Impossible d'ajouter le jeu. Réessaie.",
+      "alreadyBadge": "Déjà ajouté",
+      "choosePlatform": "Sur quelle plateforme possèdes-tu {title} ?",
+      "noPlatform": "Sans plateforme",
+      "back": "Retour"
+    },
+    "importProgress": {
+      "title": "Import en cours",
+      "count": "{done} / {total} jaquettes récupérées",
+      "background": "Continuer en arrière-plan"
+    },
+    "enrichDone": "Jaquettes à jour !",
+    "ignore": "Ignorer",
+    "restore": "Remettre dans ma bibliothèque",
+    "view": {
+      "label": "Affichage",
+      "library": "Ma bibliothèque",
+      "ignored": "Ignorés",
+      "emptyIgnored": "Aucun jeu ignoré."
     }
   },
   "gameDetail": {
@@ -204,5 +225,8 @@
     "wheel": {
       "alt": "Next Quest"
     }
+  },
+  "common": {
+    "loading": "Chargement en cours"
   }
 }

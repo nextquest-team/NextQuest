@@ -15,6 +15,8 @@ import {
 } from "./oauth.service.js";
 import { createSession } from "../auth.service.js";
 import type { OAuthProvider } from "./providers/types.js";
+import { oauthAuthorizationUrlSchema, oauthBadRequestSchema } from "./oauth.schemas.js";
+import { errorResponses, noContentSchema } from "../../../lib/openapi.js";
 
 const OAUTH_REDIRECT_URL = process.env.OAUTH_REDIRECT_URL ?? "http://localhost:3001";
 
@@ -55,10 +57,15 @@ export async function oauthRoutes(app: FastifyInstance) {
     preHandler: app.rateLimit({ max: 30, timeWindow: "1 minute" }),
     schema: {
       tags: ["OAuth"],
+      operationId: "startOAuth",
       summary: "Demarrer un flow OAuth",
       description:
         "Renvoie l'URL d'autorisation du provider (google, microsoft) que le front utilise pour rediriger l'utilisateur. Pose un cookie state pour la protection CSRF.",
       params: providerParamSchema,
+      response: {
+        200: oauthAuthorizationUrlSchema,
+        400: oauthBadRequestSchema,
+      },
     },
   }, async (request, reply) => {
     const { provider } = request.params;
@@ -71,7 +78,9 @@ export async function oauthRoutes(app: FastifyInstance) {
     const state = randomUUID();
     reply.setCookie(STATE_COOKIE, state, STATE_COOKIE_OPTIONS);
 
-    const url = buildAuthorizationUrl(provider, state);
+    // Non-null : le config ci-dessus est deja verifie, buildAuthorizationUrl
+    // ne renvoie null que si le config est introuvable.
+    const url = buildAuthorizationUrl(provider, state)!;
     return reply.send({ url });
   });
 
@@ -82,9 +91,10 @@ export async function oauthRoutes(app: FastifyInstance) {
     preHandler: app.rateLimit({ max: 20, timeWindow: "1 minute" }),
     schema: {
       tags: ["OAuth"],
+      operationId: "oauthCallback",
       summary: "Callback OAuth (appele par le provider)",
       description:
-        "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token. En cas d'erreur, redirige vers le front avec ?error=...",
+        "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token (302). En cas d'erreur, redirige (302) vers le front avec ?error=oauth_denied|missing_params|invalid_state|oauth_failed. Pas de schema de reponse : cette route ne renvoie jamais de JSON.",
       params: providerParamSchema,
     },
   }, async (request, reply) => {
@@ -162,11 +172,17 @@ export async function oauthRoutes(app: FastifyInstance) {
       ],
       schema: {
         tags: ["OAuth"],
+        operationId: "linkOAuthProvider",
         summary: "Lier un provider OAuth au compte courant",
         description:
           "Demarre un flow OAuth pour ajouter un provider supplementaire au compte connecte (ex: deja inscrit en email/password, on ajoute Google).",
         security: [{ bearerAuth: [] }],
         params: providerParamSchema,
+        response: {
+          200: oauthAuthorizationUrlSchema,
+          400: oauthBadRequestSchema,
+          ...errorResponses(401),
+        },
       },
     },
     async (request, reply) => {
@@ -185,7 +201,9 @@ export async function oauthRoutes(app: FastifyInstance) {
 
       reply.setCookie(STATE_COOKIE, state, STATE_COOKIE_OPTIONS);
 
-      const url = buildAuthorizationUrl(provider, state);
+      // Non-null : le config ci-dessus est deja verifie, buildAuthorizationUrl
+      // ne renvoie null que si le config est introuvable.
+      const url = buildAuthorizationUrl(provider, state)!;
       return reply.send({ url });
     },
   );
@@ -197,11 +215,17 @@ export async function oauthRoutes(app: FastifyInstance) {
       onRequest: [async (req) => req.jwtVerify()],
       schema: {
         tags: ["OAuth"],
+        operationId: "unlinkOAuthProvider",
         summary: "Delier un provider OAuth",
         description:
           "Supprime la liaison d'un provider OAuth. Refuse si c'est la seule methode de connexion (l'utilisateur n'a ni mot de passe ni autre provider).",
         security: [{ bearerAuth: [] }],
         params: providerParamSchema,
+        response: {
+          204: noContentSchema,
+          400: oauthBadRequestSchema,
+          ...errorResponses(401),
+        },
       },
     },
     async (request, reply) => {
@@ -210,7 +234,7 @@ export async function oauthRoutes(app: FastifyInstance) {
 
       try {
         await unlinkProviderFromUser(userId, provider);
-        return reply.code(204).send();
+        return reply.code(204).send(null);
       } catch (err: any) {
         if (err.message.includes("only login method")) {
           return reply.code(400).send({ error: err.message });

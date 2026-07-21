@@ -8,12 +8,31 @@ import {
   gameGenres,
   gameTags,
   gameSimilar,
+  platforms,
 } from "@nextquest/db";
-import { and, eq, sql, inArray, desc, count, isNull, ilike } from "drizzle-orm";
+import {
+  and,
+  eq,
+  sql,
+  inArray,
+  desc,
+  count,
+  isNull,
+  isNotNull,
+  ilike,
+} from "drizzle-orm";
+import {
+  igdbImageUrl,
+  fetchGamesByIds,
+  type IgdbGame,
+} from "../games/igdb/igdb.client.js";
+import { getTwitchToken } from "../games/igdb/igdb.auth.js";
+import { redis } from "../../lib/redis.js";
 import type {
   GameStatus,
   UpdateUserGameInput,
   AddGameInput,
+  AddIgdbGameInput,
 } from "./collection.schemas.js";
 import {
   toUserGameStatusDTO,
@@ -158,6 +177,9 @@ async function tagsByGame(gameIds: string[]): Promise<Map<string, TagRef[]>> {
 }
 
 // Liste paginee de la collection d'un user, genres/tags inline.
+// view distingue la collection visible ("library", defaut : excluded_at IS
+// NULL) des jeux ignores ("ignored" : excluded_at IS NOT NULL). Le statut
+// n'est jamais touche par cette bascule, il reste affiche tel quel.
 export async function listCollection(params: {
   userId: string;
   status?: GameStatus;
@@ -165,9 +187,16 @@ export async function listCollection(params: {
   limit: number;
   offset: number;
   includeHidden: boolean;
+  view?: "library" | "ignored";
 }): Promise<{ items: CollectionItemDTO[]; total: number }> {
-  const { userId, status, search, limit, offset, includeHidden } = params;
+  const { userId, status, search, limit, offset, includeHidden, view = "library" } =
+    params;
   const conds = [eq(userGames.userId, userId)];
+  conds.push(
+    view === "ignored"
+      ? isNotNull(userGames.excludedAt)
+      : isNull(userGames.excludedAt),
+  );
   if (status) conds.push(eq(userGames.status, status));
   if (search) conds.push(ilike(games.title, `%${search}%`));
   if (!includeHidden) conds.push(eq(userGames.isHidden, false));
@@ -291,24 +320,68 @@ export async function updateCollectionItem(
   return fetchItem(userId, userGameId);
 }
 
-// Hard delete : retire le jeu de la collection. Les FK user_game_status_history /
-// user_game_tags / external_achievements -> user_games sont ON DELETE CASCADE,
-// l'historique et les tags du jeu partent automatiquement. Le catalogue `games`
-// partage n'est pas touche. Renvoie false si rien n'a ete supprime (non possede).
+// Hard delete : retire definitivement le jeu de la collection. Les FK
+// user_game_status_history / user_game_tags / external_achievements ->
+// user_games sont ON DELETE CASCADE, l'historique et les tags du jeu partent
+// automatiquement. Le catalogue `games` partage n'est pas touche.
+// Renvoie false si rien n'a ete supprime (non possede).
 export async function deleteCollectionItem(
   userId: string,
   userGameId: string,
 ): Promise<boolean> {
-  const deleted = await db
+  const [deleted] = await db
     .delete(userGames)
     .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
     .returning({ id: userGames.id });
-  return deleted.length > 0;
+  return !!deleted;
+}
+
+// Marque un jeu comme ignore : il disparait de la vue "library" (et d'un
+// reimport type Steam) sans rien perdre -- statut, note, temps de jeu,
+// historique restent intacts en base, prets a etre restaures.
+// Renvoie false si le user_game n'existe pas ou n'appartient pas au user.
+export async function ignoreUserGame(
+  userId: string,
+  userGameId: string,
+): Promise<boolean> {
+  const [updated] = await db
+    .update(userGames)
+    .set({ excludedAt: new Date() })
+    .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
+    .returning({ id: userGames.id });
+  return !!updated;
+}
+
+// Retire l'ignore : le jeu revient dans la vue "library" avec son statut
+// intact (seul excluded_at est touche). Renvoie false si non possede.
+export async function restoreUserGame(
+  userId: string,
+  userGameId: string,
+): Promise<boolean> {
+  const [updated] = await db
+    .update(userGames)
+    .set({ excludedAt: null })
+    .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
+    .returning({ id: userGames.id });
+  return !!updated;
+}
+
+// platformId est valide en amont comme UUID bien forme (schema Zod), mais un
+// UUID syntaxiquement correct peut tres bien ne correspondre a aucune ligne
+// platforms : sans ce garde-fou, l'insert plus bas part en violation de FK et
+// remonte un 500 brut avec le message Postgres.
+async function platformExists(platformId: string): Promise<boolean> {
+  const [p] = await db
+    .select({ id: platforms.id })
+    .from(platforms)
+    .where(eq(platforms.id, platformId))
+    .limit(1);
+  return !!p;
 }
 
 export type AddGameResult =
   | { ok: true; item: CollectionItemDTO }
-  | { ok: false; reason: "game_not_found" | "conflict" };
+  | { ok: false; reason: "game_not_found" | "platform_not_found" | "conflict" };
 
 // Ajoute un jeu EXISTANT du catalogue a la collection (status backlog).
 // serviceId = null : ajout manuel, pas de service connecte.
@@ -323,6 +396,10 @@ export async function addGameToCollection(
     .limit(1);
   if (!g) return { ok: false, reason: "game_not_found" };
 
+  if (input.platformId && !(await platformExists(input.platformId))) {
+    return { ok: false, reason: "platform_not_found" };
+  }
+
   // La contrainte unique (userId, gameId, platformId) ne couvre pas le cas
   // platformId NULL (Postgres traite les NULL comme distincts) : on dedoublonne
   // explicitement, en gerant le NULL a part.
@@ -330,7 +407,7 @@ export async function addGameToCollection(
     ? eq(userGames.platformId, input.platformId)
     : isNull(userGames.platformId);
   const [existing] = await db
-    .select({ id: userGames.id })
+    .select({ id: userGames.id, excludedAt: userGames.excludedAt })
     .from(userGames)
     .where(
       and(
@@ -340,7 +417,20 @@ export async function addGameToCollection(
       ),
     )
     .limit(1);
-  if (existing) return { ok: false, reason: "conflict" };
+
+  if (existing) {
+    // Ligne deja active -> vrai doublon. Ligne ignoree -> l'user redemande ce
+    // jeu explicitement, on la reactive plutot que de la dupliquer (le statut
+    // et l'historique du jeu restent intacts, seul excluded_at bouge).
+    if (existing.excludedAt === null) return { ok: false, reason: "conflict" };
+
+    await db
+      .update(userGames)
+      .set({ excludedAt: null })
+      .where(eq(userGames.id, existing.id));
+    const item = await fetchItem(userId, existing.id);
+    return { ok: true, item: item as CollectionItemDTO };
+  }
 
   const [created] = await db
     .insert(userGames)
@@ -356,4 +446,130 @@ export async function addGameToCollection(
   // fetchItem ne peut pas renvoyer null ici : on vient d'inserer la ligne.
   const item = await fetchItem(userId, created.id);
   return { ok: true, item: item as CollectionItemDTO };
+}
+
+export type AddIgdbGameResult =
+  | { ok: true; item: CollectionItemDTO }
+  | { ok: false; reason: "conflict" | "igdb_not_found" | "platform_not_found" };
+
+// Deps injectables (token + fetch IGDB), meme principe que igdb.discovery.service.ts :
+// permet de tester ce flux sans reseau ni Redis reels.
+export interface AddIgdbGameDeps {
+  getToken(): Promise<string>;
+  fetchGamesByIds: typeof fetchGamesByIds;
+}
+
+function defaultAddIgdbGameDeps(): AddIgdbGameDeps {
+  // Forme reduite de l'interface ioredis, suffisante ici et testable (mocks en test).
+  const redisStore = redis as unknown as {
+    get(k: string): Promise<string | null>;
+    set(k: string, v: string, m: "EX", t: number): Promise<unknown>;
+  };
+  return {
+    getToken: () =>
+      getTwitchToken(
+        process.env.TWITCH_CLIENT_ID ?? "",
+        process.env.TWITCH_CLIENT_SECRET ?? "",
+        redisStore,
+      ),
+    fetchGamesByIds,
+  };
+}
+
+// Slugify helper, duplique volontairement (meme pattern que steam.service.ts et
+// igdb.service.ts) : chaque module reste autonome, pas de dependance croisee
+// pour un utilitaire aussi simple.
+function slugify(input: string): string {
+  const base = input
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "game";
+}
+
+// Ajoute a la collection un jeu identifie par son igdbId, potentiellement absent
+// de notre catalogue (cas : jeu trouve via la recherche IGDB live, Task 4, jamais
+// encore ajoute par personne). Hydrate le catalogue au besoin avant de reutiliser
+// addGameToCollection pour le reste (dedoublonnage, statut backlog...).
+export async function addIgdbGameToCollection(
+  userId: string,
+  input: AddIgdbGameInput,
+  clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
+  deps: AddIgdbGameDeps = defaultAddIgdbGameDeps(),
+): Promise<AddIgdbGameResult> {
+  const [existing] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.igdbId, input.igdbId))
+    .limit(1);
+
+  let gameId = existing?.id;
+
+  if (!gameId) {
+    const token = await deps.getToken();
+    const [fetched] = await deps.fetchGamesByIds([input.igdbId], token, clientId);
+    if (!fetched) return { ok: false, reason: "igdb_not_found" };
+
+    gameId = await insertMinimalGameFromIgdb(fetched);
+  }
+
+  const result = await addGameToCollection(userId, {
+    gameId,
+    platformId: input.platformId,
+  });
+  if (!result.ok) {
+    // On vient de garantir l'existence du jeu (trouve ou insere juste avant) :
+    // game_not_found ici trahirait une incoherence, pas un cas metier attendu.
+    if (result.reason === "game_not_found") {
+      throw new Error(
+        `Jeu ${gameId} introuvable juste apres resolution/insertion (igdbId=${input.igdbId})`,
+      );
+    }
+    return { ok: false, reason: result.reason };
+  }
+  return result;
+}
+
+// Insere une ligne `games` minimale a partir d'une fiche IGDB. Le slug suit le
+// meme motif que hydrateGamesByIgdbIds (igdb.service.ts) pour rester coherent
+// dans tout le catalogue : slugify(titre) + suffixe igdbId (garantit l'unicite).
+async function insertMinimalGameFromIgdb(data: IgdbGame): Promise<string> {
+  const releaseStatus =
+    data.releaseDate && data.releaseDate > new Date().toISOString().slice(0, 10)
+      ? "upcoming"
+      : "released";
+  const slug = `${slugify(data.name)}-igdb-${data.igdbId}`;
+
+  const [created] = await db
+    .insert(games)
+    .values({
+      title: data.name,
+      slug,
+      igdbId: data.igdbId,
+      coverUrl: data.coverImageId ? igdbImageUrl(data.coverImageId, "t_cover_big") : null,
+      description: data.summary,
+      releaseDate: data.releaseDate,
+      releaseStatus,
+      developer: data.developer,
+      publisher: data.publisher,
+      lastSyncedAt: new Date(),
+    })
+    // Defense-in-depth : course possible avec un autre flux (ex. enrichGames) qui
+    // aurait insere ce meme igdbId entretemps sous un slug different.
+    .onConflictDoNothing({ target: games.slug })
+    .returning({ id: games.id });
+
+  if (created) return created.id;
+
+  const [race] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.igdbId, data.igdbId))
+    .limit(1);
+  if (!race) {
+    throw new Error(`Echec insertion du jeu IGDB ${data.igdbId} (collision de slug)`);
+  }
+  return race.id;
 }

@@ -97,7 +97,7 @@ onMounted(() => fetchRecos())
     </UiPageHeader>
 
     <div v-if="loading" class="nq-state">
-      <v-progress-circular indeterminate size="40" color="primary" />
+      <v-progress-circular :aria-label="t('common.loading')" indeterminate size="40" color="primary" />
     </div>
     <div v-else-if="error" class="nq-state">
       <v-icon size="48" color="error">mdi-alert-circle-outline</v-icon>
@@ -142,7 +142,7 @@ onMounted(() => fetchRecos())
     <!-- Contenu scrollable -->
     <div class="nq-mobile-body">
       <div v-if="loading" class="nq-state">
-        <v-progress-circular indeterminate size="40" color="primary" />
+        <v-progress-circular :aria-label="t('common.loading')" indeterminate size="40" color="primary" />
       </div>
       <div v-else-if="error" class="nq-state">
         <v-icon size="48" color="error">mdi-alert-circle-outline</v-icon>

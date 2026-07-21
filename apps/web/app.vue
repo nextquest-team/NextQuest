@@ -15,6 +15,7 @@ useHead({
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+    <UiAppToast />
   </v-app>
 </template>
 

@@ -38,6 +38,11 @@ export const userGames = pgTable(
     isHidden: boolean("is_hidden").notNull().default(false),
     startedAt: date("started_at"),
     completedAt: date("completed_at"),
+    // Jeu "ignore" par l'user (retire de sa collection visible sans perdre son
+    // statut/notes/historique). Non-null = ignore depuis cette date. Un reimport
+    // (Steam...) ne doit jamais reactiver ce champ tout seul -- seul un ajout
+    // explicite ou un restore le remet a null.
+    excludedAt: timestamp("excluded_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

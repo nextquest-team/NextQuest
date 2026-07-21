@@ -15,3 +15,12 @@ export const updateProfileSchema = z
   });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+// Reponse de fin d'onboarding (documentation + serialisation OpenAPI).
+export const onboardingResultSchema = z
+  .object({
+    onboardingCompleted: z
+      .boolean()
+      .describe("Toujours true apres l'appel (idempotent)"),
+  })
+  .describe("Etat de l'onboarding");

@@ -4,13 +4,14 @@ const { t } = useI18n()
 const {
   steamConnected, steamPersona, steamLoading, importLoading, importMessage,
   linkSteam, importSteam,
-  enrichLoading, enrichGames,
+  view, setView,
   drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
   toggleStatus, applyFilters, resetFilters,
   currentPage, totalPages, goToPage,
-  gamesLoading, games,
-  onStatusChange, onDeleteGame, onCardClick,
+  gamesLoading, games, fetchGames,
+  onStatusChange, onIgnoreGame, onRestoreGame, onCardClick,
   addModalOpen,
+  progressOpen, progressStatus, onProgressBackground,
 } = inject<ReturnType<typeof useGameList>>('gameList')!
 </script>
 
@@ -90,27 +91,16 @@ const {
     <!-- ── Zone scrollable ── -->
     <div class="glm__body">
 
-      <!-- Enrichir IGDB (caché sur mobile pour gain de place, accessible via actions) -->
-      <button
-        v-if="games.length > 0"
-        class="glm__enrich-btn"
-        :disabled="enrichLoading"
-        @click="enrichGames"
-      >
-        <v-icon size="14">mdi-database-refresh-outline</v-icon>
-        {{ enrichLoading ? t('gameList.enriching') : t('gameList.enrichIgdb') }}
-      </button>
-
       <!-- Loader -->
       <div v-if="gamesLoading" class="glm__loader">
-        <v-progress-circular indeterminate size="28" color="primary" />
+        <v-progress-circular :aria-label="t('common.loading')" indeterminate size="28" color="primary" />
       </div>
 
       <!-- Vide -->
       <div v-else-if="games.length === 0" class="glm__empty">
         <v-icon size="48" color="primary-light">mdi-gamepad-variant-outline</v-icon>
-        <p class="glm__empty-title">{{ t('gameList.empty') }}</p>
-        <p class="glm__empty-hint">{{ t('gameList.emptyHint') }}</p>
+        <p class="glm__empty-title">{{ view === 'ignored' ? t('gameList.view.emptyIgnored') : t('gameList.empty') }}</p>
+        <p v-if="view !== 'ignored'" class="glm__empty-hint">{{ t('gameList.emptyHint') }}</p>
       </div>
 
       <!-- Grille -->
@@ -119,8 +109,10 @@ const {
           v-for="game in games"
           :key="game.id"
           :game="game"
+          :view="view"
           @status-change="onStatusChange"
-          @delete="onDeleteGame"
+          @ignore="onIgnoreGame"
+          @restore="onRestoreGame"
           @click="onCardClick"
         />
       </div>
@@ -153,6 +145,26 @@ const {
         </div>
 
         <div class="gl-drawer__section">
+          <p class="gl-drawer__section-title">{{ t('gameList.view.label') }}</p>
+          <div class="gl-drawer__seg">
+            <button
+              class="gl-drawer__seg-btn"
+              :class="{ 'gl-drawer__seg-btn--active': view === 'library' }"
+              @click="setView('library')"
+            >
+              {{ t('gameList.view.library') }}
+            </button>
+            <button
+              class="gl-drawer__seg-btn"
+              :class="{ 'gl-drawer__seg-btn--active': view === 'ignored' }"
+              @click="setView('ignored')"
+            >
+              {{ t('gameList.view.ignored') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="gl-drawer__section">
           <p class="gl-drawer__section-title">{{ t('gameList.status.label') }}</p>
           <div class="gl-drawer__checks">
             <label v-for="s in STATUS_OPTIONS" :key="s.key" class="gl-drawer__check-item">
@@ -178,7 +190,12 @@ const {
       </div>
     </v-navigation-drawer>
 
-    <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" />
+    <GameListAddModal :open="addModalOpen" @close="addModalOpen = false" @added="fetchGames" />
+    <GameListImportProgressModal
+      :open="progressOpen"
+      :status="progressStatus"
+      @background="onProgressBackground"
+    />
   </div>
 </template>
 
@@ -256,6 +273,11 @@ const {
 .glm__btn--steam:hover:not(:disabled) { background: var(--brand-steam-bg-hover); }
 
 .glm__btn--add { background: var(--nq-brown, #5C3317); color: #edc78e; }
+.glm__btn--igdb {
+  background: rgba(92, 51, 23, 0.1);
+  color: var(--nq-brown, #5C3317);
+  border: 1px solid rgba(92, 51, 23, 0.2);
+}
 .glm__btn--add:hover { background: var(--nq-brown-dark, #3A1A0A); }
 
 /* ── Message import ── */
@@ -504,6 +526,25 @@ const {
 }
 
 .gl-drawer__checks { display: flex; flex-direction: column; gap: 6px; }
+
+.gl-drawer__seg { display: flex; gap: 6px; }
+.gl-drawer__seg-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(92, 51, 23, 0.25);
+  background: transparent;
+  color: rgba(58, 26, 10, 0.6);
+  font-family: var(--nq-font);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.gl-drawer__seg-btn--active {
+  background: var(--nq-brown, #5C3317);
+  color: #edc78e;
+  border-color: var(--nq-brown, #5C3317);
+}
 
 .gl-drawer__check-item {
   display: flex;

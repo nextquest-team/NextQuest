@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db, users, games, userGames } from "@nextquest/db";
+import { inArray } from "drizzle-orm";
 import { markEnrichStart } from "../../../games/igdb/enrich-progress.js";
 import { getImportStatus } from "../import-status.service.js";
 
@@ -46,24 +47,18 @@ describe("getImportStatus", () => {
     expect(status).toEqual({ status: "idle", total: 0, done: 0, games: [] });
   });
 
-  it("avec progression running : total du start, done = jeux resync depuis startedAt, games = tous", async () => {
+  it("avec progression running : total du start, done = jeux du batch resync depuis startedAt, games = tous", async () => {
     const userId = await createUser();
-
-    // markEnrichStart d'abord (comme dans enrichGames) : les jeux enrichis pendant
-    // ce run recoivent un lastSyncedAt posterieur a startedAt, contrairement a un
-    // jeu jamais touche.
-    await markEnrichStart(userId, 3);
-    const afterStart = new Date();
 
     const enrichedGame1 = await seedGame("Enrichi 1", {
       coverUrl: "http://x/cover1.jpg",
       igdbId: 100,
-      lastSyncedAt: afterStart,
+      lastSyncedAt: null,
     });
     const enrichedGame2 = await seedGame("Enrichi 2", {
       coverUrl: "http://x/cover2.jpg",
       igdbId: 200,
-      lastSyncedAt: afterStart,
+      lastSyncedAt: null,
     });
     const pendingGame = await seedGame("Pas encore enrichi", {
       coverUrl: null,
@@ -76,6 +71,17 @@ describe("getImportStatus", () => {
       { userId, gameId: enrichedGame2 },
       { userId, gameId: pendingGame },
     ]);
+
+    // markEnrichStart avec le batch precis suivi par ce run (comme dans
+    // enrichGames) : les jeux enrichis pendant ce run recoivent un lastSyncedAt
+    // posterieur a startedAt, contrairement a un jeu jamais touche.
+    await markEnrichStart(userId, [enrichedGame1, enrichedGame2, pendingGame]);
+    const afterStart = new Date();
+
+    await db
+      .update(games)
+      .set({ lastSyncedAt: afterStart })
+      .where(inArray(games.id, [enrichedGame1, enrichedGame2]));
 
     const status = await getImportStatus(userId);
 
@@ -113,10 +119,45 @@ describe("getImportStatus", () => {
     });
     await db.insert(userGames).values({ userId, gameId: oldGame });
 
-    await markEnrichStart(userId, 1);
+    await markEnrichStart(userId, [oldGame]);
 
     const status = await getImportStatus(userId);
     expect(status.total).toBe(1);
     expect(status.done).toBe(0);
+  });
+
+  // Fix #2 : done ne doit compter que les jeux du batch suivi par ce run. Un
+  // jeu ajoute a la main pendant l'import (deja enrichi ailleurs, avec un
+  // lastSyncedAt posterieur a startedAt) ne fait pas partie du batch et ne
+  // doit donc pas gonfler done au-dela de total.
+  it("n'inclut pas un jeu ajoute a la main pendant l'import dans le compteur done", async () => {
+    const userId = await createUser();
+
+    const batchGame = await seedGame("Jeu du batch", {
+      coverUrl: "http://x/batch.jpg",
+      igdbId: 10,
+      lastSyncedAt: null,
+    });
+    await db.insert(userGames).values({ userId, gameId: batchGame });
+
+    // Le run ne suit que batchGame : total = 1.
+    await markEnrichStart(userId, [batchGame]);
+    const afterStart = new Date();
+
+    // Un jeu deja hydrate est ajoute a la main pendant que le run tourne (ex.
+    // via la recherche IGDB), avec un lastSyncedAt tres recent -- mais il ne
+    // fait pas partie du batch suivi.
+    const manuallyAddedGame = await seedGame("Ajoute a la main", {
+      coverUrl: "http://x/manual.jpg",
+      igdbId: 99,
+      lastSyncedAt: afterStart,
+    });
+    await db.insert(userGames).values({ userId, gameId: manuallyAddedGame });
+
+    const status = await getImportStatus(userId);
+
+    expect(status.total).toBe(1);
+    expect(status.done).toBe(0);
+    expect(status.done).toBeLessThanOrEqual(status.total);
   });
 });

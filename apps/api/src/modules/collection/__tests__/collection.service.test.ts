@@ -423,6 +423,25 @@ describe("addGameToCollection", () => {
     });
     expect(res).toEqual({ ok: false, reason: "game_not_found" });
   });
+  it("renvoie platform_not_found si le platformId n'existe pas (uuid valide mais absent)", async () => {
+    const { userId } = await seedCollection();
+    const [g3] = await db
+      .insert(games)
+      .values({ title: "Dead Cells", slug: "dc-platform-test" })
+      .returning({ id: games.id });
+    const res = await addGameToCollection(userId, {
+      gameId: g3.id,
+      platformId: "00000000-0000-0000-0000-000000000000",
+    });
+    expect(res).toEqual({ ok: false, reason: "platform_not_found" });
+
+    // Pas d'insertion partielle en cas de platformId invalide.
+    const rows = await db
+      .select()
+      .from(userGames)
+      .where(and(eq(userGames.userId, userId), eq(userGames.gameId, g3.id)));
+    expect(rows).toHaveLength(0);
+  });
   it("renvoie conflict si deja present (meme platformId null)", async () => {
     const { userId, gameId2 } = await seedCollection(); // gameId2 deja ajoute, platformId null
     const res = await addGameToCollection(userId, { gameId: gameId2 });

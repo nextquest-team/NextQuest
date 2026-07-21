@@ -308,6 +308,22 @@ describe("POST /api/collection", () => {
     });
     expect(res.statusCode).toBe(404);
   });
+  it("404 (pas 500) si platformId est un uuid valide mais inexistant", async () => {
+    const app = await buildApp();
+    const { userId } = await seedUserGame();
+    const [g] = await db
+      .insert(games)
+      .values({ title: "Add Me Platform", slug: "add-me-platform-1" })
+      .returning({ id: games.id });
+    const token = app.jwt.sign({ sub: userId });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { gameId: g.id, platformId: "00000000-0000-0000-0000-000000000000" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
 });
 
 describe("POST /api/collection/:userGameId/ignore", () => {

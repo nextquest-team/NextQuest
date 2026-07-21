@@ -114,6 +114,19 @@ describe("addIgdbGameToCollection", () => {
     expect(second).toEqual({ ok: false, reason: "conflict" });
   });
 
+  it("platformId uuid valide mais inexistant : platform_not_found (pas de 500)", async () => {
+    const userId = await seedUser();
+    const deps = makeDeps({ 999: sampleIgdbGame() });
+
+    const res = await addIgdbGameToCollection(
+      userId,
+      { igdbId: 999, platformId: "00000000-0000-0000-0000-000000000000" },
+      "CID",
+      deps,
+    );
+    expect(res).toEqual({ ok: false, reason: "platform_not_found" });
+  });
+
   it("IGDB ne renvoie rien : igdb_not_found", async () => {
     const userId = await seedUser();
     const deps = makeDeps({});
@@ -254,6 +267,22 @@ describe("POST /api/collection/from-igdb", () => {
       payload: { igdbId: 999 },
     });
     expect(res.statusCode).toBe(409);
+  });
+
+  it("404 si la plateforme est introuvable", async () => {
+    const app = await buildApp();
+    vi.spyOn(collectionService, "addIgdbGameToCollection").mockResolvedValue({
+      ok: false,
+      reason: "platform_not_found",
+    });
+    const token = app.jwt.sign({ sub: "u" });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/collection/from-igdb",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { igdbId: 999, platformId: "00000000-0000-0000-0000-000000000000" },
+    });
+    expect(res.statusCode).toBe(404);
   });
 
   it("400 si igdbId manquant", async () => {

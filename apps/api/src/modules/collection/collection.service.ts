@@ -8,6 +8,7 @@ import {
   gameGenres,
   gameTags,
   gameSimilar,
+  platforms,
 } from "@nextquest/db";
 import {
   and,
@@ -365,9 +366,22 @@ export async function restoreUserGame(
   return !!updated;
 }
 
+// platformId est valide en amont comme UUID bien forme (schema Zod), mais un
+// UUID syntaxiquement correct peut tres bien ne correspondre a aucune ligne
+// platforms : sans ce garde-fou, l'insert plus bas part en violation de FK et
+// remonte un 500 brut avec le message Postgres.
+async function platformExists(platformId: string): Promise<boolean> {
+  const [p] = await db
+    .select({ id: platforms.id })
+    .from(platforms)
+    .where(eq(platforms.id, platformId))
+    .limit(1);
+  return !!p;
+}
+
 export type AddGameResult =
   | { ok: true; item: CollectionItemDTO }
-  | { ok: false; reason: "game_not_found" | "conflict" };
+  | { ok: false; reason: "game_not_found" | "platform_not_found" | "conflict" };
 
 // Ajoute un jeu EXISTANT du catalogue a la collection (status backlog).
 // serviceId = null : ajout manuel, pas de service connecte.
@@ -381,6 +395,10 @@ export async function addGameToCollection(
     .where(eq(games.id, input.gameId))
     .limit(1);
   if (!g) return { ok: false, reason: "game_not_found" };
+
+  if (input.platformId && !(await platformExists(input.platformId))) {
+    return { ok: false, reason: "platform_not_found" };
+  }
 
   // La contrainte unique (userId, gameId, platformId) ne couvre pas le cas
   // platformId NULL (Postgres traite les NULL comme distincts) : on dedoublonne
@@ -432,7 +450,7 @@ export async function addGameToCollection(
 
 export type AddIgdbGameResult =
   | { ok: true; item: CollectionItemDTO }
-  | { ok: false; reason: "conflict" | "igdb_not_found" };
+  | { ok: false; reason: "conflict" | "igdb_not_found" | "platform_not_found" };
 
 // Deps injectables (token + fetch IGDB), meme principe que igdb.discovery.service.ts :
 // permet de tester ce flux sans reseau ni Redis reels.
@@ -509,7 +527,7 @@ export async function addIgdbGameToCollection(
         `Jeu ${gameId} introuvable juste apres resolution/insertion (igdbId=${input.igdbId})`,
       );
     }
-    return { ok: false, reason: "conflict" };
+    return { ok: false, reason: result.reason };
   }
   return result;
 }

@@ -223,9 +223,13 @@ export async function collectionRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const result = await addGameToCollection(userIdOf(request), request.body);
       if (!result.ok) {
-        return result.reason === "game_not_found"
-          ? reply.code(404).send({ error: "Jeu introuvable dans le catalogue" })
-          : reply.code(409).send({ error: "Ce jeu est deja dans ta collection" });
+        if (result.reason === "game_not_found") {
+          return reply.code(404).send({ error: "Jeu introuvable dans le catalogue" });
+        }
+        if (result.reason === "platform_not_found") {
+          return reply.code(404).send({ error: "Plateforme introuvable" });
+        }
+        return reply.code(409).send({ error: "Ce jeu est deja dans ta collection" });
       }
       return reply.code(201).send(result.item);
     },
@@ -257,9 +261,13 @@ export async function collectionRoutes(app: FastifyInstance) {
         request.body,
       );
       if (!result.ok) {
-        return result.reason === "igdb_not_found"
-          ? reply.code(404).send({ error: "Jeu introuvable sur IGDB" })
-          : reply.code(409).send({ error: "Ce jeu est deja dans ta collection" });
+        if (result.reason === "igdb_not_found") {
+          return reply.code(404).send({ error: "Jeu introuvable sur IGDB" });
+        }
+        if (result.reason === "platform_not_found") {
+          return reply.code(404).send({ error: "Plateforme introuvable" });
+        }
+        return reply.code(409).send({ error: "Ce jeu est deja dans ta collection" });
       }
       return reply.code(201).send(result.item);
     },

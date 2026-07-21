@@ -198,10 +198,15 @@ export async function enrichGames(
 
   const candidates = await selectCandidates(opts.userId);
   summary.scanned = candidates.length;
-  // Progression Redis (best-effort) : demarree des qu'on connait le total, cloturee
+  // Progression Redis (best-effort) : demarree des qu'on connait le batch, cloturee
   // dans le finally pour couvrir aussi bien le retour anticipe (aucun candidat) que
   // les echecs en cours de route. Ne change ni le retry ni le EnrichSummary retourne.
-  if (opts.userId) await markEnrichStart(opts.userId, candidates.length);
+  // Le runId recu ici est repasse a markEnrichDone : si un autre enrichissement
+  // demarre pour ce user avant la fin de celui-ci, ce finally ne doit pas cloturer
+  // (ou ecraser) le suivi du run plus recent.
+  const runId = opts.userId
+    ? await markEnrichStart(opts.userId, candidates.map((c) => c.id))
+    : null;
 
   try {
     if (candidates.length === 0) return summary;
@@ -277,7 +282,7 @@ export async function enrichGames(
 
     return summary;
   } finally {
-    if (opts.userId) await markEnrichDone(opts.userId);
+    if (opts.userId && runId) await markEnrichDone(opts.userId, runId);
   }
 }
 

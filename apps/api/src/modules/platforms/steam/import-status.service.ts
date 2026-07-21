@@ -31,9 +31,16 @@ export async function getImportStatus(userId: string): Promise<ImportStatusDTO> 
     .innerJoin(userGames, eq(userGames.gameId, games.id))
     .where(eq(userGames.userId, userId));
 
+  // done ne compte que les jeux du batch suivi par CE run (progress.gameIds) :
+  // un jeu ajoute a la main pendant l'import (deja enrichi, resynchronise apres
+  // startedAt par un autre flux) ne doit pas gonfler le compteur au-dela de total.
+  const runGameIds = new Set(progress.gameIds);
   const startedAt = new Date(progress.startedAt);
   const done = rows.filter(
-    (r) => r.lastSyncedAt !== null && r.lastSyncedAt >= startedAt,
+    (r) =>
+      runGameIds.has(r.id) &&
+      r.lastSyncedAt !== null &&
+      r.lastSyncedAt >= startedAt,
   ).length;
 
   return {

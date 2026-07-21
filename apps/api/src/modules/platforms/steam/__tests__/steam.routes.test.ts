@@ -320,7 +320,7 @@ describe("GET /api/platforms/steam/import/status", () => {
   it("renvoie la progression en cours", async () => {
     const app = await buildApp();
     const { userId, token } = await createUserAndToken(app);
-    await markEnrichStart(userId, 5);
+    await markEnrichStart(userId, ["ug-1", "ug-2", "ug-3", "ug-4", "ug-5"]);
 
     const res = await app.inject({
       method: "GET",

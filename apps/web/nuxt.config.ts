@@ -19,6 +19,14 @@ export default defineNuxtConfig({
     },
   },
 
+  app: {
+    head: {
+      htmlAttrs: { lang: 'fr' },
+      title: 'My Next Quest is...',
+      titleTemplate: '%s — My Next Quest is...',
+    },
+  },
+
   modules: ['@pinia/nuxt', 'vuetify-nuxt-module', '@nuxtjs/i18n'],
 
   i18n: {

@@ -1,4 +1,8 @@
 {
+  "meta": {
+    "landingTitle": "Bienvenue",
+    "landingHeading": "Bienvenue sur My Next Quest is..."
+  },
   "auth": {
     "login": "Connexion",
     "register": "Inscription",

@@ -4,11 +4,17 @@
 definePageMeta({ middleware: 'guest', layout: 'plain' })
 
 const { t } = useI18n()
+
+useHead({
+  title: computed(() => t('meta.landingTitle')),
+})
 </script>
 
 <template>
   <div class="landing-page">
     <div class="landing-content">
+      <h1 class="sr-only">{{ t('meta.landingHeading') }}</h1>
+
       <!-- Logo badge brodé -->
       <img src="/images/logo/logo.png" alt="My Next Quest is..." class="landing-logo" />
 

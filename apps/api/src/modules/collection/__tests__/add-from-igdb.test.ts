@@ -62,7 +62,16 @@ function makeDeps(gamesById: Record<number, IgdbGame>): AddIgdbGameDeps {
     fetchGamesByIds: vi.fn(async (ids: number[]) =>
       ids.map((id) => gamesById[id]).filter((g): g is IgdbGame => g != null),
     ),
+    // Neutre par defaut : les tests d'add-from-igdb ne testent pas
+    // l'enrichissement, seul le test dedie ci-dessous fournit un spy.
+    enrich: vi.fn().mockResolvedValue(undefined),
   };
+}
+
+// Laisse le fire-and-forget (void promise.catch()) se resoudre avant les
+// assertions : sans ce tick, le spy peut ne pas encore avoir ete appele.
+async function flushPromises() {
+  await new Promise((resolve) => setImmediate(resolve));
 }
 
 beforeEach(cleanup);
@@ -164,6 +173,41 @@ describe("addIgdbGameToCollection", () => {
       .where(eq(userGames.userId, userId));
     expect(rows).toHaveLength(1);
     expect(rows[0].excludedAt).toBeNull();
+  });
+
+  it("declenche l'enrichissement complet du user apres un ajout manuel", async () => {
+    const userId = await seedUser();
+    const deps = makeDeps({ 999: sampleIgdbGame() });
+    const enrichSpy = vi.fn().mockResolvedValue(undefined);
+
+    const res = await addIgdbGameToCollection(
+      userId,
+      { igdbId: 999 },
+      "CID",
+      { ...deps, enrich: enrichSpy },
+    );
+    await flushPromises();
+
+    expect(res.ok).toBe(true);
+    expect(enrichSpy).toHaveBeenCalledWith({ userId });
+  });
+
+  it("n'appelle pas l'enrichissement si l'ajout echoue (conflict)", async () => {
+    const userId = await seedUser();
+    const deps = makeDeps({ 999: sampleIgdbGame() });
+    const enrichSpy = vi.fn().mockResolvedValue(undefined);
+
+    await addIgdbGameToCollection(userId, { igdbId: 999 }, "CID", { ...deps, enrich: enrichSpy });
+    enrichSpy.mockClear();
+
+    const second = await addIgdbGameToCollection(userId, { igdbId: 999 }, "CID", {
+      ...deps,
+      enrich: enrichSpy,
+    });
+    await flushPromises();
+
+    expect(second).toEqual({ ok: false, reason: "conflict" });
+    expect(enrichSpy).not.toHaveBeenCalled();
   });
 });
 

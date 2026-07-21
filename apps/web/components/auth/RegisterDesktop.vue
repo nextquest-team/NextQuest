@@ -18,6 +18,7 @@ const {
 
 <template>
   <div class="register-desktop-page">
+    <h1 class="sr-only">{{ t('auth.register') }}</h1>
     <div class="register-desktop-header">
       <UiPageHeader to="/" />
     </div>
@@ -28,6 +29,7 @@ const {
           <UiPatchInput
             v-model="username"
             :label="t('auth.fields.username')"
+            autocomplete="username"
             :placeholder="t('auth.fields.usernamePlaceholder')"
             :rules="usernameRules"
           />
@@ -36,6 +38,7 @@ const {
             v-model="email"
             :label="t('auth.fields.email')"
             type="email"
+            autocomplete="email"
             :placeholder="t('auth.fields.emailPlaceholder')"
             :rules="emailRules"
           />
@@ -44,6 +47,7 @@ const {
             v-model="password"
             :label="t('auth.fields.password')"
             type="password"
+            autocomplete="new-password"
             :rules="passwordRules"
           />
 
@@ -51,6 +55,7 @@ const {
             v-model="passwordConfirm"
             :label="t('auth.fields.passwordConfirm')"
             type="password"
+            autocomplete="new-password"
             :rules="passwordConfirmRules"
           />
         </div>

@@ -85,13 +85,13 @@ describe('ProfilDesktop', () => {
   // ── Affichage identité ──────────────────────────────────
   it('affiche le username quand displayName est null', async () => {
     const wrapper = mount(ProfilDesktop, { global: { stubs } })
-    expect(wrapper.find('h1.pd__name').text()).toBe('lo')
+    expect(wrapper.find('h2.pd__name').text()).toBe('lo')
   })
 
   it('affiche le displayName et le @username quand displayName est défini', async () => {
     mockUser.value = { ...fakeUser, displayName: 'Lorelei' }
     const wrapper = mount(ProfilDesktop, { global: { stubs } })
-    expect(wrapper.find('h1.pd__name').text()).toBe('Lorelei')
+    expect(wrapper.find('h2.pd__name').text()).toBe('Lorelei')
     expect(wrapper.find('.pd__username').text()).toBe('@lo')
   })
 

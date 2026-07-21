@@ -35,7 +35,7 @@ const {
         </button>
 
         <div v-else class="gl__steam-connected">
-          <v-icon size="16" color="#5C3317">mdi-steam</v-icon>
+          <v-icon size="16" color="primary">mdi-steam</v-icon>
           <span class="gl__steam-name">{{ steamPersona ?? t('gameList.steamLinked') }}</span>
           <button class="gl__btn gl__btn--steam" :disabled="importLoading" @click="importSteam">
             <v-icon size="16">mdi-download</v-icon>
@@ -65,8 +65,10 @@ const {
     <!-- Barre recherche + filtre -->
     <div class="gl__toolbar">
       <div class="gl__search-wrap">
+        <label for="gl-search" class="sr-only">{{ t('gameList.searchPlaceholder') }}</label>
         <v-icon class="gl__search-icon" size="18">mdi-magnify</v-icon>
         <input
+          id="gl-search"
           v-model="searchQuery"
           class="gl__search"
           type="search"
@@ -89,7 +91,7 @@ const {
             <button v-if="activeFilterCount > 0" class="gl-drawer__reset" @click="resetFilters">
               {{ t('gameList.filterReset') }}
             </button>
-            <button class="gl-drawer__close" @click="drawerOpen = false">
+            <button class="gl-drawer__close" :aria-label="t('gameList.filterClose')" @click="drawerOpen = false">
               <v-icon size="20">mdi-close</v-icon>
             </button>
           </div>
@@ -154,12 +156,12 @@ const {
 
     <!-- Loader -->
     <div v-if="gamesLoading" class="gl__loader">
-      <v-progress-circular indeterminate size="32" color="#5C3317" />
+      <v-progress-circular indeterminate size="32" color="primary" />
     </div>
 
     <!-- Liste vide -->
     <div v-else-if="games.length === 0" class="gl__empty">
-      <v-icon size="56" color="#a07850">mdi-gamepad-variant-outline</v-icon>
+      <v-icon size="56" color="primary-light">mdi-gamepad-variant-outline</v-icon>
       <p class="gl__empty-title">{{ view === 'ignored' ? t('gameList.view.emptyIgnored') : t('gameList.empty') }}</p>
       <p v-if="view !== 'ignored'" class="gl__empty-hint">{{ t('gameList.emptyHint') }}</p>
     </div>
@@ -255,10 +257,10 @@ const {
 }
 
 .gl__btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.gl__btn--steam { background: #1b2838; color: #c6d4df; }
-.gl__btn--steam:hover:not(:disabled) { background: #2a475e; }
-.gl__btn--igdb { background: rgba(92, 51, 23, 0.1); color: var(--nq-brown, #5C3317); border: 1px solid rgba(92, 51, 23, 0.2); }
-.gl__btn--igdb:hover:not(:disabled) { background: rgba(92, 51, 23, 0.18); }
+.gl__btn--steam { background: var(--brand-steam-bg); color: var(--brand-steam-text); }
+.gl__btn--steam:hover:not(:disabled) { background: var(--brand-steam-bg-hover); }
+.gl__btn--igdb { background: rgba(var(--nq-brown-rgb), 0.1); color: var(--nq-brown, #5C3317); border: 1px solid rgba(var(--nq-brown-rgb), 0.2); }
+.gl__btn--igdb:hover:not(:disabled) { background: rgba(var(--nq-brown-rgb), 0.18); }
 .gl__btn--add { background: var(--nq-brown, #5C3317); color: #edc78e; }
 .gl__btn--add:hover { background: var(--nq-brown-dark, #3A1A0A); }
 
@@ -266,7 +268,7 @@ const {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(92, 51, 23, 0.07);
+  background: rgba(var(--nq-brown-rgb), 0.07);
   border-radius: 8px;
   padding: 6px 10px;
   flex-wrap: wrap;
@@ -284,8 +286,8 @@ const {
   margin-bottom: 1rem;
 }
 
-.gl__import-msg--success { background: #d4edda; color: #1a5c2a; }
-.gl__import-msg--error   { background: #fdebc8; color: #7a4a00; }
+.gl__import-msg--success { background: var(--nq-success-bg); color: var(--nq-success-text); }
+.gl__import-msg--error   { background: var(--nq-warning-bg); color: var(--nq-warning-text); }
 
 .gl__empty {
   flex: 1;
@@ -299,7 +301,7 @@ const {
 }
 
 .gl__empty-title { font-size: 1.1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.gl__empty-hint { font-size: 0.9rem; color: rgba(58, 26, 10, 0.6); margin: 0; max-width: 340px; }
+.gl__empty-hint { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.65); margin: 0; max-width: 340px; }
 
 .gl__toolbar {
   display: flex;
@@ -313,7 +315,7 @@ const {
 .gl__search-icon {
   position: absolute;
   left: 10px;
-  color: rgba(58, 26, 10, 0.45);
+  color: rgba(var(--nq-brown-dark-rgb), 0.45);
   pointer-events: none;
 }
 
@@ -321,8 +323,10 @@ const {
   width: 100%;
   padding: 8px 12px 8px 34px;
   border-radius: 10px;
-  border: 1px solid rgba(92, 51, 23, 0.22);
-  background: rgba(255, 255, 255, 0.65);
+  /* WCAG 1.4.11 : la bordure à 0.22 d'opacité ne ressortait pas assez du
+     fond tricoté (1.46:1, Silktide). Même bordure que PatchInput.vue. */
+  border: 1.5px solid var(--nq-brown-mid);
+  background: rgba(var(--nq-white-rgb), 0.65);
   font-family: var(--nq-font);
   font-size: 0.88rem;
   color: var(--nq-brown-dark, #3A1A0A);
@@ -331,8 +335,8 @@ const {
   height: 40px;
 }
 
-.gl__search::placeholder { color: rgba(58, 26, 10, 0.4); }
-.gl__search:focus { border-color: rgba(92, 51, 23, 0.5); background: #fff; }
+.gl__search::placeholder { color: rgba(var(--nq-brown-dark-rgb), 0.4); }
+.gl__search:focus { border-color: rgba(var(--nq-brown-rgb), 0.5); background: #fff; }
 .gl__search::-webkit-search-cancel-button { cursor: pointer; }
 
 .gl__filter-toggle {
@@ -342,8 +346,8 @@ const {
   padding: 0 16px;
   height: 40px;
   border-radius: 10px;
-  border: 1px solid rgba(92, 51, 23, 0.22);
-  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.22);
+  background: rgba(var(--nq-white-rgb), 0.65);
   color: var(--nq-brown-dark, #3A1A0A);
   font-family: var(--nq-font);
   font-size: 0.88rem;
@@ -354,7 +358,7 @@ const {
   transition: background 0.15s, border-color 0.15s;
 }
 
-.gl__filter-toggle:hover { background: rgba(92, 51, 23, 0.06); border-color: rgba(92, 51, 23, 0.4); }
+.gl__filter-toggle:hover { background: rgba(var(--nq-brown-rgb), 0.06); border-color: rgba(var(--nq-brown-rgb), 0.4); }
 .gl__filter-toggle--active { border-color: var(--nq-brown, #5C3317); color: var(--nq-brown, #5C3317); }
 
 .gl__filter-badge {
@@ -365,7 +369,7 @@ const {
   height: 18px;
   border-radius: 50%;
   background: var(--nq-brown, #5C3317);
-  color: #edc78e;
+  color: var(--nq-cream-light);
   font-size: 0.65rem;
   font-weight: 700;
 }
@@ -382,7 +386,7 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1rem 0.75rem;
-  border-bottom: 1px solid rgba(92, 51, 23, 0.1);
+  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
 }
 
 .gl-drawer__title { font-size: 1rem; font-weight: 700; color: var(--nq-brown-dark, #3A1A0A); }
@@ -403,7 +407,7 @@ const {
   background: none;
   border: none;
   cursor: pointer;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(var(--nq-brown-dark-rgb), 0.5);
   padding: 2px;
   border-radius: 4px;
   display: flex;
@@ -411,7 +415,7 @@ const {
 
 .gl-drawer__close:hover { color: var(--nq-brown-dark, #3A1A0A); }
 
-.gl-drawer__section { padding: 1rem 1rem 0.5rem; border-bottom: 1px solid rgba(92, 51, 23, 0.08); }
+.gl-drawer__section { padding: 1rem 1rem 0.5rem; border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.08); }
 .gl-drawer__section--soon { opacity: 0.55; pointer-events: none; user-select: none; }
 
 .gl-drawer__section-title {
@@ -419,7 +423,9 @@ const {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(58, 26, 10, 0.55);
+  /* WCAG 1.4.3 : 0.55 donnait 3.61:1 sur le fond crème (Silktide), sous
+     les 4.5:1 requis pour ce texte de petite taille (9.4pt). */
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin: 0 0 0.75rem;
   display: flex;
   align-items: center;
@@ -431,13 +437,13 @@ const {
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
-  background: rgba(92, 51, 23, 0.12);
+  background: rgba(var(--nq-brown-rgb), 0.12);
   color: var(--nq-brown, #5C3317);
   padding: 2px 7px;
   border-radius: 999px;
 }
 
-.gl-drawer__soon-hint { font-size: 0.78rem; color: rgba(58, 26, 10, 0.45); margin: 0; }
+.gl-drawer__soon-hint { font-size: 0.78rem; color: rgba(var(--nq-brown-dark-rgb), 0.45); margin: 0; }
 
 .gl-drawer__checks { display: flex; flex-direction: column; gap: 6px; }
 
@@ -472,7 +478,7 @@ const {
   transition: background 0.12s;
 }
 
-.gl-drawer__check-item:hover { background: rgba(92, 51, 23, 0.06); }
+.gl-drawer__check-item:hover { background: rgba(var(--nq-brown-rgb), 0.06); }
 
 .gl-drawer__checkbox { width: 16px; height: 16px; accent-color: var(--nq-brown, #5C3317); cursor: pointer; flex-shrink: 0; }
 
@@ -481,13 +487,13 @@ const {
 .gl-drawer__chip {
   padding: 4px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(92, 51, 23, 0.2);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.2);
   font-size: 0.78rem;
-  color: rgba(58, 26, 10, 0.6);
+  color: rgba(var(--nq-brown-dark-rgb), 0.6);
   background: transparent;
 }
 
-.gl-drawer__footer { margin-top: auto; padding: 1rem; border-top: 1px solid rgba(92, 51, 23, 0.1); }
+.gl-drawer__footer { margin-top: auto; padding: 1rem; border-top: 1px solid rgba(var(--nq-brown-rgb), 0.1); }
 
 .gl__loader { display: flex; justify-content: center; padding: 3rem 0; }
 
@@ -511,7 +517,7 @@ const {
   gap: 4px;
   padding: 6px 14px;
   border-radius: 8px;
-  border: 1px solid rgba(92, 51, 23, 0.25);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
   background: transparent;
   color: var(--nq-brown, #5C3317);
   font-family: var(--nq-font);
@@ -521,10 +527,10 @@ const {
   transition: background 0.15s;
 }
 
-.gl__page-btn:hover:not(:disabled) { background: rgba(92, 51, 23, 0.08); }
+.gl__page-btn:hover:not(:disabled) { background: rgba(var(--nq-brown-rgb), 0.08); }
 .gl__page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.gl__page-info { font-size: 0.85rem; color: rgba(58, 26, 10, 0.7); font-variant-numeric: tabular-nums; }
+.gl__page-info { font-size: 0.85rem; color: rgba(var(--nq-brown-dark-rgb), 0.7); font-variant-numeric: tabular-nums; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.25s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

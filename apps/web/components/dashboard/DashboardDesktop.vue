@@ -35,6 +35,7 @@ onMounted(fetchBagGames)
 
 <template>
   <div class="dd">
+    <h1 class="sr-only">{{ t('nav.dashboard') }}</h1>
 
     <!-- Colonne gauche : sac à dos -->
     <div class="dd__bag" data-onb-target="bag">
@@ -47,21 +48,23 @@ onMounted(fetchBagGames)
         {{ t('dashboard.sacoche.gameList') }}
       </NuxtLink>
       <!-- Grille 3×3 des derniers jeux ajoutés + encart ajout -->
-      <div class="dd__bag-grid">
-        <NuxtLink
-          v-for="game in bagGames"
-          :key="game.id"
-          :to="`/games/${game.id}`"
-          class="dd__bag-thumb"
-          :title="game.title"
-        >
-          <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" />
-          <v-icon v-else size="28" color="rgba(122,62,42,0.4)">mdi-gamepad-variant-outline</v-icon>
-        </NuxtLink>
-        <NuxtLink to="/game-list" class="dd__bag-thumb dd__bag-thumb--add" :aria-label="t('dashboard.sacoche.addGame')">
-          <v-icon size="28" color="#7a3e2a">mdi-plus</v-icon>
-        </NuxtLink>
-      </div>
+      <ul class="dd__bag-grid">
+        <li v-for="game in bagGames" :key="game.id">
+          <NuxtLink
+            :to="`/games/${game.id}`"
+            class="dd__bag-thumb"
+            :title="game.title"
+          >
+            <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" />
+            <v-icon v-else size="28" color="rgba(var(--nq-brown-mid-rgb), 0.4)">mdi-gamepad-variant-outline</v-icon>
+          </NuxtLink>
+        </li>
+        <li>
+          <NuxtLink to="/game-list" class="dd__bag-thumb dd__bag-thumb--add" :aria-label="t('dashboard.sacoche.addGame')">
+            <v-icon size="28" color="primary-dark">mdi-plus</v-icon>
+          </NuxtLink>
+        </li>
+      </ul>
     </div>
 
     <!-- Colonne centrale : profil + boussole -->
@@ -156,9 +159,9 @@ onMounted(fetchBagGames)
   align-items: center;
   font-family: var(--nq-font);
   font-size: clamp(0.875rem, 1vw, 1rem);
-  color: #edc78e;
+  color: var(--nq-cream-light);
   text-decoration: none;
-  background: #7a3e2a;
+  background: var(--nq-brown-mid);
   padding: 7px 18px;
   border-radius: 5px;
   white-space: nowrap;
@@ -175,14 +178,17 @@ onMounted(fetchBagGames)
   grid-template-columns: repeat(3, 1fr);
   gap: 4%;
   z-index: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .dd__bag-thumb {
   aspect-ratio: 1;
   border-radius: 6px;
   overflow: hidden;
-  border: 2px solid #7a3e2a;
-  background: rgba(245, 237, 223, 0.4);
+  border: 2px solid var(--nq-brown-mid);
+  background: rgba(var(--nq-cream-alt-rgb), 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -197,12 +203,12 @@ onMounted(fetchBagGames)
 
 .dd__bag-thumb--add {
   border-style: dashed;
-  background: rgba(245, 237, 223, 0.2);
+  background: rgba(var(--nq-cream-alt-rgb), 0.2);
   transition: background 0.15s;
 }
 
 .dd__bag-thumb--add:hover {
-  background: rgba(122, 62, 42, 0.12);
+  background: rgba(var(--nq-brown-mid-rgb), 0.12);
 }
 
 /* ── Centre : profil + boussole ─────────────────────────────────── */
@@ -255,9 +261,9 @@ onMounted(fetchBagGames)
   width: 82%;
   margin: 0 auto;
   aspect-ratio: 5 / 2;
-  border: 1.5px solid #7a3e2a;
+  border: 1.5px solid var(--nq-brown-mid);
   border-radius: 6px;
-  background: rgba(245, 237, 223, 0.55);
+  background: rgba(var(--nq-cream-alt-rgb), 0.55);
 }
 
 .dd__parchemin-voir-tout {
@@ -269,9 +275,9 @@ onMounted(fetchBagGames)
   align-items: center;
   font-family: var(--nq-font);
   font-size: clamp(0.875rem, 1vw, 1rem);
-  color: #edc78e;
+  color: var(--nq-cream-light);
   text-decoration: none;
-  background: #7a3e2a;
+  background: var(--nq-brown-mid);
   padding: 7px 18px;
   border-radius: 5px;
   white-space: nowrap;
@@ -292,9 +298,9 @@ onMounted(fetchBagGames)
   gap: 4px;
   font-family: var(--nq-font);
   font-size: clamp(0.875rem, 1vw, 1rem);
-  color: #edc78e;
+  color: var(--nq-cream-light);
   text-decoration: none;
-  background: #7a3e2a;
+  background: var(--nq-brown-mid);
   padding: 7px 18px;
   border-radius: 5px;
   border: none;

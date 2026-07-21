@@ -14,6 +14,7 @@ const sacocheOpen = ref(false)
 
 <template>
   <div class="dm">
+    <h1 class="sr-only">{{ t('nav.dashboard') }}</h1>
 
     <div class="dm__top">
 
@@ -134,8 +135,8 @@ const sacocheOpen = ref(false)
   font-size: clamp(0.875rem, 2.2vw, 1rem);
   padding: 7px 18px;
   border-radius: 5px;
-  background: #7a3e2a;
-  color: #edc78e;
+  background: var(--nq-brown-mid);
+  color: var(--nq-cream-light);
   white-space: nowrap;
   min-height: 44px;
   display: inline-flex;
@@ -185,8 +186,8 @@ const sacocheOpen = ref(false)
   font-size: clamp(0.875rem, 2vw, 0.95rem);
   padding: 8px 16px;
   border-radius: 5px;
-  background: #7a3e2a;
-  color: #edc78e;
+  background: var(--nq-brown-mid);
+  color: var(--nq-cream-light);
   white-space: nowrap;
   min-height: 44px;
   display: inline-flex;
@@ -216,9 +217,9 @@ const sacocheOpen = ref(false)
   gap: 4px;
   font-family: var(--nq-font);
   font-size: clamp(0.875rem, 2.2vw, 1rem);
-  color: #edc78e;
+  color: var(--nq-cream-light);
   text-decoration: none;
-  background: #7a3e2a;
+  background: var(--nq-brown-mid);
   padding: 7px 18px;
   border-radius: 5px;
   border: none;

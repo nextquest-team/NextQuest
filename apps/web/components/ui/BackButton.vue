@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 const props = defineProps<{
   to?: string
 }>()
@@ -12,7 +14,7 @@ function handleClick() {
 </script>
 
 <template>
-  <UiPatchButton variant="back" @click="handleClick">
-    <v-icon>mdi-arrow-left</v-icon>
+  <UiPatchButton variant="back" :aria-label="t('nav.back')" @click="handleClick">
+    <v-icon aria-hidden="true">mdi-arrow-left</v-icon>
   </UiPatchButton>
 </template>

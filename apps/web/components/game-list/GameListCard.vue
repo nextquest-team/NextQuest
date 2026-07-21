@@ -56,7 +56,7 @@ function onRestore(e: Event) {
         class="gl-card__cover-img"
       />
       <div v-else class="gl-card__cover-placeholder">
-        <v-icon size="40" color="#a07850">mdi-gamepad-variant</v-icon>
+        <v-icon size="40" color="primary-light">mdi-gamepad-variant</v-icon>
       </div>
     </button>
 
@@ -128,7 +128,7 @@ function onRestore(e: Event) {
   align-items: stretch;
   background: var(--nq-cream, #F8F4EA);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(58, 26, 10, 0.08);
+  box-shadow: 0 2px 8px rgba(var(--nq-brown-dark-rgb), 0.08);
   overflow: hidden;
   transition: box-shadow 0.15s, transform 0.15s;
   position: relative;
@@ -136,7 +136,7 @@ function onRestore(e: Event) {
 }
 
 .gl-card:hover {
-  box-shadow: 0 4px 16px rgba(58, 26, 10, 0.16);
+  box-shadow: 0 4px 16px rgba(var(--nq-brown-dark-rgb), 0.16);
   transform: translateY(-2px);
 }
 
@@ -150,7 +150,7 @@ function onRestore(e: Event) {
 .gl-card__cover {
   flex-shrink: 0;
   width: 88px;
-  background: rgba(92, 51, 23, 0.08);
+  background: rgba(var(--nq-brown-rgb), 0.08);
   border: none;
   padding: 0;
   cursor: pointer;
@@ -217,9 +217,12 @@ function onRestore(e: Event) {
   gap: 4px;
   padding: 3px 6px;
   border-radius: 6px;
-  border: 1px solid rgba(92, 51, 23, 0.25);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
   background: transparent;
-  color: rgba(58, 26, 10, 0.6);
+  /* WCAG 1.4.3 : 0.6 donnait ~3.6:1 sur le fond crème (Silktide), sous les
+     4.5:1 requis pour ce texte de petite taille (0.65rem). 0.7 remonte
+     à ~5.7:1 en restant visuellement discret par rapport aux statuts actifs. */
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
   font-family: var(--nq-font);
   font-size: 0.65rem;
   cursor: pointer;
@@ -228,13 +231,13 @@ function onRestore(e: Event) {
 }
 
 .gl-card__status-btn:hover:not(.gl-card__status-btn--active) {
-  background: rgba(92, 51, 23, 0.08);
+  background: rgba(var(--nq-brown-rgb), 0.08);
   color: var(--nq-brown-dark, #3A1A0A);
 }
 
 .gl-card__status-btn--active {
   background: var(--nq-brown, #5C3317);
-  color: #edc78e;
+  color: var(--nq-cream-light);
   border-color: var(--nq-brown, #5C3317);
 }
 
@@ -245,8 +248,8 @@ function onRestore(e: Event) {
   width: 100%;
   padding: 5px 28px 5px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(92, 51, 23, 0.3);
-  background: rgba(92, 51, 23, 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235C3317' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 9px center;
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.3);
+  background: rgba(var(--nq-brown-rgb), 0.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235C3317' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 9px center;
   color: var(--nq-brown-dark, #3A1A0A);
   font-family: var(--nq-font);
   font-size: 0.78rem;
@@ -278,8 +281,8 @@ function onRestore(e: Event) {
   transition: color 0.1s, background 0.1s;
 }
 
-.gl-card__action--ignore { color: rgba(92, 51, 23, 0.45); }
-.gl-card__action--ignore:hover { color: var(--nq-brown, #5C3317); background: rgba(92, 51, 23, 0.1); }
-.gl-card__action--restore { color: var(--nq-brown, #5C3317); }
-.gl-card__action--restore:hover { color: var(--nq-brown-dark, #3A1A0A); background: rgba(92, 51, 23, 0.12); }
+.gl-card__action--ignore { color: rgba(var(--nq-brown-rgb), 0.45); }
+.gl-card__action--ignore:hover { color: var(--nq-brown); background: rgba(var(--nq-brown-rgb), 0.1); }
+.gl-card__action--restore { color: var(--nq-brown); }
+.gl-card__action--restore:hover { color: var(--nq-brown-dark, #3A1A0A); background: rgba(var(--nq-brown-rgb), 0.12); }
 </style>

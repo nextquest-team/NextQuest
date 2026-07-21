@@ -37,7 +37,7 @@ const {
         </button>
 
         <div v-else class="glm__steam-row">
-          <v-icon size="14" color="#5C3317">mdi-steam</v-icon>
+          <v-icon size="14" color="primary">mdi-steam</v-icon>
           <span class="glm__steam-name">{{ steamPersona ?? t('gameList.steamLinked') }}</span>
           <button class="glm__btn glm__btn--steam" :disabled="importLoading" @click="importSteam">
             <v-icon size="14">mdi-download</v-icon>
@@ -66,8 +66,10 @@ const {
       <!-- Toolbar recherche + filtre -->
       <div class="glm__toolbar">
         <div class="glm__search-wrap">
+          <label for="glm-search" class="sr-only">{{ t('gameList.searchPlaceholder') }}</label>
           <v-icon class="glm__search-icon" size="16">mdi-magnify</v-icon>
           <input
+            id="glm-search"
             v-model="searchQuery"
             class="glm__search"
             type="search"
@@ -77,6 +79,7 @@ const {
         <button
           class="glm__filter-toggle"
           :class="{ 'glm__filter-toggle--active': activeFilterCount > 0 }"
+          :aria-label="t('gameList.filterBtn')"
           @click="drawerOpen = true"
         >
           <v-icon size="16">mdi-tune-variant</v-icon>
@@ -90,12 +93,12 @@ const {
 
       <!-- Loader -->
       <div v-if="gamesLoading" class="glm__loader">
-        <v-progress-circular indeterminate size="28" color="#5C3317" />
+        <v-progress-circular indeterminate size="28" color="primary" />
       </div>
 
       <!-- Vide -->
       <div v-else-if="games.length === 0" class="glm__empty">
-        <v-icon size="48" color="#a07850">mdi-gamepad-variant-outline</v-icon>
+        <v-icon size="48" color="primary-light">mdi-gamepad-variant-outline</v-icon>
         <p class="glm__empty-title">{{ view === 'ignored' ? t('gameList.view.emptyIgnored') : t('gameList.empty') }}</p>
         <p v-if="view !== 'ignored'" class="glm__empty-hint">{{ t('gameList.emptyHint') }}</p>
       </div>
@@ -135,7 +138,7 @@ const {
             <button v-if="activeFilterCount > 0" class="gl-drawer__reset" @click="resetFilters">
               {{ t('gameList.filterReset') }}
             </button>
-            <button class="gl-drawer__close" @click="drawerOpen = false">
+            <button class="gl-drawer__close" :aria-label="t('gameList.filterClose')" @click="drawerOpen = false">
               <v-icon size="20">mdi-close</v-icon>
             </button>
           </div>
@@ -234,7 +237,7 @@ const {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(92, 51, 23, 0.07);
+  background: rgba(var(--nq-brown-rgb), 0.07);
   border-radius: 8px;
   padding: 5px 8px;
 }
@@ -267,8 +270,8 @@ const {
 
 .glm__btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.glm__btn--steam { background: #1b2838; color: #c6d4df; }
-.glm__btn--steam:hover:not(:disabled) { background: #2a475e; }
+.glm__btn--steam { background: var(--brand-steam-bg); color: var(--brand-steam-text); }
+.glm__btn--steam:hover:not(:disabled) { background: var(--brand-steam-bg-hover); }
 
 .glm__btn--add { background: var(--nq-brown, #5C3317); color: #edc78e; }
 .glm__btn--igdb {
@@ -288,8 +291,8 @@ const {
   font-size: 0.8rem;
   margin-bottom: 0.5rem;
 }
-.glm__import-msg--success { background: #d4edda; color: #1a5c2a; }
-.glm__import-msg--error   { background: #fdebc8; color: #7a4a00; }
+.glm__import-msg--success { background: var(--nq-success-bg); color: var(--nq-success-text); }
+.glm__import-msg--error   { background: var(--nq-warning-bg); color: var(--nq-warning-text); }
 
 /* ── Toolbar ── */
 .glm__toolbar {
@@ -309,7 +312,7 @@ const {
 .glm__search-icon {
   position: absolute;
   left: 8px;
-  color: rgba(58, 26, 10, 0.45);
+  color: rgba(var(--nq-brown-dark-rgb), 0.45);
   pointer-events: none;
 }
 
@@ -317,8 +320,10 @@ const {
   width: 100%;
   padding: 7px 10px 7px 30px;
   border-radius: 10px;
-  border: 1px solid rgba(92, 51, 23, 0.22);
-  background: rgba(255, 255, 255, 0.65);
+  /* WCAG 1.4.11 : la bordure à 0.22 d'opacité ne ressortait pas assez du
+     fond tricoté (1.46:1, Silktide). Même bordure que PatchInput.vue. */
+  border: 1.5px solid var(--nq-brown-mid);
+  background: rgba(var(--nq-white-rgb), 0.65);
   font-family: var(--nq-font);
   font-size: 0.85rem;
   color: var(--nq-brown-dark, #3A1A0A);
@@ -326,8 +331,8 @@ const {
   height: 38px;
 }
 
-.glm__search::placeholder { color: rgba(58, 26, 10, 0.4); }
-.glm__search:focus { border-color: rgba(92, 51, 23, 0.5); background: #fff; }
+.glm__search::placeholder { color: rgba(var(--nq-brown-dark-rgb), 0.4); }
+.glm__search:focus { border-color: rgba(var(--nq-brown-rgb), 0.5); background: #fff; }
 
 .glm__filter-toggle {
   display: inline-flex;
@@ -336,8 +341,8 @@ const {
   padding: 0 12px;
   height: 38px;
   border-radius: 10px;
-  border: 1px solid rgba(92, 51, 23, 0.22);
-  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.22);
+  background: rgba(var(--nq-white-rgb), 0.65);
   color: var(--nq-brown-dark, #3A1A0A);
   font-family: var(--nq-font);
   cursor: pointer;
@@ -354,7 +359,7 @@ const {
   height: 16px;
   border-radius: 50%;
   background: var(--nq-brown, #5C3317);
-  color: #edc78e;
+  color: var(--nq-cream-light);
   font-size: 0.6rem;
   font-weight: 700;
 }
@@ -375,9 +380,9 @@ const {
   border-radius: 6px;
   font-family: var(--nq-font);
   font-size: 0.72rem;
-  background: rgba(92, 51, 23, 0.08);
+  background: rgba(var(--nq-brown-rgb), 0.08);
   color: var(--nq-brown, #5C3317);
-  border: 1px solid rgba(92, 51, 23, 0.18);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.18);
   cursor: pointer;
   margin-bottom: 0.75rem;
 }
@@ -407,7 +412,7 @@ const {
 
 .glm__empty-hint {
   font-size: 0.85rem;
-  color: rgba(58, 26, 10, 0.6);
+  color: rgba(var(--nq-brown-dark-rgb), 0.6);
   margin: 0;
   max-width: 280px;
 }
@@ -434,18 +439,18 @@ const {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  border: 1px solid rgba(92, 51, 23, 0.25);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
   background: transparent;
   color: var(--nq-brown, #5C3317);
   cursor: pointer;
 }
 
 .glm__page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.glm__page-btn:hover:not(:disabled) { background: rgba(92, 51, 23, 0.08); }
+.glm__page-btn:hover:not(:disabled) { background: rgba(var(--nq-brown-rgb), 0.08); }
 
 .glm__page-info {
   font-size: 0.85rem;
-  color: rgba(58, 26, 10, 0.7);
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
 }
 
 /* ── Drawer ── */
@@ -461,7 +466,7 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1rem 0.75rem;
-  border-bottom: 1px solid rgba(92, 51, 23, 0.1);
+  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
 }
 
 .gl-drawer__title { font-size: 1rem; font-weight: 700; color: var(--nq-brown-dark, #3A1A0A); }
@@ -483,7 +488,7 @@ const {
   background: none;
   border: none;
   cursor: pointer;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(var(--nq-brown-dark-rgb), 0.5);
   padding: 2px;
   border-radius: 4px;
   display: flex;
@@ -491,7 +496,7 @@ const {
 
 .gl-drawer__section {
   padding: 1rem 1rem 0.5rem;
-  border-bottom: 1px solid rgba(92, 51, 23, 0.08);
+  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.08);
 }
 
 .gl-drawer__section--soon { opacity: 0.55; pointer-events: none; user-select: none; }
@@ -501,7 +506,9 @@ const {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(58, 26, 10, 0.55);
+  /* WCAG 1.4.3 : 0.55 donnait 3.61:1 sur le fond crème (Silktide), sous
+     les 4.5:1 requis pour ce texte de petite taille (9.4pt). */
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin: 0 0 0.75rem;
   display: flex;
   align-items: center;
@@ -513,7 +520,7 @@ const {
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
-  background: rgba(92, 51, 23, 0.12);
+  background: rgba(var(--nq-brown-rgb), 0.12);
   color: var(--nq-brown, #5C3317);
   padding: 2px 7px;
   border-radius: 999px;
@@ -552,7 +559,7 @@ const {
   transition: background 0.12s;
 }
 
-.gl-drawer__check-item:hover { background: rgba(92, 51, 23, 0.06); }
+.gl-drawer__check-item:hover { background: rgba(var(--nq-brown-rgb), 0.06); }
 
 .gl-drawer__checkbox {
   width: 16px;
@@ -565,7 +572,7 @@ const {
 .gl-drawer__footer {
   margin-top: auto;
   padding: 1rem;
-  border-top: 1px solid rgba(92, 51, 23, 0.1);
+  border-top: 1px solid rgba(var(--nq-brown-rgb), 0.1);
 }
 
 /* ── Transitions ── */

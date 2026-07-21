@@ -222,7 +222,7 @@ async function confirmAdd(platformId: string | null) {
 .gl-modal__backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(30, 14, 4, 0.55);
+  background: rgba(var(--nq-scrim-rgb), 0.55);
   z-index: 200;
   display: flex;
   align-items: center;
@@ -239,7 +239,7 @@ async function confirmAdd(platformId: string | null) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(58, 26, 10, 0.2);
+  box-shadow: 0 8px 32px rgba(var(--nq-brown-dark-rgb), 0.2);
 }
 
 /* ── En-tete ── */
@@ -277,7 +277,7 @@ async function confirmAdd(platformId: string | null) {
   align-items: center;
   gap: 8px;
   margin: 1rem 1.25rem 0;
-  background: rgba(92, 51, 23, 0.07);
+  background: rgba(var(--nq-brown-rgb), 0.07);
   border-radius: 8px;
   padding: 8px 12px;
   flex-shrink: 0;
@@ -294,7 +294,7 @@ async function confirmAdd(platformId: string | null) {
   font-size: 0.9rem;
   color: var(--nq-brown-dark, #3a1a0a);
 }
-.gl-modal__search::placeholder { color: rgba(58, 26, 10, 0.4); }
+.gl-modal__search::placeholder { color: rgba(var(--nq-brown-dark-rgb), 0.4); }
 
 /* ── Contenu / etats ── */
 .gl-add__content {
@@ -316,7 +316,8 @@ async function confirmAdd(platformId: string | null) {
 .gl-add__state-text {
   font-family: var(--nq-font);
   font-size: 0.9rem;
-  color: rgba(58, 26, 10, 0.6);
+  color: rgba(var(--nq-brown-dark-rgb), 0.6);
+  line-height: 1.5;
   margin: 0;
 }
 

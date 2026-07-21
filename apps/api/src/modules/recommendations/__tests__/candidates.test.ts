@@ -14,6 +14,7 @@ import {
   getOwnedForProfile,
   getDimensionFrequencies,
   getSwipeDeltas,
+  getLibraryUnplayedCandidates,
   getDiscoveryCandidates,
   getUpcomingCandidates,
 } from "../candidates.js";
@@ -196,6 +197,40 @@ describe("getOwnedForProfile", () => {
 
     expect(owned).toHaveLength(0);
   });
+
+  it("exclut les jeux ignores (excluded_at) du profil de gout", async () => {
+    // Seed : user + jeu ignore (excluded_at renseigne) -> ne doit pas contribuer au profil
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "test-excluded@example.com",
+        username: "testuserexcluded",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [game] = await db
+      .insert(games)
+      .values({
+        title: "Ignored Game",
+        slug: "ignored-game",
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: game.id,
+        status: "backlog",
+        excludedAt: new Date(),
+      });
+
+    const owned = await getOwnedForProfile(user.id);
+
+    expect(owned).toHaveLength(0);
+  });
 });
 
 describe("getDimensionFrequencies", () => {
@@ -360,6 +395,77 @@ describe("getSwipeDeltas", () => {
     const deltas = await getSwipeDeltas(user.id);
 
     expect(deltas).toHaveLength(0);
+  });
+});
+
+describe("getLibraryUnplayedCandidates", () => {
+  it("exclut les jeux ignores (excluded_at) de library_unplayed", async () => {
+    // Seed : user + un jeu backlog playtime 0 avec excluded_at = now
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "unplayed-excluded@example.com",
+        username: "unplayeduserexcluded",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [ignoredGame] = await db
+      .insert(games)
+      .values({
+        title: "Ignored Backlog Game",
+        slug: "ignored-backlog-game",
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: ignoredGame.id,
+        status: "backlog",
+        playtimeMinutes: 0,
+        excludedAt: new Date(),
+      });
+
+    const cands = await getLibraryUnplayedCandidates(user.id);
+
+    expect(cands.find((c) => c.gameId === ignoredGame.id)).toBeUndefined();
+  });
+
+  it("retourne un jeu backlog non ignore", async () => {
+    // Garde-fou : le filtre excluded_at ne doit pas exclure les jeux actifs
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "unplayed-active@example.com",
+        username: "unplayeduseractive",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [activeGame] = await db
+      .insert(games)
+      .values({
+        title: "Active Backlog Game",
+        slug: "active-backlog-game",
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db
+      .insert(userGames)
+      .values({
+        userId: user.id,
+        gameId: activeGame.id,
+        status: "backlog",
+        playtimeMinutes: 0,
+      });
+
+    const cands = await getLibraryUnplayedCandidates(user.id);
+
+    expect(cands.find((c) => c.gameId === activeGame.id)).toBeDefined();
   });
 });
 
@@ -612,6 +718,60 @@ describe("getDiscoveryCandidates", () => {
     expect(candidates).toHaveLength(1);
     expect(candidates[0].gameId).toBe(gameB.id);
     expect(candidates[0].similarVotes).toBe(2);
+  });
+
+  it("garde-fou : un jeu possede et ignore ne redevient pas recommandable", async () => {
+    // Seed : user possede A (actif) similaire a D (igdbId 400), et possede aussi D
+    // lui-meme mais D est ignore. D doit rester exclu des candidats malgre l'ignore :
+    // ownedGameIds/ownedIgdbIds (exclusion) ne doivent JAMAIS filtrer excluded_at.
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery-guard@example.com",
+        username: "discoveryguard",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [gameA] = await db
+      .insert(games)
+      .values({
+        title: "Game A",
+        slug: "game-a-guard",
+        igdbId: 100,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    const [gameD] = await db
+      .insert(games)
+      .values({
+        title: "Game D",
+        slug: "game-d-guard",
+        igdbId: 400,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    // User possede A (actif) et D (ignore)
+    await db.insert(userGames).values([
+      { userId: user.id, gameId: gameA.id, status: "completed" },
+      { userId: user.id, gameId: gameD.id, status: "backlog", excludedAt: new Date() },
+    ]);
+
+    // A est similaire a D (igdbId 400) : sans le garde-fou, D pourrait remonter
+    // comme candidat puisqu'il est exclu du profil (ownedActive) mais pas de
+    // l'ensemble d'exclusion (ownedGameIds/ownedIgdbIds).
+    await db
+      .insert(gameSimilar)
+      .values({
+        gameId: gameA.id,
+        similarIgdbId: 400,
+      });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates.find((c) => c.gameId === gameD.id)).toBeUndefined();
   });
 });
 

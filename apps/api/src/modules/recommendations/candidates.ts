@@ -49,7 +49,7 @@ export async function getOwnedForProfile(
     })
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
-    .where(eq(userGames.userId, userId));
+    .where(and(eq(userGames.userId, userId), isNull(userGames.excludedAt)));
   const { g, t } = await genreTagIdsByGame(rows.map((r) => r.gameId));
   return rows.map((r) => ({
     gameId: r.gameId,
@@ -128,6 +128,7 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
         eq(userGames.userId, userId),
         inArray(userGames.status, ["backlog", "wishlist"]),
         or(isNull(userGames.playtimeMinutes), lt(userGames.playtimeMinutes, UNPLAYED_MAX_MINUTES)),
+        isNull(userGames.excludedAt),
       ),
     );
   const { g, t } = await genreTagIdsByGame(rows.map((r) => r.gameId));
@@ -148,8 +149,26 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
 // La source graphe est re-classee par similarite de contenu pour filtrer le bruit.
 // Les trois sources sont fusionnees, deduplicates, et exclues si deja possedes/swipes.
 export async function getDiscoveryCandidates(userId: string): Promise<Candidate[]> {
-  // Jeux possedes et leurs infos (igdbId, genres, developpeur, editeur, note)
+  // Jeux possedes (TOUS, ignores inclus) : sert uniquement a exclure des candidats
+  // les jeux deja dans la bibliotheque. Un jeu ignore reste possede : il ne doit pas
+  // redevenir recommandable juste parce qu'il est ignore.
   const owned = await db
+    .select({
+      gameId: games.id,
+      igdbId: games.igdbId,
+    })
+    .from(userGames)
+    .innerJoin(games, eq(userGames.gameId, games.id))
+    .where(eq(userGames.userId, userId));
+  const ownedGameIds = new Set(owned.map((o) => o.gameId));
+  const ownedIgdbIds = owned.map((o) => o.igdbId).filter((x): x is number => x != null);
+  if (ownedIgdbIds.length === 0) return [];
+
+  // Jeux possedes actifs (non ignores) et leurs infos (igdbId, genres, developpeur,
+  // editeur, note) : sert a construire le profil de gout (genres, developpeurs,
+  // graphe similaire) qui alimente les sources de decouverte. Un jeu ignore ne
+  // doit plus influencer les recos.
+  const ownedActive = await db
     .select({
       gameId: games.id,
       igdbId: games.igdbId,
@@ -159,24 +178,21 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
     })
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
-    .where(eq(userGames.userId, userId));
-  const ownedGameIds = new Set(owned.map((o) => o.gameId));
-  const ownedIgdbIds = owned.map((o) => o.igdbId).filter((x): x is number => x != null);
-  if (ownedIgdbIds.length === 0) return [];
+    .where(and(eq(userGames.userId, userId), isNull(userGames.excludedAt)));
 
-  // Charger les genres des jeux possedes pour filtrer les similaires par contenu
-  const { g: ownedGenres, t: ownedTags } = await genreTagIdsByGame(owned.map((o) => o.gameId));
-  const ownedWithContent = owned.map((o) => ({
+  // Charger les genres des jeux possedes actifs pour filtrer les similaires par contenu
+  const { g: ownedGenres, t: ownedTags } = await genreTagIdsByGame(ownedActive.map((o) => o.gameId));
+  const ownedWithContent = ownedActive.map((o) => ({
     ...o,
     genreIds: ownedGenres.get(o.gameId) ?? [],
     tagIds: ownedTags.get(o.gameId) ?? [],
   }));
 
-  // SOURCE 1 : graphe similaire
+  // SOURCE 1 : graphe similaire (base sur les jeux possedes actifs uniquement)
   const sims = await db
     .select({ ownerGameId: gameSimilar.gameId, similarIgdbId: gameSimilar.similarIgdbId })
     .from(gameSimilar)
-    .where(inArray(gameSimilar.gameId, [...ownedGameIds]));
+    .where(inArray(gameSimilar.gameId, ownedActive.map((o) => o.gameId)));
 
   // Re-classement : filtrer les candidats similaires par similarite de contenu
   // avec le jeu possede le plus proche. Seuil bas pour eviter de perdre des candidats.
@@ -236,14 +252,14 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
     }
   }
 
-  // SOURCE 3 : jeux du même studio que les jeux possédés
+  // SOURCE 3 : jeux du même studio que les jeux possédés actifs
   // Limiter le nombre de studios interrogés pour éviter N+1 calls IGDB.
-  // On prend les studios distincts des jeux possédés, up to 5.
+  // On prend les studios distincts des jeux possédés actifs, up to 5.
   // Plafond : max 3 jeux par studio apres le filtre genre/theme.
   let sameDevByIgdb: number[] = [];
-  if (owned.length > 0) {
+  if (ownedActive.length > 0) {
     const distinctDevelopers = [
-      ...new Set(owned.map((o) => o.developer).filter((d): d is string => d != null)),
+      ...new Set(ownedActive.map((o) => o.developer).filter((d): d is string => d != null)),
     ].slice(0, 5);
 
     if (distinctDevelopers.length > 0) {
@@ -424,7 +440,8 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
 // Candidats du bucket "upcoming" : jeux pas encore sortis, dans les top genres
 // de l'user, tries par hype.
 export async function getUpcomingCandidates(userId: string): Promise<Candidate[]> {
-  // Jeux possedes et leurs genres
+  // Jeux possedes (TOUS, ignores inclus) : sert uniquement a exclure des candidats
+  // les jeux deja dans la bibliotheque. Un jeu ignore reste possede.
   const ownedGameIds = new Set(
     (await db.select({ gameId: userGames.gameId }).from(userGames).where(eq(userGames.userId, userId))).map(
       (r) => r.gameId,
@@ -433,9 +450,19 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
 
   if (ownedGameIds.size === 0) return [];
 
-  const { g } = await genreTagIdsByGame([...ownedGameIds]);
+  // Jeux possedes actifs (non ignores) : sert a determiner les top genres qui
+  // pilotent la recherche des sorties a venir. Un jeu ignore ne doit plus
+  // influencer les recos.
+  const ownedActiveGameIds = (
+    await db
+      .select({ gameId: userGames.gameId })
+      .from(userGames)
+      .where(and(eq(userGames.userId, userId), isNull(userGames.excludedAt)))
+  ).map((r) => r.gameId);
 
-  // Frequences des genres dans les jeux possedes
+  const { g } = await genreTagIdsByGame(ownedActiveGameIds);
+
+  // Frequences des genres dans les jeux possedes actifs
   const genreFreq = new Map<string, number>();
   for (const [, genreIds] of g) {
     for (const gid of genreIds) {

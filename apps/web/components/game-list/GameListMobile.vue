@@ -12,10 +12,7 @@ const {
   onStatusChange, onIgnoreGame, onRestoreGame, onCardClick,
   addModalOpen,
   progressOpen, progressStatus, onProgressBackground, onProgressClose,
-  init,
-} = useGameList()
-
-onMounted(init)
+} = inject<ReturnType<typeof useGameList>>('gameList')!
 </script>
 
 <template>

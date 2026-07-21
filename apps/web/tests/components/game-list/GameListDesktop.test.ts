@@ -1,6 +1,6 @@
 // @vitest-environment nuxt
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { mount } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { ref } from 'vue'
 import GameListDesktop from '~/components/game-list/GameListDesktop.vue'
@@ -19,7 +19,7 @@ const mockActiveFilterCount = ref(0)
 const initMock = vi.fn()
 const linkSteamMock = vi.fn()
 
-mockNuxtImport('useGameList', () => () => ({
+const gameListMock = {
   steamConnected: mockSteamConnected,
   steamPersona: ref(null),
   steamLoading: ref(false),
@@ -59,7 +59,7 @@ mockNuxtImport('useGameList', () => () => ({
   onProgressBackground: vi.fn(),
   onProgressClose: vi.fn(),
   init: initMock,
-}))
+}
 
 const stubs = {
   VIcon: { template: '<span v-bind="$attrs" />' },
@@ -74,6 +74,8 @@ const stubs = {
   Transition: { template: '<slot />' },
 }
 
+const globalOpts = { stubs, provide: { gameList: gameListMock } }
+
 describe('GameListDesktop', () => {
   beforeEach(() => {
     mockGames.value = []
@@ -86,20 +88,14 @@ describe('GameListDesktop', () => {
     linkSteamMock.mockReset()
   })
 
-  it('appelle init() au montage', async () => {
-    mount(GameListDesktop, { global: { stubs } })
-    await flushPromises()
-    expect(initMock).toHaveBeenCalledOnce()
-  })
-
   it('affiche le bouton Steam Lier quand non connecté', () => {
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     expect(wrapper.find('.gl__btn--steam').exists()).toBe(true)
   })
 
   it('affiche le loader quand gamesLoading=true', () => {
     mockGamesLoading.value = true
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     expect(wrapper.find('.gl__loader').exists()).toBe(true)
     expect(wrapper.find('.gl__empty').exists()).toBe(false)
   })
@@ -107,7 +103,7 @@ describe('GameListDesktop', () => {
   it('affiche le message vide quand la liste est vide', () => {
     mockGamesLoading.value = false
     mockGames.value = []
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     expect(wrapper.find('.gl__empty').exists()).toBe(true)
     expect(wrapper.find('.gl__grid').exists()).toBe(false)
   })
@@ -118,36 +114,36 @@ describe('GameListDesktop', () => {
       { id: 'g1', title: 'Celeste', status: 'completed' },
       { id: 'g2', title: 'Hades', status: 'playing' },
     ] as any[]
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     expect(wrapper.find('.gl__grid').exists()).toBe(true)
     expect(wrapper.findAll('.game-list-card')).toHaveLength(2)
   })
 
   it('affiche le champ de recherche', () => {
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     expect(wrapper.find('input.gl__search').exists()).toBe(true)
   })
 
   it('affiche le badge filtre quand activeFilterCount > 0', () => {
     mockActiveFilterCount.value = 1
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     expect(wrapper.find('.gl__filter-toggle--active').exists()).toBe(true)
   })
 
   it("n'affiche pas la pagination quand totalPages <= 1", () => {
     mockTotalPages.value = 1
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     expect(wrapper.find('.gl__pagination').exists()).toBe(false)
   })
 
   it('affiche la pagination quand totalPages > 1', () => {
     mockTotalPages.value = 5
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     expect(wrapper.find('.gl__pagination').exists()).toBe(true)
   })
 
   it('appelle linkSteam au clic sur le bouton Steam', async () => {
-    const wrapper = mount(GameListDesktop, { global: { stubs } })
+    const wrapper = mount(GameListDesktop, { global: globalOpts })
     await wrapper.find('.gl__btn--steam').trigger('click')
     expect(linkSteamMock).toHaveBeenCalledOnce()
   })

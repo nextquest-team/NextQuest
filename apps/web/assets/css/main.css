@@ -1,8 +1,10 @@
+/* unicode-range exclut U+00A9 (©), U+00AE (®), U+2122 (™) — glyphes malformés dans cette fonte */
 @font-face {
   font-family: 'Knights Quest';
   src: url('/fonts/knights-quest/KnightsQuest.ttf') format('truetype');
   font-weight: 400;
   font-display: swap;
+  unicode-range: U+0020-00A8, U+00AA-00AD, U+00AF-2121, U+2123-FFFF;
 }
 
 @font-face {
@@ -10,6 +12,7 @@
   src: url('/fonts/knights-quest/KnightsQuestCallig.ttf') format('truetype');
   font-weight: 400;
   font-display: swap;
+  unicode-range: U+0020-00A8, U+00AA-00AD, U+00AF-2121, U+2123-FFFF;
 }
 
 @font-face {
@@ -17,6 +20,7 @@
   src: url('/fonts/knights-quest/KnightsQuestShielded.ttf') format('truetype');
   font-weight: 400;
   font-display: swap;
+  unicode-range: U+0020-00A8, U+00AA-00AD, U+00AF-2121, U+2123-FFFF;
 }
 
 :root {

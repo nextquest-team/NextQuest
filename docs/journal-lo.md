@@ -1,5 +1,45 @@
 # Journal de bord — Lorelei
 
+## 2026-06-23 — Session 3 : Dashboard desktop — données réelles
+
+### Résumé exécutif
+
+Remplacement de toutes les données mock du dashboard desktop par des appels API réels. La zone sac à dos affiche une grille 3×3 des 8 derniers jeux ajoutés à la collection (le 9e slot est réservé au bouton d'ajout), avec miniatures cliquables. La zone game cards affiche le feed "jeux à venir" trié par hype depuis IGDB.
+
+### Ce qui a été fait
+
+#### `DashboardDesktop.vue`
+- Suppression de l'array mock `games`
+- Ajout de `fetchBagGames()` : appel `GET /api/collection?limit=8&offset=0` au montage — l'API trie déjà par `createdAt DESC`, les 8 premiers = les 8 derniers ajoutés
+- Grille 3×3 de miniatures carrées dans la div sac (`dd__bag-grid`) : chaque vignette affiche `coverUrl` ou une icône fallback, et link vers `/games/{userGameId}` (fiche de la collection)
+- `v-for` du parchemin migré sur `bagGames` (suppression de la référence à l'ancien mock)
+
+#### `DbGameCards.vue`
+- Suppression du mock
+- Ajout de `fetchUpcoming()` : appel `GET /api/games/upcoming?limit=20&sort=hype` au montage (endpoint PR #83, cache Redis 1h)
+- Chaque carte affiche `coverUrl` IGDB (`t_cover_big`) + link vers `/games/catalog/{igdbId}`
+- Fallback icône manette si `coverUrl` null
+- `position: relative + overflow: hidden` ajouté à `.game-card` pour que la cover remplisse la carte
+
+#### `types/game.ts`
+- Ajout de `UpcomingGameDTO` (`igdbId`, `title`, `coverUrl`) — interface extraite du composant vers le fichier de types (correction de convention)
+
+### Décisions techniques
+
+**Pas de composable dédié pour ces deux fetches.** Les appels sont simples (un seul endpoint, pas de pagination, pas de filtres) — un composable aurait été une abstraction prématurée. Si le dashboard devient plus complexe (refresh, filtres, état partagé), on extrait à ce moment-là.
+
+**`bagGames` réutilisé pour le parchemin.** Le parchemin listait aussi les jeux via l'ancien mock `games`. Plutôt que de dupliquer un fetch, il consomme `bagGames` en attendant sa propre logique métier (actualités/recos).
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/dashboard/DashboardDesktop.vue` | Fetch réel collection, grille sac 3×3 |
+| `apps/web/components/dashboard/DbGameCards.vue` | Fetch réel upcoming IGDB, covers + liens |
+| `apps/web/types/game.ts` | Ajout `UpcomingGameDTO` |
+
+---
+
 ## 2026-04-29 — Session 1 : Setup frontend auth
 
 ### Ce qui a été fait
@@ -1041,4 +1081,116 @@ Affinage UI sur `feat/front-reco`. Les trois cards de recommandation Next Quest 
 
 - Aucun blocker. La PR est prête pour review.
 
+---
 
+## 2026-06-26 — Session 14 : Correction de 8 bugs (next-quest, game-list, game-detail)
+
+### Résumé exécutif
+
+Session de bugfix sur `feat/complete-dashboard`. 8 bugs corrigés sur 3 modules : page Next Quest (queue de recos, i18n, retry), fiche jeu (note IGDB, contraste WCAG), game list (étoiles, a11y carte, double fetch, erreurs silencieuses). 8 nouveaux tests ajoutés à `useGameList.test.ts`, 19 tests passants au total.
+
+### Ce qui a été fait
+
+#### Bug 1 — Décliner une reco vidait le bucket (`pages/next-quest.vue`)
+
+`fetchRecos` ne conservait que `res.discovery[0]` et jetait le reste. Après un décliné, `sendFeedback` mettait la valeur à `null` → slot "Aucune suggestion" immédiat même si l'API avait renvoyé plusieurs candidats.
+
+**Fix** : `discovery/libraryUnplayed/upcoming` passent de `ref<DTO|null>` à des queues `ref<DTO[]>`. Les computed `[0]` exposent l'entrée courante au template. `sendFeedback` fait un `.slice(1)` au lieu d'un `= null` — le suivant du bucket s'affiche automatiquement.
+
+#### Bug 2 — Note IGDB non arrondie / incohérente (`GameDetailDesktop.vue`, `GameDetailMobile.vue`)
+
+Affichait `84.62312/100` brut alors que `RecoCard` affichait déjà `/10` arrondi.
+
+**Fix** : `{{ game.game.igdbRating }}/100` → `{{ (game.game.igdbRating / 10).toFixed(1) }}/10` dans les deux composants. Format commun avec RecoCard.
+
+#### Bug 3 — Étoiles de note : barème faux (`RecoCard.vue`)
+
+`Math.round(rating / 2)` traitait `igdbRating` (0–100) comme s'il était sur 0–10. Borderlands 3 noté 76/100 → `Math.round(76/2) = 38` → 5★ tronqué à 5.
+
+**Fix** : `Math.round(rating / 20)` — 0–100 divisé par 20 donne 0–5 étoiles.
+
+#### Bug 4 — Échecs silencieux sans retour utilisateur (`useGameList.ts`)
+
+Les catch de `fetchSteamStatus`, `linkSteam`, `enrichGames`, `fetchGames` avalaient l'erreur sans trace ni feedback.
+
+**Fix** :
+- `console.error('[useGameList] <fn>', e)` sur tous les catch.
+- `linkSteam` : `importMessage = { type: 'error', text: t('gameList.steamLinkError') }`.
+- `enrichGames` : idem avec `gameList.enrichError`.
+- `fetchGames` : ref `gamesError` ajoutée (posée à `true` sur échec, remise à `false` au prochain succès), exposée dans le return.
+- Clés i18n `steamLinkError` / `enrichError` ajoutées dans `fr.json` et `en.json`.
+
+#### Bug 5 — Strings d'erreur en dur + mauvais « Réessayer » (`pages/next-quest.vue`)
+
+`"Impossible de charger les recommandations"` et `"Réessayer"` codés en dur en FR. `"Réessayer"` appelait toujours `fetchRecos` même quand c'était `generate` qui avait échoué.
+
+**Fix** :
+- Ref `lastFailedOp: 'fetch' | 'generate' | null` posée dans chaque catch.
+- Fonction `retry()` qui dispatch vers `generate()` ou `fetchRecos()` selon la valeur.
+- Strings remplacées par `t('nextQuest.loadError')` / `t('nextQuest.retry')`.
+- Clés ajoutées dans les deux locales.
+
+#### Bug 6 — Contraste sous le seuil WCAG AA (`GameDetailDesktop.vue`, `GameDetailMobile.vue`)
+
+`.gdd__label`, `.gdd__dt`, `.gdd__section-title` en `rgba(58,26,10,0.5)` ≈ 2,9:1 contre le fond crème. `.gdd__rating-max` en `0.45`.
+
+**Fix** : opacités relevées à `0.75` (labels/dt/section-title) et `0.65` (rating-max) — ratio ≥ 4,5:1 atteint contre `#F8F4EA`.
+
+#### Bug 7 — Carte cliquable contenant d'autres boutons (`GameListCard.vue`)
+
+La `<div role="button">` englobait les boutons de statut et le bouton supprimer : anti-pattern a11y (un bouton dans un bouton).
+
+**Fix** :
+- `role="button" tabindex="0" @click @keydown` retirés de la div racine.
+- La cover devient `<button tabindex="-1" aria-hidden="true">` (masquée des AT, cliquable à la souris).
+- Le titre devient `<button class="gl-card__title">` avec reset CSS (`background: none; border: none; text-align: left; width: 100%`).
+- `:focus-visible` déplacé sur les deux boutons enfants.
+- `cursor: pointer` retiré de `.gl-card` (la main n'apparaît que sur les zones effectivement cliquables).
+
+#### Bug 8 — Double fetch au montage de `game-list` (`pages/game-list.vue`, `GameListDesktop.vue`, `GameListMobile.vue`)
+
+`GameListDesktop` et `GameListMobile` appelaient chacun `useGameList()` + `onMounted(init)`. Si la valeur `mobile` de Vuetify bascule après le premier rendu (SSR → client), les deux composants peuvent monter successivement, déclenchant deux séries de fetches.
+
+**Fix** : `useGameList()` + `onMounted(gameList.init)` remontés dans `pages/game-list.vue`. État fourni via `provide('gameList', gameList)`. Les enfants utilisent `inject<ReturnType<typeof useGameList>>('gameList')!` — une seule instance, un seul init.
+
+#### Bug 8b — Tests manquants sur les branches d'erreur (`useGameList.test.ts`)
+
+Les tests existants ne couvraient pas : la vérification que le PATCH est bien envoyé dans `onStatusChange`, le rollback sur erreur API, le refetch de récupération dans `onDeleteGame`, et l'état `gamesError`.
+
+**Fix** : 8 nouveaux cas :
+- `onStatusChange` : optimiste, PATCH envoyé au bon endpoint, rollback sur erreur.
+- `onDeleteGame` : refetch si DELETE échoue.
+- `fetchGames` : `gamesError = true` sur erreur, remis à `false` sur succès.
+
+### Décisions techniques
+
+| Choix | Raison |
+|---|---|
+| Queue `.slice(1)` plutôt que refetch du bucket | Évite un aller-retour réseau pour chaque décliné ; l'API a déjà renvoyé plusieurs candidats |
+| `provide/inject` plutôt que `useState` | Plus idiomatique Vue 3 pour partager un objet entre parent et enfants directs ; pas d'effet de bord cross-navigation |
+| Cover `aria-hidden + tabindex=-1` | L'image est décorative — la couverture accessible est le titre (nom du jeu). Deux boutons identiques seraient redondants pour les AT |
+| Opacité 0.75 pour WCAG | Calcul sur fond crème `#F8F4EA` : rgba(58,26,10,0.75) → ratio ≈ 5,5:1 contre fond crème (seuil AA = 4,5:1) |
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/pages/next-quest.vue` | Bugs 1 + 5 — queue de recos, i18n, retry intelligent |
+| `apps/web/pages/game-list.vue` | Bug 8 — remontée useGameList + provide |
+| `apps/web/components/games/GameDetailDesktop.vue` | Bugs 2 + 6 — note /10 + contraste WCAG |
+| `apps/web/components/games/GameDetailMobile.vue` | Bugs 2 + 6 — note /10 + contraste WCAG |
+| `apps/web/components/next-quest/RecoCard.vue` | Bug 3 — étoiles ÷20 |
+| `apps/web/composables/useGameList.ts` | Bug 4 + 8 — console.error, gamesError, inject-ready |
+| `apps/web/components/game-list/GameListDesktop.vue` | Bug 8 — inject au lieu de useGameList() |
+| `apps/web/components/game-list/GameListMobile.vue` | Bug 8 — inject au lieu de useGameList() |
+| `apps/web/components/game-list/GameListCard.vue` | Bug 7 — zone cliquable a11y |
+| `apps/web/i18n/locales/fr.json` | Bugs 4 + 5 — clés steamLinkError, enrichError, loadError, retry |
+| `apps/web/i18n/locales/en.json` | Bugs 4 + 5 — idem EN |
+| `apps/web/tests/composables/useGameList.test.ts` | Bug 8b — 8 nouveaux tests erreur |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `vitest run useGameList.test.ts` | ✅ 19/19 |
+| `nuxi typecheck` | ✅ 0 nouvelles erreurs (2 erreurs pré-existantes catalog non liées) |

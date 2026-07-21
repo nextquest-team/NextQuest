@@ -2,6 +2,10 @@
 definePageMeta({ ssr: false })
 
 const { mobile } = useDisplay()
+
+const gameList = useGameList()
+provide('gameList', gameList)
+onMounted(gameList.init)
 </script>
 
 <template>

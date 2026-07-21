@@ -5,7 +5,7 @@ const { t } = useI18n()
 
 const {
   game, igdb, loading,
-  showRemoveConfirm,
+  showRemoveConfirm, removeError,
   load, formatPlaytime, formatReleaseDate,
   onStatusChange, confirmRemove,
 } = useGameDetail()
@@ -140,7 +140,7 @@ onMounted(load)
               <dd class="gdd__dd">
                 <span class="gdd__rating">
                   <v-icon size="16" color="#c8a44a">mdi-star</v-icon>
-                  {{ game.game.igdbRating }}<span class="gdd__rating-max">/100</span>
+                  {{ (game.game.igdbRating / 10).toFixed(1) }}<span class="gdd__rating-max">/10</span>
                 </span>
               </dd>
             </template>
@@ -174,6 +174,7 @@ onMounted(load)
 
       <!-- Retirer de la liste -->
       <div class="gdd__danger">
+        <p v-if="removeError" class="gdd__remove-error">{{ removeError }}</p>
         <button class="gdd__remove-btn" @click="showRemoveConfirm = true">
           <v-icon size="16">mdi-trash-can-outline</v-icon>
           {{ t('gameDetail.removeGame') }}
@@ -248,7 +249,7 @@ onMounted(load)
 
 .gdd__title { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; line-height: 1.25; }
 
-.gdd__label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(58, 26, 10, 0.5); margin: 0 0 6px; }
+.gdd__label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(58, 26, 10, 0.75); margin: 0 0 6px; }
 .gdd__value { font-size: 0.9rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; }
 
 .gdd__statuses { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
@@ -293,7 +294,7 @@ onMounted(load)
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(58, 26, 10, 0.5);
+  color: rgba(58, 26, 10, 0.75);
   margin: 0 0 0.6rem;
   padding-bottom: 0.4rem;
   border-bottom: 1px solid rgba(92, 51, 23, 0.1);
@@ -303,7 +304,7 @@ onMounted(load)
 
 .gdd__meta { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
 
-.gdd__dt { font-size: 0.75rem; font-weight: 700; color: rgba(58, 26, 10, 0.5); white-space: nowrap; align-self: start; padding-top: 2px; }
+.gdd__dt { font-size: 0.75rem; font-weight: 700; color: rgba(58, 26, 10, 0.75); white-space: nowrap; align-self: start; padding-top: 2px; }
 .gdd__dd { font-size: 0.875rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 
 .gdd__chip { display: inline-block; background: rgba(92, 51, 23, 0.08); color: var(--nq-brown, #5C3317); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; }
@@ -325,9 +326,11 @@ onMounted(load)
 .gdd__similar-title { font-size: 0.7rem; color: rgba(58, 26, 10, 0.7); text-align: center; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 .gdd__rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.95rem; color: var(--nq-brown-dark); }
-.gdd__rating-max { font-size: 0.75rem; font-weight: 400; color: rgba(58, 26, 10, 0.45); }
+.gdd__rating-max { font-size: 0.75rem; font-weight: 400; color: rgba(58, 26, 10, 0.65); }
 
-.gdd__danger { margin-top: auto; padding-top: 2rem; display: flex; justify-content: flex-end; }
+.gdd__danger { margin-top: auto; padding-top: 2rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
+
+.gdd__remove-error { font-size: 0.82rem; color: #8B1F1F; margin: 0; }
 
 .gdd__remove-btn {
   display: inline-flex;

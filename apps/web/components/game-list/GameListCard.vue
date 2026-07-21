@@ -40,10 +40,15 @@ function onRestore(e: Event) {
 </script>
 
 <template>
-  <div class="gl-card" role="button" tabindex="0" @click="emit('click', game.id)" @keydown.enter="emit('click', game.id)">
+  <div class="gl-card">
 
-    <!-- Cover -->
-    <div class="gl-card__cover">
+    <!-- Cover : cliquable mais masquée des AT (le titre est le point d'entrée navigation) -->
+    <button
+      class="gl-card__cover"
+      tabindex="-1"
+      aria-hidden="true"
+      @click="emit('click', game.id)"
+    >
       <img
         v-if="game.coverUrl"
         :src="game.coverUrl"
@@ -53,14 +58,17 @@ function onRestore(e: Event) {
       <div v-else class="gl-card__cover-placeholder">
         <v-icon size="40" color="#a07850">mdi-gamepad-variant</v-icon>
       </div>
-    </div>
+    </button>
 
     <!-- Infos -->
     <div class="gl-card__body">
-      <p class="gl-card__title" :title="game.title">{{ game.title }}</p>
+      <!-- Titre → navigation -->
+      <button class="gl-card__title" :title="game.title" @click="emit('click', game.id)">
+        {{ game.title }}
+      </button>
 
       <!-- Statuts — boutons (desktop) -->
-      <div class="gl-card__statuses" @click.stop>
+      <div class="gl-card__statuses">
         <button
           v-for="s in STATUSES"
           :key="s.key"
@@ -122,7 +130,6 @@ function onRestore(e: Event) {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(58, 26, 10, 0.08);
   overflow: hidden;
-  cursor: pointer;
   transition: box-shadow 0.15s, transform 0.15s;
   position: relative;
   min-height: 110px;
@@ -133,16 +140,21 @@ function onRestore(e: Event) {
   transform: translateY(-2px);
 }
 
-.gl-card:focus-visible {
+.gl-card__cover:focus-visible,
+.gl-card__title:focus-visible {
   outline: 2px solid var(--nq-brown, #5C3317);
   outline-offset: 2px;
 }
 
-/* ── Cover ── */
+/* ── Cover (button reset) ── */
 .gl-card__cover {
   flex-shrink: 0;
   width: 88px;
   background: rgba(92, 51, 23, 0.08);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: block;
 }
 
 .gl-card__cover-img {
@@ -179,6 +191,14 @@ function onRestore(e: Event) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* button reset */
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  display: block;
 }
 
 /* ── Statuts ── */

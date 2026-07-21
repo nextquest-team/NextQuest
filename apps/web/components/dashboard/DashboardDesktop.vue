@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { CollectionListResponse } from '~/types/game'
+import { toUserGame } from '~/types/game'
+
 defineProps<{
   username: string
 }>()
@@ -8,16 +11,26 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { authFetch, apiBase } = useAuthFetch()
 
-// TODO: remplacer par les jeux de l'utilisateur depuis l'API
-const games = [
-  { id: 1, title: 'Hollow Knight' },
-  { id: 2, title: 'Zelda BOTW' },
-  { id: 3, title: 'Binding of Isaac' },
-  { id: 4, title: "Yoshi's Woolly World" },
-  { id: 5, title: 'Resident Evil' },
-  { id: 6, title: 'Portal' },
-]
+// 8 derniers jeux ajoutés (le 9e slot est réservé au bouton +)
+const bagGames = ref<{ id: string; title: string; coverUrl: string | null }[]>([])
+const bagLoading = ref(false)
+
+async function fetchBagGames() {
+  bagLoading.value = true
+  try {
+    const res = await authFetch<CollectionListResponse>(`${apiBase}/api/collection`, {
+      query: { limit: 8, offset: 0 },
+    })
+    bagGames.value = res.items.map(item => toUserGame(item))
+  } catch (e) {
+    console.error('[DashboardDesktop] fetchBagGames', e)
+  }
+  finally { bagLoading.value = false }
+}
+
+onMounted(fetchBagGames)
 </script>
 
 <template>
@@ -33,6 +46,22 @@ const games = [
       <NuxtLink to="/game-list" class="dd__bag-btn">
         {{ t('dashboard.sacoche.gameList') }}
       </NuxtLink>
+      <!-- Grille 3×3 des derniers jeux ajoutés + encart ajout -->
+      <div class="dd__bag-grid">
+        <NuxtLink
+          v-for="game in bagGames"
+          :key="game.id"
+          :to="`/games/${game.id}`"
+          class="dd__bag-thumb"
+          :title="game.title"
+        >
+          <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" />
+          <v-icon v-else size="28" color="rgba(122,62,42,0.4)">mdi-gamepad-variant-outline</v-icon>
+        </NuxtLink>
+        <NuxtLink to="/game-list" class="dd__bag-thumb dd__bag-thumb--add" :aria-label="t('dashboard.sacoche.addGame')">
+          <v-icon size="28" color="#7a3e2a">mdi-plus</v-icon>
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- Colonne centrale : profil + boussole -->
@@ -52,7 +81,7 @@ const games = [
       />
       <div class="dd__parchemin-scroll">
         <div
-          v-for="game in games"
+          v-for="game in bagGames"
           :key="game.id"
           class="dd__game-slot"
           :title="game.title"
@@ -134,6 +163,46 @@ const games = [
   border-radius: 5px;
   white-space: nowrap;
   min-height: 44px;
+}
+
+.dd__bag-grid {
+  position: absolute;
+  bottom: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4%;
+  z-index: 1;
+}
+
+.dd__bag-thumb {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid #7a3e2a;
+  background: rgba(245, 237, 223, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dd__bag-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dd__bag-thumb--add {
+  border-style: dashed;
+  background: rgba(245, 237, 223, 0.2);
+  transition: background 0.15s;
+}
+
+.dd__bag-thumb--add:hover {
+  background: rgba(122, 62, 42, 0.12);
 }
 
 /* ── Centre : profil + boussole ─────────────────────────────────── */

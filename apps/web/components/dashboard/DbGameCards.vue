@@ -1,16 +1,23 @@
 <script setup lang="ts">
+import type { UpcomingGameDTO } from '~/types/game'
+
+const { authFetch, apiBase } = useAuthFetch()
 const scrollEl = ref<HTMLElement | null>(null)
 const globeRotation = ref(0)
+const games = ref<UpcomingGameDTO[]>([])
 
-// TODO: remplacer par les jeux de l'utilisateur depuis l'API
-const games = [
-  { id: 1, title: 'Hollow Knight' },
-  { id: 2, title: 'Zelda BOTW' },
-  { id: 3, title: 'Binding of Isaac' },
-  { id: 4, title: "Yoshi's Woolly World" },
-  { id: 5, title: 'Resident Evil' },
-  { id: 6, title: 'Portal' },
-]
+async function fetchUpcoming() {
+  try {
+    const res = await authFetch<{ items: UpcomingGameDTO[] }>(`${apiBase}/api/games/upcoming`, {
+      query: { limit: 20, offset: 0, sort: 'hype' },
+    })
+    games.value = res.items
+  } catch (e) {
+    console.error('[DbGameCards] fetchUpcoming', e)
+  }
+}
+
+onMounted(fetchUpcoming)
 
 function onScroll() {
   if (!scrollEl.value) return
@@ -60,13 +67,14 @@ function onKeydown(e: KeyboardEvent) {
       <div class="game-cards__track">
         <NuxtLink
           v-for="game in games"
-          :key="game.id"
-          :to="`/games/${game.id}`"
+          :key="game.igdbId"
+          :to="`/games/catalog/${game.igdbId}`"
           class="game-card"
           role="listitem"
           :aria-label="game.title"
         >
-          <!-- TODO: image couverture depuis API (IGDB ou autre) -->
+          <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="game-card__cover" />
+          <v-icon v-else class="game-card__placeholder" size="32" color="rgba(237,199,142,0.3)">mdi-gamepad-variant-outline</v-icon>
         </NuxtLink>
       </div>
     </div>
@@ -146,11 +154,28 @@ function onKeydown(e: KeyboardEvent) {
   cursor: pointer;
   text-decoration: none;
   display: block;
+  position: relative;
+  overflow: hidden;
   transition: transform 0.15s, border-color 0.15s;
 }
 
 .game-card:hover {
   transform: translateY(-3px) scale(1.03);
   border-color: #c47a3a;
+}
+
+.game-card__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 7px;
+}
+
+.game-card__placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 </style>

@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import type { RecoGame } from '~/types/recommendations'
-
 const { t } = useI18n()
 
-const game = useState<RecoGame | null>('catalog-preview', () => null)
+const { game, loading } = useGameCatalogDetail()
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -28,13 +26,17 @@ function ratingStars(rating: number | null): string {
     <!-- ── Zone scrollable ── -->
     <div class="cdm__body">
 
-      <div v-if="!game" class="cdm__not-found">
+      <div v-if="loading" class="cdm__not-found">
+        <v-progress-circular indeterminate size="32" color="#5C3317" />
+      </div>
+
+      <div v-else-if="!game" class="cdm__not-found">
         <v-icon size="52" color="#a07850">mdi-help-circle-outline</v-icon>
         <p class="cdm__nf-title">{{ t('gameDetail.notFound') }}</p>
         <p class="cdm__nf-hint">{{ t('gameDetail.notFoundHint') }}</p>
       </div>
 
-      <template v-else>
+      <template v-else-if="game">
         <!-- Cover pleine largeur -->
         <div class="cdm__cover">
           <img v-if="game.coverUrl" :src="game.coverUrl" :alt="game.title" class="cdm__cover-img" />

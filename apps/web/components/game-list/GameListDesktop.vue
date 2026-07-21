@@ -401,7 +401,9 @@ const {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(var(--nq-brown-dark-rgb), 0.55);
+  /* WCAG 1.4.3 : 0.55 donnait 3.61:1 sur le fond crème (Silktide), sous
+     les 4.5:1 requis pour ce texte de petite taille (9.4pt). */
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin: 0 0 0.75rem;
   display: flex;
   align-items: center;

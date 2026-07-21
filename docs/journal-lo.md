@@ -1421,17 +1421,21 @@ Scan Silktide sur `/dashboard` : deux grilles de jeux (sac à dos, carrousel de 
 
 ### Contexte
 
-Scan Silktide sur `/game-list` : le texte des boutons de statut inactifs ("Terminé", "En cours", etc.) affiche un contraste de 3.61:1 sur le fond crème de la carte, sous le seuil de 4.5:1 requis pour du petit texte (0.65rem).
+Scan Silktide sur `/game-list`, deux points liés au même thème (fond crème `#F8F4EA` de la carte / du tiroir de filtres) :
+
+1. Texte des boutons de statut inactifs ("Terminé", "En cours", etc.) : contraste 4.19:1 (calcul manuel), sous le seuil 4.5:1 requis pour du petit texte.
+2. Titre de section "Statut du jeu" dans le tiroir de filtres : `#907C6F` sur `#F8F4EA`, 3.61:1 — correspondance exacte avec les valeurs remontées par Silktide (`rgba(--nq-brown-dark-rgb), 0.55)` recalculé donne pixel pour pixel `#907C6F`), confirmant que c'est bien cet élément-là qui était signalé.
 
 ### Ce qui a été fait
 
-- `GameListCard.vue` — `.gl-card__status-btn` : couleur du texte `rgba(var(--nq-brown-dark-rgb), 0.6)` → `0.7`. Composant partagé entre `GameListMobile.vue` et `GameListDesktop.vue`, donc les deux vues sont couvertes par ce seul changement. Le style du bouton actif (fond marron plein, texte crème) n'est pas concerné.
+- `GameListCard.vue` — `.gl-card__status-btn` : `rgba(var(--nq-brown-dark-rgb), 0.6)` → `0.7`. Composant partagé entre `GameListMobile.vue` et `GameListDesktop.vue`, donc les deux vues sont couvertes par ce seul changement. Le style du bouton actif (fond marron plein, texte crème) n'est pas concerné.
+- `GameListMobile.vue` et `GameListDesktop.vue` — `.gl-drawer__section-title` (titre "Statut du jeu" / "Plateforme" / "Catégories" du tiroir de filtres) : `rgba(var(--nq-brown-dark-rgb), 0.55)` → `0.7`, dupliqué dans les deux fichiers (pas de composant partagé pour le tiroir).
 
 ### Vérifications
 
 | Check | Résultat |
 |---|---|
-| Contraste recalculé (formule WCAG) | ✅ ~5.7:1 (couleur effective ≈ `#736153` sur `#F8F4EA`) |
+| Contraste recalculé (formule WCAG) | ✅ boutons de statut ~5.7:1, titres de section ~5.7:1 (les deux passaient par `rgba(--nq-brown-dark-rgb), 0.7)` sur `#F8F4EA`) |
 | `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
 | `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
-| Capture d'écran carte de jeu (boutons de statut) | ✅ texte plus lisible, design inchangé |
+| Capture d'écran carte de jeu (boutons de statut) + tiroir de filtres ouvert | ✅ texte plus lisible, design inchangé |

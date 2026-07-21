@@ -738,6 +738,9 @@ describe("getUpcomingCandidates", () => {
         themes: [],
         similarIgdbIds: [],
         hypes: 50,
+        platformIds: [],
+        gameType: null,
+        versionParentIgdbId: null,
       },
       {
         igdbId: 300, // Upcoming candidat
@@ -754,6 +757,9 @@ describe("getUpcomingCandidates", () => {
         themes: [],
         similarIgdbIds: [],
         hypes: 120,
+        platformIds: [],
+        gameType: null,
+        versionParentIgdbId: null,
       },
     ];
 

@@ -71,6 +71,9 @@ const divinity: IgdbGame = {
   ],
   similarIgdbIds: [],
   hypes: 50,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 // Baldur's Fate (Larian Studios, mais jeu de course, pas de genre/theme commun avec BG3)
@@ -92,6 +95,9 @@ const baldursFate: IgdbGame = {
   themes: [],
   similarIgdbIds: [],
   hypes: 10,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 // Détails des jeux de similarGames IGDB pour enrichissement
@@ -115,6 +121,9 @@ const baldursGateClassic: IgdbGame = {
   ],
   similarIgdbIds: [],
   hypes: 20,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 const planescarpeOne: IgdbGame = {
@@ -137,6 +146,9 @@ const planescarpeOne: IgdbGame = {
   ],
   similarIgdbIds: [],
   hypes: 15,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 // Divinity: Original Sin 2 - Definitive Edition (re-edition du meme jeu de base)
@@ -160,6 +172,9 @@ const divinityDefinitiveEdition: IgdbGame = {
   ],
   similarIgdbIds: [],
   hypes: 60,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 // Divinity II: The Dragon Knight Saga (re-edition)
@@ -183,6 +198,9 @@ const divinity2DKSaga: IgdbGame = {
   ],
   similarIgdbIds: [],
   hypes: 5,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
@@ -408,6 +426,9 @@ describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
       ],
       similarIgdbIds: [],
       hypes: 50,
+      platformIds: [],
+      gameType: null,
+      versionParentIgdbId: null,
     };
 
     // Divinity OS 2 DE : rating 94 (mieux notee), mais genres/themes pauvres (genre RPG seulement, pas Adventure/Fantasy)
@@ -432,6 +453,9 @@ describe("Similaires de fiche enrichis par les jeux du meme studio", () => {
       ],
       similarIgdbIds: [],
       hypes: 60,
+      platformIds: [],
+      gameType: null,
+      versionParentIgdbId: null,
     };
 
     const fetchGameDetail = vi.fn(async (igdbId: number) => {

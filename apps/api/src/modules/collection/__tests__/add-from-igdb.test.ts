@@ -50,6 +50,9 @@ const sampleIgdbGame = (over: Partial<IgdbGame> = {}): IgdbGame => ({
   themes: [],
   similarIgdbIds: [],
   hypes: null,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
   ...over,
 });
 

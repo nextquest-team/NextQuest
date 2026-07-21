@@ -35,6 +35,9 @@ export interface IgdbGame {
   themes: IgdbTaxon[];
   similarIgdbIds: number[];
   hypes: number | null;
+  platformIds: number[];
+  gameType: number | null;
+  versionParentIgdbId: number | null;
 }
 
 export interface IgdbPlatform {
@@ -173,6 +176,9 @@ const GAME_FIELDS = [
   "involved_companies.publisher",
   "similar_games",
   "hypes",
+  "platforms",
+  "game_type",
+  "version_parent",
 ].join(",");
 
 interface RawTaxon {
@@ -198,6 +204,9 @@ interface RawGame {
   }>;
   similar_games?: number[];
   hypes?: number;
+  platforms?: number[];
+  game_type?: number;
+  version_parent?: number;
 }
 
 function mapTaxa(raw: RawTaxon[] | undefined): IgdbTaxon[] {
@@ -209,7 +218,7 @@ function unixToDate(unix: number | undefined): string | null {
   return new Date(unix * 1000).toISOString().slice(0, 10);
 }
 
-function mapRawGame(r: RawGame): IgdbGame {
+export function mapRawGame(r: RawGame): IgdbGame {
   const dev = r.involved_companies?.find((c) => c.developer)?.company?.name ?? null;
   const pub = r.involved_companies?.find((c) => c.publisher)?.company?.name ?? null;
   return {
@@ -227,6 +236,9 @@ function mapRawGame(r: RawGame): IgdbGame {
     themes: mapTaxa(r.themes),
     similarIgdbIds: r.similar_games ?? [],
     hypes: r.hypes ?? null,
+    platformIds: r.platforms ?? [],
+    gameType: r.game_type ?? null,
+    versionParentIgdbId: r.version_parent ?? null,
   };
 }
 

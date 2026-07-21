@@ -86,3 +86,25 @@ jobs:
       # erreurs de bundling specifiques au build (imports manquants, etc.)
       - name: Build
         run: pnpm build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @nextquest/web exec playwright install --with-deps chromium
+
+      # Tests e2e d'accessibilite (axe-core) contre le build de prod, pas
+      # `nuxt dev` : evite tout risque lie au HMR (voir docs/journal-lo.md).
+      # L'auth des pages protegees est mockee au niveau reseau (voir
+      # tests-e2e/fixtures/auth.ts) : pas besoin de l'API ni de la DB ici.
+      - name: Start prod server
+        working-directory: apps/web
+        run: |
+          PORT=3001 node .output/server/index.mjs &
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/ || true)
+            [ "$code" = "200" ] && exit 0
+            sleep 1
+          done
+          echo "Le serveur n'a pas démarré à temps" >&2
+          exit 1
+
+      - name: Test e2e (accessibilité)
+        run: pnpm --filter @nextquest/web test:e2e

@@ -1338,3 +1338,22 @@ En creusant cet override, découverte connexe : le bloc `pnpm.overrides` / `pnpm
 
 - [ ] Traiter la violation a11y trouvée sur `/next-quest` (contraste insuffisant sur `.nq-state__hint`).
 - [ ] Repasser `vite` sur un floor (`>=8.0.5`) une fois une version ≥ 8.1.5 sans cette régression HMR disponible.
+
+## 2026-07-21 — Session 18 : Tests e2e d'accessibilité dans la CI
+
+### Ce qui a été fait
+
+Ajout de 3 étapes dans `.github/workflows/ci.yml`, après le `Build` existant :
+
+- Install des navigateurs Playwright (`chromium` uniquement, seul projet configuré).
+- Démarrage du build de prod (`node .output/server/index.mjs`) en arrière-plan, avec boucle d'attente sur `curl http://127.0.0.1:3001/`.
+- `pnpm --filter @nextquest/web test:e2e`.
+
+Tourne contre le build de prod plutôt que `nuxt dev`, pour écarter tout risque lié au HMR (voir Session 17 ci-dessus). L'auth des pages protégées étant mockée au niveau réseau (`tests-e2e/fixtures/auth.ts`), aucune dépendance à l'API ni à la DB n'était nécessaire pour cette étape.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Simulation en local du flux CI (build prod + démarrage + `test:e2e`) | ✅ 14/14 |
+| Validation syntaxique du YAML | ✅ |

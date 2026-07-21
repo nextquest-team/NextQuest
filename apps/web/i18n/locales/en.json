@@ -226,6 +226,33 @@
       "alt": "Next Quest"
     }
   },
+  "timeline": {
+    "title": "Game releases",
+    "subtitle": "What fate has in store for you",
+    "tabs": {
+      "upcoming": "Foretold releases",
+      "followed": "Announced quests"
+    },
+    "searchPlaceholder": "Search a game…",
+    "filterBtn": "Filters",
+    "filterReset": "Reset",
+    "filterClose": "Close filters",
+    "filterApply": "Apply",
+    "filterGenres": "Genres",
+    "filterGenresEmpty": "No genre available yet.",
+    "sortLabel": "Sort",
+    "sortHype": "Popularity",
+    "sortDate": "Release date",
+    "loadMore": "Load more",
+    "loadError": "Failed to load upcoming games",
+    "retry": "Try again",
+    "upcomingEmpty": "No upcoming game matches these filters",
+    "followedEmpty": "No announced quest yet",
+    "followedEmptyHint": "Follow a game from the \"Foretold releases\" tab to find it here.",
+    "follow": "Follow this game",
+    "unfollow": "Unfollow this game",
+    "releaseUnknown": "Unknown date"
+  },
   "common": {
     "loading": "Loading"
   }

@@ -5,12 +5,12 @@ const { game, loading } = useGameCatalogDetail()
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 function ratingStars(rating: number | null): string {
   if (rating === null) return ''
-  const r = Math.round(rating / 2)
+  const r = Math.round(rating / 20)
   return '★'.repeat(Math.min(r, 5)) + '☆'.repeat(Math.max(0, 5 - r))
 }
 </script>
@@ -41,25 +41,97 @@ function ratingStars(rating: number | null): string {
         <div class="cdd__hero-info">
           <h1 class="cdd__title">{{ game.title }}</h1>
 
-          <div v-if="game.igdbRating !== null" class="cdd__rating">
-            <span class="cdd__rating-stars">{{ ratingStars(game.igdbRating) }}</span>
-            <span class="cdd__rating-num">{{ (game.igdbRating / 10).toFixed(1) }}/10</span>
+          <div v-if="game.rating !== null" class="cdd__rating">
+            <span class="cdd__rating-stars">{{ ratingStars(game.rating) }}</span>
+            <span class="cdd__rating-num">{{ (game.rating / 10).toFixed(1) }}/10</span>
+            <span v-if="game.ratingCount" class="cdd__rating-count">({{ game.ratingCount }})</span>
           </div>
 
-          <dl v-if="game.releaseDate || game.genres.length" class="cdd__meta">
-            <template v-if="game.releaseDate">
-              <dt class="cdd__dt">{{ t('gameDetail.releaseDate') }}</dt>
-              <dd class="cdd__dd">{{ formatDate(game.releaseDate) }}</dd>
-            </template>
-            <template v-if="game.genres.length">
-              <dt class="cdd__dt">{{ t('gameDetail.genres') }}</dt>
-              <dd class="cdd__dd">
-                <span v-for="g in game.genres" :key="g.id" class="cdd__chip">{{ g.name }}</span>
-              </dd>
-            </template>
-          </dl>
+          <p v-if="game.hypes" class="cdd__hype">
+            <v-icon size="16">mdi-fire</v-icon>
+            {{ game.hypes }}
+          </p>
         </div>
       </div>
+
+      <section v-if="game.summary" class="cdd__section">
+        <h2 class="cdd__section-title">{{ t('gameDetail.summary') }}</h2>
+        <p class="cdd__summary">{{ game.summary }}</p>
+      </section>
+
+      <section v-if="game.storyline && game.storyline !== game.summary" class="cdd__section">
+        <h2 class="cdd__section-title">{{ t('gameDetail.storyline') }}</h2>
+        <p class="cdd__summary">{{ game.storyline }}</p>
+      </section>
+
+      <section v-if="game.screenshots.length" class="cdd__section">
+        <h2 class="cdd__section-title">{{ t('gameDetail.screenshots') }}</h2>
+        <div class="cdd__screenshots">
+          <img
+            v-for="(url, i) in game.screenshots.slice(0, 6)"
+            :key="i"
+            :src="url"
+            :alt="`${game.title} screenshot ${i + 1}`"
+            class="cdd__screenshot"
+          />
+        </div>
+      </section>
+
+      <section class="cdd__section">
+        <dl class="cdd__meta">
+          <template v-if="game.releaseDate">
+            <dt class="cdd__dt">{{ t('gameDetail.releaseDate') }}</dt>
+            <dd class="cdd__dd">{{ formatDate(game.releaseDate) }}</dd>
+          </template>
+          <template v-if="game.developer">
+            <dt class="cdd__dt">{{ t('gameDetail.developer') }}</dt>
+            <dd class="cdd__dd">{{ game.developer }}</dd>
+          </template>
+          <template v-if="game.publisher && game.publisher !== game.developer">
+            <dt class="cdd__dt">{{ t('gameDetail.publisher') }}</dt>
+            <dd class="cdd__dd">{{ game.publisher }}</dd>
+          </template>
+          <template v-if="game.genres.length">
+            <dt class="cdd__dt">{{ t('gameDetail.genres') }}</dt>
+            <dd class="cdd__dd">
+              <span v-for="g in game.genres" :key="g.igdbId" class="cdd__chip">{{ g.name }}</span>
+            </dd>
+          </template>
+          <template v-if="game.themes.length">
+            <dt class="cdd__dt">{{ t('gameDetail.tags') }}</dt>
+            <dd class="cdd__dd">
+              <span v-for="th in game.themes" :key="th.igdbId" class="cdd__chip cdd__chip--tag">{{ th.name }}</span>
+            </dd>
+          </template>
+          <template v-if="game.platforms.length">
+            <dt class="cdd__dt">{{ t('gameDetail.platforms') }}</dt>
+            <dd class="cdd__dd">
+              <span v-for="p in game.platforms" :key="p.igdbId" class="cdd__chip cdd__chip--platform">
+                {{ p.abbreviation ?? p.name }}
+              </span>
+            </dd>
+          </template>
+          <template v-if="game.gameModes.length">
+            <dt class="cdd__dt">{{ t('gameDetail.gameModes') }}</dt>
+            <dd class="cdd__dd">
+              <span v-for="m in game.gameModes" :key="m.igdbId" class="cdd__chip cdd__chip--tag">{{ m.name }}</span>
+            </dd>
+          </template>
+        </dl>
+      </section>
+
+      <section v-if="game.similarGames.length" class="cdd__section">
+        <h2 class="cdd__section-title">{{ t('gameDetail.similarGames') }}</h2>
+        <div class="cdd__similar">
+          <div v-for="sim in game.similarGames" :key="sim.igdbId" class="cdd__similar-item">
+            <div class="cdd__similar-cover">
+              <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
+              <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
+            </div>
+            <span class="cdd__similar-title">{{ sim.title }}</span>
+          </div>
+        </div>
+      </section>
     </template>
   </div>
 </template>
@@ -111,9 +183,35 @@ function ratingStars(rating: number | null): string {
 
 .cdd__title { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 0.75rem; line-height: 1.25; }
 
-.cdd__rating { display: flex; align-items: center; gap: 6px; margin-bottom: 1rem; }
+.cdd__rating { display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem; }
 .cdd__rating-stars { color: var(--nq-gold-dark); font-size: 0.9rem; }
 .cdd__rating-num { font-weight: 700; font-size: 0.95rem; color: var(--nq-brown-dark); }
+.cdd__rating-count { font-size: 0.8rem; color: rgba(var(--nq-brown-dark-rgb), 0.55); }
+
+.cdd__hype {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
+  margin: 0 0 1rem;
+}
+
+.cdd__section { margin-bottom: 1.75rem; }
+
+.cdd__section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(var(--nq-brown-dark-rgb), 0.75);
+  margin: 0 0 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
+}
+
+.cdd__summary { font-size: 0.9rem; line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
 
 .cdd__meta { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
 
@@ -139,4 +237,20 @@ function ratingStars(rating: number | null): string {
   font-size: 0.78rem;
   font-weight: 600;
 }
+.cdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.6); }
+.cdd__chip--platform { background: rgba(26, 47, 72, 0.07); color: var(--nq-navy); font-weight: 500; }
+
+.cdd__screenshots { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.cdd__screenshots::-webkit-scrollbar { display: none; }
+
+.cdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(var(--nq-brown-rgb), 0.08); }
+
+.cdd__similar { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.cdd__similar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 80px; }
+
+.cdd__similar-cover { width: 80px; height: 106px; border-radius: 8px; background: rgba(var(--nq-brown-rgb), 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.cdd__similar-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.cdd__similar-title { font-size: 0.7rem; color: rgba(var(--nq-brown-dark-rgb), 0.7); text-align: center; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

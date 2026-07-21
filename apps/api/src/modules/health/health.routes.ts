@@ -13,12 +13,15 @@ export async function healthRoutes(app: FastifyInstance) {
     config: { rateLimit: false },
     schema: {
       tags: ["Health"],
+      operationId: "healthCheck",
       summary: "Verifier que l'API est en ligne",
       response: {
-        200: z.object({
-          status: z.string(),
-          timestamp: z.string(),
-        }),
+        200: z
+          .object({
+            status: z.string().describe("Etat de l'API (ex: ok)"),
+            timestamp: z.string().describe("Horodatage de la reponse (ISO 8601)"),
+          })
+          .describe("Etat de sante de l'API"),
       },
     },
     handler: healthController.check,

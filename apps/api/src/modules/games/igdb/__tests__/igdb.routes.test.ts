@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Fastify from "fastify";
-import { validatorCompiler } from "fastify-type-provider-zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../../plugins/jwt.js";
 import { registerRateLimit } from "../../../../plugins/rate-limit.js";
 import { registerErrorHandler } from "../../../../lib/error-handler.js";
@@ -28,7 +28,33 @@ const upcomingSample = [
     platforms: [{ igdbId: 6, name: "PC", abbreviation: "PC" }],
   },
 ];
-const detailSample = { igdbId: 1020, title: "GTA V" };
+// Forme complete d'un GameDetailDTO (gameDetailDTOSchema) : nullables a null,
+// tableaux vides. La reponse etant desormais serialisee/validee par le schema
+// Zod, le mock du service doit refleter la vraie forme, pas un stub partiel.
+const detailSample = {
+  igdbId: 1020,
+  title: "GTA V",
+  summary: null,
+  storyline: null,
+  releaseDate: null,
+  releaseStatus: "released",
+  coverUrl: null,
+  artworkUrl: null,
+  screenshots: [],
+  videos: [],
+  rating: null,
+  ratingCount: null,
+  hypes: null,
+  developer: null,
+  publisher: null,
+  genres: [],
+  themes: [],
+  gameModes: [],
+  playerPerspectives: [],
+  platforms: [],
+  websites: [],
+  similarGames: [],
+};
 
 const getUpcomingSpy = vi.spyOn(discovery, "getUpcomingGames");
 const getDetailSpy = vi.spyOn(discovery, "getGameDetail");
@@ -36,6 +62,7 @@ const getDetailSpy = vi.spyOn(discovery, "getGameDetail");
 async function buildApp() {
   const app = Fastify();
   app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandler(app);
   await registerSwagger(app);
   await registerJwt(app);

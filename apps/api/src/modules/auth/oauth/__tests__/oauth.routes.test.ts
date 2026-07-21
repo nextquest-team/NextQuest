@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db, users, authProviders, sessions } from "@nextquest/db";
 import Fastify from "fastify";
-import { validatorCompiler } from "fastify-type-provider-zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../../plugins/jwt.js";
 import { registerCookie } from "../../../../plugins/cookie.js";
 import { registerRateLimit } from "../../../../plugins/rate-limit.js";
@@ -12,6 +12,7 @@ import { oauthRoutes } from "../oauth.routes.js";
 async function buildApp() {
   const app = Fastify();
   app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandler(app);
   await registerSwagger(app);
   await registerJwt(app);

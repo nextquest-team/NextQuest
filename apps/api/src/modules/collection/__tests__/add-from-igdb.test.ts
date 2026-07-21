@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Fastify from "fastify";
-import { validatorCompiler } from "fastify-type-provider-zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { db, users, games, userGames } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { registerJwt } from "../../../plugins/jwt.js";
@@ -154,6 +154,7 @@ describe("addIgdbGameToCollection", () => {
 async function buildApp() {
   const app = Fastify();
   app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandler(app);
   await registerSwagger(app);
   await registerJwt(app);
@@ -179,7 +180,35 @@ describe("POST /api/collection/from-igdb", () => {
 
   it("201 ajoute le jeu", async () => {
     const app = await buildApp();
-    const fakeItem = { userGameId: "ug-1", game: { id: "g-1" } };
+    // Forme complete d'un CollectionItemDTO (collectionItemSchema) : la reponse
+    // etant serialisee/validee par le schema Zod, le mock doit refleter la vraie
+    // forme de l'item renvoye par le service, pas un stub partiel.
+    const fakeItem = {
+      userGameId: "11111111-1111-4111-8111-111111111111",
+      status: "backlog",
+      playtimeMinutes: null,
+      rating: null,
+      review: null,
+      isHidden: false,
+      startedAt: null,
+      completedAt: null,
+      addedAt: null,
+      game: {
+        id: "22222222-2222-4222-8222-222222222222",
+        title: "Test Game",
+        slug: "test-game",
+        coverUrl: null,
+        backgroundUrl: null,
+        releaseDate: null,
+        developer: null,
+        publisher: null,
+        igdbRating: null,
+        igdbId: null,
+        isEnriched: false,
+      },
+      genres: [],
+      tags: [],
+    };
     vi.spyOn(collectionService, "addIgdbGameToCollection").mockResolvedValue({
       ok: true,
       item: fakeItem,

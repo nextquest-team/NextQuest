@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { registerSchema, loginSchema } from "./auth.schemas.js";
+import { registerSchema, loginSchema, authTokensSchema } from "./auth.schemas.js";
+import { userDTOSchema } from "../users/users.dto.js";
+import { errorResponses, noContentSchema } from "../../lib/openapi.js";
 import {
   createUser,
   verifyCredentials,
@@ -35,10 +37,15 @@ export async function authRoutes(app: FastifyInstance) {
     config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
     schema: {
       tags: ["Auth"],
+      operationId: "register",
       summary: "Inscription email/mot de passe",
       description:
         "Cree un nouveau compte. Renvoie un access token JWT (15 min) et place le refresh token (30 jours) dans un cookie HttpOnly. Le refresh token est aussi renvoye dans le body pour le mobile.",
       body: registerSchema,
+      response: {
+        201: authTokensSchema,
+        ...errorResponses(400, 409),
+      },
     },
   }, async (request, reply) => {
     const input = request.body;
@@ -88,10 +95,15 @@ export async function authRoutes(app: FastifyInstance) {
     preHandler: app.rateLimit({ max: 10, timeWindow: "1 minute" }),
     schema: {
       tags: ["Auth"],
+      operationId: "login",
       summary: "Connexion email/mot de passe",
       description:
         "Verifie les credentials, cree une session et renvoie access + refresh token. Apres 5 echecs, le compte est verrouille 15 minutes.",
       body: loginSchema,
+      response: {
+        200: authTokensSchema,
+        ...errorResponses(400, 401),
+      },
     },
   }, async (request, reply) => {
     const input = request.body;
@@ -131,9 +143,15 @@ export async function authRoutes(app: FastifyInstance) {
     config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
     schema: {
       tags: ["Auth"],
+      operationId: "refreshToken",
       summary: "Renouveler l'access token",
       description:
         "Echange le refresh token (cookie ou body) contre un nouveau access token et un nouveau refresh token. Si un ancien refresh token deja revoque est reutilise, toute la famille est revoquee (detection de vol).",
+      security: [{ cookieAuth: [] }],
+      response: {
+        200: authTokensSchema,
+        ...errorResponses(401),
+      },
     },
   }, async (request, reply) => {
     const oldToken = getRefreshToken(request);
@@ -165,9 +183,14 @@ export async function authRoutes(app: FastifyInstance) {
   app.post("/auth/logout", {
     schema: {
       tags: ["Auth"],
+      operationId: "logout",
       summary: "Deconnexion (session courante)",
       description:
         "Revoque le refresh token utilise et supprime le cookie. Les autres sessions restent actives.",
+      security: [{ cookieAuth: [] }],
+      response: {
+        204: noContentSchema,
+      },
     },
   }, async (request, reply) => {
     const token = getRefreshToken(request);
@@ -187,10 +210,15 @@ export async function authRoutes(app: FastifyInstance) {
       onRequest: [async (req) => req.jwtVerify()],
       schema: {
         tags: ["Auth"],
+        operationId: "logoutAll",
         summary: "Deconnexion globale (toutes sessions)",
         description:
           "Revoque toutes les sessions de l'utilisateur. Utile en cas de compte compromis.",
         security: [{ bearerAuth: [] }],
+        response: {
+          204: noContentSchema,
+          ...errorResponses(401),
+        },
       },
     },
     async (request, reply) => {
@@ -210,10 +238,15 @@ export async function authRoutes(app: FastifyInstance) {
       onRequest: [async (req) => req.jwtVerify()],
       schema: {
         tags: ["Auth"],
+        operationId: "getCurrentUser",
         summary: "Profil de l'utilisateur connecte",
         description:
-          "Renvoie les infos publiques du user (id, email, username, displayName, avatarUrl, bio, locale, visibility, emailVerified, onboardingCompleted, createdAt). A appeler apres OAuth ou apres un refresh de page.",
+          "Renvoie le profil public du user. A appeler apres OAuth ou apres un refresh de page.",
         security: [{ bearerAuth: [] }],
+        response: {
+          200: userDTOSchema,
+          ...errorResponses(401, 404),
+        },
       },
     },
     async (request, reply) => {

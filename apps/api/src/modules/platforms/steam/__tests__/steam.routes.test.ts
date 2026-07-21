@@ -16,6 +16,7 @@ vi.mock("../../../games/igdb/igdb.service.js", () => ({
 
 import Fastify from "fastify";
 import { ZodError } from "zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { db, users, connectedServices, userGames, games } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { registerJwt } from "../../../../plugins/jwt.js";
@@ -34,6 +35,8 @@ const mockedEnrichGames = vi.mocked(igdbService.enrichGames);
 
 async function buildApp() {
   const app = Fastify();
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   app.setErrorHandler(
     (error: Error & { statusCode?: number }, _request, reply) => {
       if (error instanceof ZodError) {

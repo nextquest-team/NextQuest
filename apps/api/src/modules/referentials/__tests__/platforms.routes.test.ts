@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import Fastify from "fastify";
 import { db, platforms, users } from "@nextquest/db";
 import { eq, inArray } from "drizzle-orm";
-import { validatorCompiler } from "fastify-type-provider-zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
 import { registerSwagger } from "../../../plugins/swagger.js";
@@ -17,6 +17,7 @@ const TEST_EMAIL = "platforms-route@test.com";
 async function buildApp() {
   const app = Fastify();
   app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandler(app);
   await registerSwagger(app);
   await registerJwt(app);

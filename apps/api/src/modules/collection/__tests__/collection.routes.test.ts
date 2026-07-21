@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import Fastify from "fastify";
 import { db, users, games, userGames } from "@nextquest/db";
 import { eq } from "drizzle-orm";
-import { validatorCompiler } from "fastify-type-provider-zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
 import { registerSwagger } from "../../../plugins/swagger.js";
@@ -12,6 +12,7 @@ import type { GameStatus } from "../collection.schemas.js";
 async function buildApp() {
   const app = Fastify();
   app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandler(app);
   await registerSwagger(app);
   await registerJwt(app);

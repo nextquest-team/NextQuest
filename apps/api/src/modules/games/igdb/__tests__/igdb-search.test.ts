@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Fastify from "fastify";
-import { validatorCompiler } from "fastify-type-provider-zod";
+import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { searchGamesByName } from "../igdb.client.js";
 import { searchIgdbGames, type DiscoveryDeps } from "../igdb.discovery.service.js";
 import type { IgdbSearchGame } from "../igdb.client.js";
@@ -534,6 +534,7 @@ const searchSpy = vi.spyOn(discovery, "searchIgdbGames");
 async function buildApp() {
   const app = Fastify();
   app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandler(app);
   await registerSwagger(app);
   await registerJwt(app);

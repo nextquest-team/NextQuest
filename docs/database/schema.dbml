@@ -409,6 +409,7 @@ Table user_games {
   is_hidden boolean [default: false, note: 'Masquer de la bibliotheque sans supprimer']
   started_at date
   completed_at date
+  excluded_at timestamptz [note: 'Jeu "ignore" par l"user : retire de la vue bibliotheque sans perdre statut/notes/historique. Non-null = ignore depuis cette date. Un reimport (Steam...) ne le reactive jamais tout seul (onConflictDoUpdate exclut ce champ) -- seul un ajout explicite ou la route restore le remet a NULL.']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz
 
@@ -424,21 +425,6 @@ Table user_game_tags {
 
   indexes {
     (user_game_id, tag_id) [pk]
-  }
-}
-
-// Jeux qu'un user a explicitement retires de sa collection : empeche un
-// reimport (Steam...) de les faire revenir tout seuls. Consultable et
-// reversible via la route de reintegration (retire l'exclusion + remet
-// le user_game en backlog).
-Table user_game_exclusions {
-  id uuid [pk]
-  user_id uuid [ref: > users.id, not null]
-  game_id uuid [ref: > games.id, not null]
-  created_at timestamptz [default: `now()`]
-
-  indexes {
-    (user_id, game_id) [unique]
   }
 }
 
@@ -752,7 +738,6 @@ Table reports {
 //   recommendations.user_id       -> CASCADE
 //   user_consents.user_id         -> CASCADE
 //   user_devices.user_id          -> CASCADE
-//   user_game_exclusions.user_id  -> CASCADE
 //
 // SET NULL (contributions publiques / traces d'audit) :
 //   messages.sender_id            -> SET NULL
@@ -770,7 +755,6 @@ Table reports {
 //   game_tags.game_id             -> CASCADE
 //   game_updates.game_id          -> CASCADE
 //   recommendations.game_id       -> CASCADE
-//   user_game_exclusions.game_id  -> CASCADE
 //
 // -- SUPPRESSION D'UN USER_GAME --
 //   external_achievements.user_game_id    -> CASCADE

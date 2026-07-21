@@ -5,7 +5,6 @@ import {
   games,
   userGames,
   userGameStatusHistory,
-  userGameExclusions,
   genres,
   tags,
   gameGenres,
@@ -21,8 +20,8 @@ import {
   updateCollectionItem,
   deleteCollectionItem,
   addGameToCollection,
-  listExclusions,
-  restoreExclusion,
+  ignoreUserGame,
+  restoreUserGame,
 } from "../collection.service.js";
 import type { GameStatus } from "../collection.schemas.js";
 
@@ -30,10 +29,9 @@ async function cleanup() {
   // La FK user_game_status_history / user_game_tags -> user_games est ON DELETE
   // CASCADE : supprimer user_games purge aussi l'historique et les tags du jeu.
   await db.delete(userGames);
-  await db.delete(userGameExclusions);
-  // Plateforme de test creee a la volee (cf. describe "deleteCollectionItem -
-  // exclusion") : nettoyee par code plutot que de vider toute la table, qui
-  // porte les donnees de reference partagees (pc, steam...) utilisees ailleurs.
+  // Plateforme de test creee a la volee (cf. describe "ignoreUserGame"), nettoyee
+  // par code plutot que de vider toute la table, qui porte les donnees de
+  // reference partagees (pc, steam...) utilisees ailleurs.
   await db.delete(platforms).where(eq(platforms.code, "switch-excl-test"));
   await db.delete(gameTags);
   await db.delete(gameGenres);
@@ -291,6 +289,31 @@ describe("listCollection", () => {
     expect(res.total).toBe(0);
     expect(res.items).toEqual([]);
   });
+  it("view=ignored ne renvoie que les jeux ignores, view=library (defaut) les exclut", async () => {
+    const { userId, ug1 } = await seedCollection();
+    await db
+      .update(userGames)
+      .set({ excludedAt: new Date() })
+      .where(eq(userGames.id, ug1));
+
+    const library = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+    });
+    expect(library.items.find((i) => i.userGameId === ug1)).toBeUndefined();
+
+    const ignored = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+      view: "ignored",
+    });
+    expect(ignored.total).toBe(1);
+    expect(ignored.items[0].userGameId).toBe(ug1);
+  });
 });
 
 describe("getCollectionItem", () => {
@@ -405,48 +428,102 @@ describe("addGameToCollection", () => {
     const res = await addGameToCollection(userId, { gameId: gameId2 });
     expect(res).toEqual({ ok: false, reason: "conflict" });
   });
-  it("retire l'exclusion existante lors de l'ajout", async () => {
+  it("reactive un jeu ignore lors de l'ajout (au lieu de conflict)", async () => {
     const { userId } = await seedCollection();
     const [g3] = await db
       .insert(games)
       .values({ title: "Dead Cells", slug: "dc-2" })
       .returning({ id: games.id });
-    await db.insert(userGameExclusions).values({ userId, gameId: g3.id });
+    const [ug3] = await db
+      .insert(userGames)
+      .values({ userId, gameId: g3.id, status: "completed" })
+      .returning({ id: userGames.id });
+    await ignoreUserGame(userId, ug3.id);
 
     const res = await addGameToCollection(userId, { gameId: g3.id });
     expect(res.ok).toBe(true);
+    if (res.ok) {
+      // Reactivation de la ligne existante : statut preserve, pas de doublon.
+      expect(res.item.userGameId).toBe(ug3.id);
+      expect(res.item.status).toBe("completed");
+    }
 
-    const remaining = await db
+    const rows = await db
       .select()
-      .from(userGameExclusions)
-      .where(
-        and(
-          eq(userGameExclusions.userId, userId),
-          eq(userGameExclusions.gameId, g3.id),
-        ),
-      );
-    expect(remaining).toHaveLength(0);
+      .from(userGames)
+      .where(and(eq(userGames.userId, userId), eq(userGames.gameId, g3.id)));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].excludedAt).toBeNull();
   });
 });
 
-describe("deleteCollectionItem - exclusion", () => {
-  it("ajoute (userId, gameId) a la liste d'exclusion apres suppression", async () => {
-    const { userId, gameId1, ug1 } = await seedCollection();
-    const ok = await deleteCollectionItem(userId, ug1);
-    expect(ok).toBe(true);
+describe("ignoreUserGame / restoreUserGame", () => {
+  it("ignore un jeu : disparait de listCollection(view=library) mais garde son statut", async () => {
+    const { userId, ug1 } = await seedCollection(); // ug1 status "playing"
+    await updateGameStatus(userId, ug1, "completed");
 
-    const exclusions = await db
-      .select()
-      .from(userGameExclusions)
-      .where(eq(userGameExclusions.userId, userId));
-    expect(exclusions).toHaveLength(1);
-    expect(exclusions[0].gameId).toBe(gameId1);
+    expect(await ignoreUserGame(userId, ug1)).toBe(true);
+
+    const library = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+      view: "library",
+    });
+    expect(library.items.find((i) => i.userGameId === ug1)).toBeUndefined();
+
+    const ignored = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+      view: "ignored",
+    });
+    const item = ignored.items.find((i) => i.userGameId === ug1);
+    expect(item?.status).toBe("completed");
   });
 
-  it("ne plante pas si le meme jeu (sur 2 plateformes) est exclu deux fois", async () => {
+  it("restore un jeu ignore : statut TOUJOURS intact (cas cle)", async () => {
+    const { userId, ug1 } = await seedCollection();
+    await updateGameStatus(userId, ug1, "completed");
+
+    expect(await ignoreUserGame(userId, ug1)).toBe(true);
+    expect(await restoreUserGame(userId, ug1)).toBe(true);
+
+    const [row] = await db
+      .select()
+      .from(userGames)
+      .where(eq(userGames.id, ug1));
+    expect(row.status).toBe("completed");
+    expect(row.excludedAt).toBeNull();
+
+    const library = await listCollection({
+      userId,
+      limit: 20,
+      offset: 0,
+      includeHidden: true,
+      view: "library",
+    });
+    expect(library.items.find((i) => i.userGameId === ug1)?.status).toBe(
+      "completed",
+    );
+  });
+
+  it("renvoie false si le user_game n'appartient pas au user", async () => {
+    const { ug1 } = await seedCollection();
+    expect(
+      await ignoreUserGame("00000000-0000-0000-0000-000000000000", ug1),
+    ).toBe(false);
+    expect(
+      await restoreUserGame("00000000-0000-0000-0000-000000000000", ug1),
+    ).toBe(false);
+  });
+
+  it("ne plante pas si le meme jeu (sur 2 plateformes) a 2 lignes ignorees independamment", async () => {
     // Un meme jeu peut avoir 2 lignes user_games (une par plateforme, ex: PC + Switch).
-    // Supprimer les deux doit poser une seule ligne d'exclusion (unique sur
-    // userId/gameId), pas planter sur le 2e insert -- d'ou onConflictDoNothing.
+    // Ignorer/restaurer chaque ligne est independant (le flag vit sur user_games,
+    // plus de contrainte d'unicite globale par jeu).
     const { userId, gameId1, ug1 } = await seedCollection();
     const [platform] = await db
       .insert(platforms)
@@ -462,82 +539,13 @@ describe("deleteCollectionItem - exclusion", () => {
       })
       .returning({ id: userGames.id });
 
-    expect(await deleteCollectionItem(userId, ug1)).toBe(true);
-    expect(await deleteCollectionItem(userId, ug1bis.id)).toBe(true);
+    expect(await ignoreUserGame(userId, ug1)).toBe(true);
+    expect(await ignoreUserGame(userId, ug1bis.id)).toBe(true);
 
-    const exclusions = await db
-      .select()
-      .from(userGameExclusions)
-      .where(
-        and(
-          eq(userGameExclusions.userId, userId),
-          eq(userGameExclusions.gameId, gameId1),
-        ),
-      );
-    expect(exclusions).toHaveLength(1);
-  });
-});
-
-describe("listExclusions", () => {
-  it("renvoie les jeux exclus avec les bons champs, tries du plus recent au plus ancien", async () => {
-    const { userId, gameId1, gameId2, ug1, ug2 } = await seedCollection();
-    await deleteCollectionItem(userId, ug1);
-    await deleteCollectionItem(userId, ug2);
-
-    const items = await listExclusions(userId);
-    expect(items).toHaveLength(2);
-    // gameId2 (Celeste) supprime en 2nd -> excludedAt le plus recent -> en 1er
-    expect(items[0].gameId).toBe(gameId2);
-    expect(items[0].title).toBe("Celeste");
-    expect(items[0].isEnriched).toBe(false); // pas d'igdbId
-    expect(items[1].gameId).toBe(gameId1);
-    expect(items[1].title).toBe("Hollow Knight");
-    expect(items[1].isEnriched).toBe(true); // igdbId: 1
-    expect(typeof items[0].excludedAt).toBe("string");
-  });
-
-  it("ne renvoie que les exclusions du user demande", async () => {
-    const { userId, ug1 } = await seedCollection();
-    await deleteCollectionItem(userId, ug1);
-
-    const [other] = await db
-      .insert(users)
-      .values({ email: "excl-other@test.com", username: "exclother", passwordHash: "x" })
-      .returning({ id: users.id });
-
-    expect(await listExclusions(other.id)).toEqual([]);
-    expect(await listExclusions(userId)).toHaveLength(1);
-  });
-});
-
-describe("restoreExclusion", () => {
-  it("retire l'exclusion et recree le userGame en backlog", async () => {
-    const { userId, gameId1, ug1 } = await seedCollection();
-    await deleteCollectionItem(userId, ug1);
-    expect(await listExclusions(userId)).toHaveLength(1);
-
-    const res = await restoreExclusion(userId, gameId1);
-    expect(res.ok).toBe(true);
-    if (res.ok) {
-      expect(res.item.status).toBe("backlog");
-      expect(res.item.game.id).toBe(gameId1);
-    }
-
-    expect(await listExclusions(userId)).toEqual([]);
-    const restored = await db
+    const rows = await db
       .select()
       .from(userGames)
-      .where(and(eq(userGames.userId, userId), eq(userGames.gameId, gameId1)));
-    expect(restored).toHaveLength(1);
-  });
-
-  it("renvoie game_not_found si le jeu n'existe plus dans le catalogue", async () => {
-    const { userId, gameId1, ug1 } = await seedCollection();
-    await deleteCollectionItem(userId, ug1);
-    // le jeu disparait completement du catalogue (cascade purge aussi l'exclusion)
-    await db.delete(games).where(eq(games.id, gameId1));
-
-    const res = await restoreExclusion(userId, gameId1);
-    expect(res).toEqual({ ok: false, reason: "game_not_found" });
+      .where(eq(userGames.gameId, gameId1));
+    expect(rows.every((r) => r.excludedAt !== null)).toBe(true);
   });
 });

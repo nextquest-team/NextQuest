@@ -5,7 +5,6 @@ import {
   platforms,
   games,
   userGames,
-  userGameExclusions,
 } from "@nextquest/db";
 import { and, eq, sql } from "drizzle-orm";
 import type { SteamOwnedGame } from "./steam.client.js";
@@ -195,28 +194,12 @@ export async function importSteamLibrary(
       if (row.steamAppid !== null) idByAppid.set(row.steamAppid, row.id);
     }
 
-    // Jeux que l'user a explicitement retires de sa collection : le catalogue
-    // `games` ci-dessus les recoit quand meme (upsert commun a tout le monde),
-    // mais on ne cree/ne met jamais a jour leur ligne user_games -- sinon un
-    // reimport ferait revenir un jeu que l'user a volontairement supprime.
-    const excludedRows = await tx
-      .select({ gameId: userGameExclusions.gameId })
-      .from(userGameExclusions)
-      .where(eq(userGameExclusions.userId, userId));
-    const excludedGameIds = new Set(excludedRows.map((r) => r.gameId));
-
-    const itemsToImport = items.filter(
-      (g) => !excludedGameIds.has(idByAppid.get(g.appid)!),
-    );
-
-    if (itemsToImport.length === 0) return 0;
-
     // 2) Upsert groupe des user_games. Le temps de jeu est repris de la valeur
     // proposee (excluded) en cas de reimport.
     await tx
       .insert(userGames)
       .values(
-        itemsToImport.map((g) => ({
+        items.map((g) => ({
           userId,
           gameId: idByAppid.get(g.appid)!,
           serviceId,
@@ -232,8 +215,9 @@ export async function importSteamLibrary(
       .onConflictDoUpdate({
         target: [userGames.userId, userGames.gameId, userGames.platformId],
         set: {
-          // status volontairement absent du set : un reimport ne doit jamais
-          // reecrire le statut que l'user a ajuste depuis l'import initial.
+          // status et excluded_at volontairement absents du set : un reimport
+          // ne doit jamais reecrire le statut ajuste par l'user, ni reactiver
+          // un jeu que l'user a explicitement ignore de sa collection.
           playtimeMinutes: sql.raw(
             `excluded.${userGames.playtimeMinutes.name}`,
           ),
@@ -241,6 +225,6 @@ export async function importSteamLibrary(
         },
       });
 
-    return itemsToImport.length;
+    return items.length;
   });
 }

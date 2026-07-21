@@ -25,17 +25,12 @@ export const userGameParamsSchema = z.object({
   userGameId: z.string().uuid(),
 });
 
-// Param de la route de reintegration d'un jeu exclu : identifie par son
-// game_id (catalogue), pas par un user_game_id puisque la ligne user_games
-// n'existe plus tant que le jeu est exclu.
-export const gameIdParamsSchema = z.object({
-  gameId: z.string().uuid(),
-});
-
 // Query de listing de la collection. limit/offset arrivent en string dans l'URL,
 // d'ou le coerce. includeHidden : on parse explicitement la chaine plutot que
 // z.coerce.boolean(), qui est piegeux (toute string non vide est truthy, donc
 // "false" donnerait true).
+// view distingue la collection visible ("library", defaut) des jeux ignores
+// ("ignored") : un meme jeu ignore garde son statut, il change juste de vue.
 export const listCollectionQuerySchema = z.object({
   status: z.enum(GAME_STATUSES).optional(),
   search: z.string().trim().min(1).max(100).optional(),
@@ -45,6 +40,7 @@ export const listCollectionQuerySchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  view: z.enum(["library", "ignored"]).default("library"),
 });
 
 export type ListCollectionQuery = z.infer<typeof listCollectionQuerySchema>;

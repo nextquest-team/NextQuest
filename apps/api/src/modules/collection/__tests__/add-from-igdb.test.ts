@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Fastify from "fastify";
 import { validatorCompiler } from "fastify-type-provider-zod";
-import { db, users, games, userGames, userGameExclusions } from "@nextquest/db";
+import { db, users, games, userGames } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
@@ -9,6 +9,7 @@ import { registerSwagger } from "../../../plugins/swagger.js";
 import { collectionRoutes } from "../collection.routes.js";
 import {
   addIgdbGameToCollection,
+  ignoreUserGame,
   type AddIgdbGameDeps,
 } from "../collection.service.js";
 import * as collectionService from "../collection.service.js";
@@ -16,7 +17,6 @@ import type { IgdbGame } from "../../games/igdb/igdb.client.js";
 
 async function cleanup() {
   await db.delete(userGames);
-  await db.delete(userGameExclusions);
   await db.delete(games);
   await db.delete(users);
 }
@@ -122,23 +122,32 @@ describe("addIgdbGameToCollection", () => {
     expect(res).toEqual({ ok: false, reason: "igdb_not_found" });
   });
 
-  it("retire l'exclusion existante pour ce jeu lors de l'ajout", async () => {
+  it("reactive un jeu igdb precedemment ignore au lieu de conflict", async () => {
     const userId = await seedUser();
     const [g] = await db
       .insert(games)
       .values({ title: "Celeste", slug: "celeste-igdb-777", igdbId: 777 })
       .returning({ id: games.id });
-    await db.insert(userGameExclusions).values({ userId, gameId: g.id });
+    const [ug] = await db
+      .insert(userGames)
+      .values({ userId, gameId: g.id, status: "abandoned" })
+      .returning({ id: userGames.id });
+    await ignoreUserGame(userId, ug.id);
 
     const deps = makeDeps({});
     const res = await addIgdbGameToCollection(userId, { igdbId: 777 }, "CID", deps);
     expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.item.userGameId).toBe(ug.id);
+      expect(res.item.status).toBe("abandoned");
+    }
 
-    const remaining = await db
+    const rows = await db
       .select()
-      .from(userGameExclusions)
-      .where(eq(userGameExclusions.userId, userId));
-    expect(remaining).toHaveLength(0);
+      .from(userGames)
+      .where(eq(userGames.userId, userId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].excludedAt).toBeNull();
   });
 });
 

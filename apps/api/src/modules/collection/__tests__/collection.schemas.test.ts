@@ -23,9 +23,22 @@ describe("updateGameStatusSchema", () => {
 });
 
 describe("listCollectionQuerySchema", () => {
-  it("applique les défauts limit=20 offset=0 includeHidden=false", () => {
+  it("applique les défauts limit=20 offset=0 includeHidden=false view=library", () => {
     const r = listCollectionQuerySchema.parse({});
-    expect(r).toEqual({ limit: 20, offset: 0, includeHidden: false });
+    expect(r).toEqual({
+      limit: 20,
+      offset: 0,
+      includeHidden: false,
+      view: "library",
+    });
+  });
+  it("accepte view=ignored, rejette une valeur inconnue", () => {
+    expect(listCollectionQuerySchema.parse({ view: "ignored" }).view).toBe(
+      "ignored",
+    );
+    expect(() =>
+      listCollectionQuerySchema.parse({ view: "nope" }),
+    ).toThrow();
   });
   it("coerce limit/offset depuis des strings d'URL", () => {
     const r = listCollectionQuerySchema.parse({ limit: "50", offset: "10" });

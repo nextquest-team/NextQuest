@@ -5,7 +5,6 @@ import {
   connectedServices,
   userGames,
   games,
-  userGameExclusions,
 } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import {
@@ -17,7 +16,6 @@ import {
 
 async function cleanup() {
   await db.delete(userGames);
-  await db.delete(userGameExclusions);
   await db.delete(games);
   await db.delete(connectedServices);
   await db.delete(users);
@@ -201,7 +199,7 @@ describe("importSteamLibrary", () => {
     expect(ug[0].playtimeMinutes).toBe(1500);
   });
 
-  it("ignore les jeux exclus par l'user (ne recree pas leur user_games)", async () => {
+  it("ne reactive pas un jeu ignore par l'user lors d'un reimport", async () => {
     const userId = await createUser();
 
     await importSteamLibrary(userId, [
@@ -210,53 +208,29 @@ describe("importSteamLibrary", () => {
     ]);
 
     const [dota] = await db.select().from(games).where(eq(games.steamAppid, 570));
-    // Simule une suppression de la collection : la ligne user_games part, le
-    // jeu est exclu (comportement de deleteCollectionItem).
-    await db.delete(userGames).where(eq(userGames.gameId, dota.id));
-    await db.insert(userGameExclusions).values({ userId, gameId: dota.id });
+    // L'user ignore Dota 2 depuis sa collection (flag sur user_games, pas de
+    // suppression -- le statut reste en base).
+    await db
+      .update(userGames)
+      .set({ excludedAt: new Date() })
+      .where(eq(userGames.gameId, dota.id));
 
     const count = await importSteamLibrary(userId, [
       { appid: 570, name: "Dota 2", playtimeMinutes: 1300, playtimeRecentMinutes: 0 },
       { appid: 730, name: "Counter-Strike 2", playtimeMinutes: 10, playtimeRecentMinutes: 0 },
     ]);
 
-    // Seul CS2 est reellement (re)importe, Dota 2 reste exclu.
-    expect(count).toBe(1);
+    // Les deux jeux sont traites (compteur inclut aussi Dota, dont seul le
+    // temps de jeu est mis a jour), mais Dota reste ignore.
+    expect(count).toBe(2);
 
     const ug = await db
       .select()
       .from(userGames)
       .where(eq(userGames.userId, userId));
-    expect(ug).toHaveLength(1);
-    expect(ug.find((r) => r.gameId === dota.id)).toBeUndefined();
-
-    // Le jeu reste dans le catalogue partage malgre l'exclusion.
-    const stillInCatalog = await db
-      .select()
-      .from(games)
-      .where(eq(games.steamAppid, 570));
-    expect(stillInCatalog).toHaveLength(1);
-  });
-
-  it("renvoie 0 si tous les jeux de l'import sont exclus", async () => {
-    const userId = await createUser();
-
-    await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1200, playtimeRecentMinutes: 0 },
-    ]);
-    const [dota] = await db.select().from(games).where(eq(games.steamAppid, 570));
-    await db.delete(userGames).where(eq(userGames.gameId, dota.id));
-    await db.insert(userGameExclusions).values({ userId, gameId: dota.id });
-
-    const count = await importSteamLibrary(userId, [
-      { appid: 570, name: "Dota 2", playtimeMinutes: 1300, playtimeRecentMinutes: 0 },
-    ]);
-    expect(count).toBe(0);
-
-    const ug = await db
-      .select()
-      .from(userGames)
-      .where(eq(userGames.userId, userId));
-    expect(ug).toHaveLength(0);
+    expect(ug).toHaveLength(2);
+    const dotaUg = ug.find((r) => r.gameId === dota.id);
+    expect(dotaUg?.excludedAt).not.toBeNull();
+    expect(dotaUg?.playtimeMinutes).toBe(1300);
   });
 });

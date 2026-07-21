@@ -146,7 +146,7 @@ const {
             <button v-if="activeFilterCount > 0" class="gl-drawer__reset" @click="resetFilters">
               {{ t('gameList.filterReset') }}
             </button>
-            <button class="gl-drawer__close" @click="drawerOpen = false">
+            <button class="gl-drawer__close" :aria-label="t('gameList.filterClose')" @click="drawerOpen = false">
               <v-icon size="20">mdi-close</v-icon>
             </button>
           </div>

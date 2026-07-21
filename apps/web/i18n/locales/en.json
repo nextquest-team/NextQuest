@@ -93,6 +93,7 @@
     },
     "filterAll": "All",
     "filterBtn": "Filters",
+    "filterClose": "Close filters",
     "filterReset": "Reset",
     "filterApply": "Apply",
     "filterPlatform": "Platform",

@@ -1480,3 +1480,22 @@ Scan Silktide sur `/game-list` : bordure du champ de recherche (`.gl__search` / 
 | `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
 | `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |
 | Capture d'écran barre de recherche, mobile et desktop | ✅ bordure nettement visible, design inchangé |
+
+## 2026-07-21 — Session 24 : Label manquant sur le bouton de fermeture du tiroir de filtres (Silktide)
+
+### Contexte
+
+Scan Silktide sur `/game-list` : `.gl-drawer__close` (icône `mdi-close` du tiroir de filtres) n'a ni texte visible ni `aria-label` — aucun nom accessible.
+
+### Ce qui a été fait
+
+- Ajout de la clé `gameList.filterClose` ("Fermer les filtres" / "Close filters") dans `fr.json` et `en.json`.
+- `GameListDesktop.vue` et `GameListMobile.vue` — `aria-label="t('gameList.filterClose')"` ajouté sur `.gl-drawer__close`.
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| Nom accessible calculé (`button.getAttribute('aria-label')`) | ✅ "Close filters" |
+| `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
+| `playwright test tests-e2e/accessibility-protected.spec.ts -g game-list` | ✅ 1/1 |

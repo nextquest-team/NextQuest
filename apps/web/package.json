@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
@@ -27,10 +28,12 @@
     "vuetify-nuxt-module": "^0.19.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@nextquest/config": "workspace:*",
     "@nuxt/test-utils": "^4.0.3",
     "@nuxtjs/tailwindcss": "^6.13.2",
     "@pinia/testing": "^1.0.3",
+    "@playwright/test": "^1.61.1",
     "@vue/test-utils": "^2.4.11",
     "eslint": "^10.7.0",
     "happy-dom": "^20.11.0",

@@ -77,6 +77,12 @@ const labels: Record<string, string> = {
   transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* outline: none plus haut réinitialise aussi le focus-visible global — on le restaure ici */
+.social-btn:focus-visible {
+  outline: 3px solid var(--nq-focus);
+  outline-offset: 4px;
+}
+
 .social-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   filter: brightness(0.97);

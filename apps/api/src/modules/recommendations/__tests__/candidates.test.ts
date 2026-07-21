@@ -830,6 +830,109 @@ describe("getDiscoveryCandidates", () => {
     expect(candidates[0].similarVotes).toBe(2);
   });
 
+  it("ecarte de discovery un jeu a moins de 5 votes joueurs", async () => {
+    // Seed : user possede A, similaire a un jeu obscur (igdbRatingCount=3)
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery-floor-low@example.com",
+        username: "discoveryfloorlow",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [gameA] = await db
+      .insert(games)
+      .values({ title: "Game A", slug: "game-a-floor-low", igdbId: 100, isCustom: false })
+      .returning({ id: games.id });
+
+    const [obscureGame] = await db
+      .insert(games)
+      .values({
+        title: "Obscure Indie",
+        slug: "obscure-indie-floor",
+        igdbId: 200,
+        igdbRatingCount: 3,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db.insert(userGames).values({ userId: user.id, gameId: gameA.id, status: "completed" });
+    await db.insert(gameSimilar).values({ gameId: gameA.id, similarIgdbId: 200 });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates.find((c) => c.gameId === obscureGame.id)).toBeUndefined();
+  });
+
+  it("garde un candidat discovery sans note du tout (igdbRatingCount null)", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery-floor-null@example.com",
+        username: "discoveryfloornull",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [gameA] = await db
+      .insert(games)
+      .values({ title: "Game A", slug: "game-a-floor-null", igdbId: 100, isCustom: false })
+      .returning({ id: games.id });
+
+    const [unratedGame] = await db
+      .insert(games)
+      .values({
+        title: "Unrated Game",
+        slug: "unrated-game-floor",
+        igdbId: 200,
+        igdbRatingCount: null,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db.insert(userGames).values({ userId: user.id, gameId: gameA.id, status: "completed" });
+    await db.insert(gameSimilar).values({ gameId: gameA.id, similarIgdbId: 200 });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates.find((c) => c.gameId === unratedGame.id)).toBeDefined();
+  });
+
+  it("garde un candidat discovery bien vote (igdbRatingCount=50)", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "discovery-floor-high@example.com",
+        username: "discoveryfloorhigh",
+        passwordHash: "hash",
+      })
+      .returning({ id: users.id });
+
+    const [gameA] = await db
+      .insert(games)
+      .values({ title: "Game A", slug: "game-a-floor-high", igdbId: 100, isCustom: false })
+      .returning({ id: games.id });
+
+    const [popularGame] = await db
+      .insert(games)
+      .values({
+        title: "Popular Game",
+        slug: "popular-game-floor",
+        igdbId: 200,
+        igdbRatingCount: 50,
+        isCustom: false,
+      })
+      .returning({ id: games.id });
+
+    await db.insert(userGames).values({ userId: user.id, gameId: gameA.id, status: "completed" });
+    await db.insert(gameSimilar).values({ gameId: gameA.id, similarIgdbId: 200 });
+
+    const candidates = await getDiscoveryCandidates(user.id);
+
+    expect(candidates.find((c) => c.gameId === popularGame.id)).toBeDefined();
+  });
+
   it("garde-fou : un jeu possede et ignore ne redevient pas recommandable", async () => {
     // Seed : user possede A (actif) similaire a D (igdbId 400), et possede aussi D
     // lui-meme mais D est ignore. D doit rester exclu des candidats malgre l'ignore :

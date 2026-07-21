@@ -294,8 +294,11 @@ export async function fetchAcclaimedByGenres(
   const body =
     `fields ${GAME_FIELDS}; ` +
     `where first_release_date < ${nowEpochSeconds} & genres = (${igdbGenreIds.join(",")}) ` +
+    // Pool elargi (100 -> 150) : meme requete unique, juste plus de resultats a
+    // trier/filtrer en aval (compense les candidats perdus au plancher de votes
+    // discovery cote candidates.ts, sans appel IGDB supplementaire).
     `& rating_count >= 50 & rating >= 75; ` +
-    `sort rating desc; limit 100;`;
+    `sort rating desc; limit 150;`;
   return requestIgdbGames(body, token, clientId, fetchImpl);
 }
 
@@ -340,10 +343,12 @@ export async function fetchGamesByDeveloper(
   if (companyId == null) return [];
 
   // 2. Jeux developpes par cette societe, sortis (rating_count >= 10), tries par note.
+  // Pool elargi (20 -> 30) : meme appel unique par studio, juste plus de resultats
+  // (compense les candidats perdus au plancher de votes discovery en aval).
   const body =
     `fields ${GAME_FIELDS}; ` +
     `where involved_companies.company = ${companyId} & involved_companies.developer = true & rating_count >= 10; ` +
-    `sort rating desc; limit 20;`;
+    `sort rating desc; limit 30;`;
 
   return requestIgdbGames(body, token, clientId, fetchImpl);
 }

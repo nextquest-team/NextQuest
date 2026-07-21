@@ -196,6 +196,12 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
   }));
 }
 
+// Plancher de votes joueurs IGDB en discovery : un candidat note mais sur trop peu
+// de votes (indes obscurs a 2-8 votes en pratique) est du bruit statistique, pas un
+// signal de qualite. On l'ecarte. Un candidat SANS note du tout (igdbRatingCount null)
+// est garde : il est gere par le prior de confiance du scoring, pas par ce plancher.
+const DISCOVERY_MIN_RATING_COUNT = 5;
+
 // Candidats du bucket "discovery" : jeux similaires aux jeux possedes via le graphe
 // game_similar (source 1) + jeux acclaimed dans les top genres de l'user (source 2) +
 // jeux du même studio que les jeux possédés (source 3).
@@ -482,6 +488,7 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
 
   return filtered
     .filter((r) => !ownedGameIds.has(r.gameId) && !swipedGameIds.has(r.gameId))
+    .filter((r) => r.igdbRatingCount == null || r.igdbRatingCount >= DISCOVERY_MIN_RATING_COUNT)
     .map((r) => ({
       gameId: r.gameId,
       genreIds: candidateGenres.get(r.gameId) ?? [],

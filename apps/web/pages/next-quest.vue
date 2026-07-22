@@ -11,7 +11,7 @@ const { mdAndUp } = useDisplay()
 const loading = ref(false)
 const generating = ref(false)
 const error = ref(false)
-const lastFailedOp = ref<'fetch' | 'generate' | null>(null)
+const lastFailedOp = ref<'fetch' | 'generate' | 'refresh' | null>(null)
 const feedbackPending = ref<string | null>(null)
 
 const discoveryQueue = ref<RecommendationDTO[]>([])
@@ -77,7 +77,7 @@ async function refresh() {
     upcomingQueue.value = res.upcoming
   } catch {
     error.value = true
-    lastFailedOp.value = 'generate'
+    lastFailedOp.value = 'refresh'
   } finally {
     generating.value = false
   }
@@ -85,6 +85,7 @@ async function refresh() {
 
 function retry() {
   if (lastFailedOp.value === 'generate') generate()
+  else if (lastFailedOp.value === 'refresh') refresh()
   else fetchRecos()
 }
 
@@ -102,15 +103,15 @@ const bucketQueue: Record<RecoBucket, Ref<RecommendationDTO[]>> = {
 // paginée brute et ne déclenche jamais de réapprovisionnement — d'où le besoin de
 // repasser par l'appel groupé ici.
 async function refillBucket(bucket: RecoBucket) {
-  console.log('[nextQuest] refillBucket →', bucket)
   try {
     const res = await authFetch<GroupedRecommendations>(`${apiBase}/api/recommendations`)
-    console.log('[nextQuest] refillBucket ← discovery:', res.discovery.length, 'libraryUnplayed:', res.libraryUnplayed.length, 'upcoming:', res.upcoming.length)
     discoveryQueue.value = res.discovery
     libraryUnplayedQueue.value = res.libraryUnplayed
     upcomingQueue.value = res.upcoming
-  } catch (err) {
-    console.error('[nextQuest] refillBucket FAILED', bucket, err)
+  } catch {
+    // Le refetch a échoué : on vide la file plutôt que de laisser la carte
+    // déclinée affichée à tort (fantôme). La card "Aucune suggestion" prend le relais.
+    bucketQueue[bucket].value = []
   }
 }
 
@@ -118,15 +119,12 @@ async function refillBucket(bucket: RecoBucket) {
 async function sendFeedback(reco: RecommendationDTO, action: FeedbackAction) {
   if (feedbackPending.value) return
   feedbackPending.value = reco.id
-  console.log('[nextQuest] sendFeedback →', { id: reco.id, bucket: reco.bucket, action })
   try {
-    const res = await authFetch(`${apiBase}/api/recommendations/${reco.id}/feedback`, {
+    await authFetch(`${apiBase}/api/recommendations/${reco.id}/feedback`, {
       method: 'POST',
       body: { action },
     })
-    console.log('[nextQuest] sendFeedback ← ok', res)
     const remaining = bucketQueue[reco.bucket].value.slice(1)
-    console.log('[nextQuest] queue', reco.bucket, 'length after pop:', remaining.length)
 
     // On n'assigne jamais un array vide directement : ça déclenche un re-render
     // avec la card "Aucune suggestion" avant même que refillBucket ait fini.
@@ -135,8 +133,9 @@ async function sendFeedback(reco: RecommendationDTO, action: FeedbackAction) {
     } else {
       await refillBucket(reco.bucket)
     }
-  } catch (err) {
-    console.error('[nextQuest] sendFeedback FAILED', err)
+  } catch {
+    // La requête a échoué avant toute mutation de la file : rien à rattraper,
+    // la carte affichée reste celle qu'on vient d'essayer de traiter.
   }
   finally {
     feedbackPending.value = null

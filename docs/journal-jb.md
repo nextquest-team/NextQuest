@@ -231,3 +231,15 @@
 **Vulnérabilités Dependabot corrigées** -- tar ≥ 7.5.19 (DoS critique), js-yaml ≥ 4.3.0 borné < 5 (la leçon vite 8 : jamais de floor sans plafond sur une transitive), shell-quote ≥ 1.9.0. Se fermeront au passage sur main.
 
 **MVP COMPLET (milestone 6/6 fermé)** -- La fermeture de #58 (moteur de reco : profil de goût, candidats IGDB, scoring, swipe, écran Next Quest) clôt le dernier lot du MVP, onze mois avant la soutenance. Restent des issues post-MVP (queue de jobs #68, re-sync #70, notifications #71, keywords #72) et deux petites (#40 device_name, #108 accepter-la-quête → collection).
+
+---
+
+**Backend "sorties de jeux" (timeline)** -- 5 routes : référentiel des genres, recherche IGDB avec `scope=upcoming`, suivi de sortie (follow/unfollow/liste), le tout persistant en BDD (table `user_followed_games`, hydratation du jeu au moment du follow donc pas de dépendance IGDB à la lecture). `igdbId` exposé dans les recommandations (#110), pour que le front puisse rebrancher `RecoCard.goToGame` sur la fiche jeu.
+
+**Précision des dates de sortie** -- IGDB donne parfois une date floue (ex. "2027" = fin de période) : nouvel enum `release_date_precision` (day/month/quarter/year/tbd) calculé depuis `release_dates.date_format`, pour que le front affiche "2027" ou "T4 2027" plutôt qu'une fausse date exacte.
+
+**Refresh quotidien** -- Cron in-process (pas d'infra en plus au stade actuel) avec verrou Redis pour garantir un seul run même à plusieurs instances API, migration vers un worker BullMQ documentée en commentaire si besoin futur. Rafraîchit date/précision/hype des jeux à venir du catalogue, trace les changements de date/statut dans `game_updates`.
+
+**Légalité IGDB** -- Vérifié les CGU : usage non-commercial actuel OK sans démarche particulière, mais accord explicite du côté IGDB/Twitch et attribution visible seront requis avant toute mise en ligne commerciale de NextQuest.
+
+**Validation E2E réelle** -- API branchée sur la vraie BDD + vrai IGDB (compte jetable créé puis supprimé) : les 23 genres seedés matchent IGDB live, follow/unfollow (idempotent), 404 sur un igdbId inexistant, refresh manuel (62 jeux vérifiés/mis à jour), recommandations avec `igdbId` sur toutes les cartes. Suppression du compte jetable vérifiée : la cascade RGPD purge bien `user_followed_games` avec le reste. 495 tests API verts.

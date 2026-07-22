@@ -4874,6 +4874,19 @@
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                     "description": "Identifiant du jeu"
                                   },
+                                  "igdbId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"
+                                  },
                                   "title": {
                                     "type": "string",
                                     "description": "Titre du jeu"
@@ -4959,6 +4972,7 @@
                                 },
                                 "required": [
                                   "id",
+                                  "igdbId",
                                   "title",
                                   "slug",
                                   "coverUrl",
@@ -5041,6 +5055,19 @@
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                     "description": "Identifiant du jeu"
                                   },
+                                  "igdbId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"
+                                  },
                                   "title": {
                                     "type": "string",
                                     "description": "Titre du jeu"
@@ -5126,6 +5153,7 @@
                                 },
                                 "required": [
                                   "id",
+                                  "igdbId",
                                   "title",
                                   "slug",
                                   "coverUrl",
@@ -5208,6 +5236,19 @@
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                     "description": "Identifiant du jeu"
                                   },
+                                  "igdbId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"
+                                  },
                                   "title": {
                                     "type": "string",
                                     "description": "Titre du jeu"
@@ -5293,6 +5334,7 @@
                                 },
                                 "required": [
                                   "id",
+                                  "igdbId",
                                   "title",
                                   "slug",
                                   "coverUrl",
@@ -5387,6 +5429,19 @@
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                     "description": "Identifiant du jeu"
                                   },
+                                  "igdbId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"
+                                  },
                                   "title": {
                                     "type": "string",
                                     "description": "Titre du jeu"
@@ -5472,6 +5527,7 @@
                                 },
                                 "required": [
                                   "id",
+                                  "igdbId",
                                   "title",
                                   "slug",
                                   "coverUrl",
@@ -5794,6 +5850,19 @@
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                 "description": "Identifiant du jeu"
                               },
+                              "igdbId": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"
+                              },
                               "title": {
                                 "type": "string",
                                 "description": "Titre du jeu"
@@ -5879,6 +5948,7 @@
                             },
                             "required": [
                               "id",
+                              "igdbId",
                               "title",
                               "slug",
                               "coverUrl",
@@ -5961,6 +6031,19 @@
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                 "description": "Identifiant du jeu"
                               },
+                              "igdbId": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"
+                              },
                               "title": {
                                 "type": "string",
                                 "description": "Titre du jeu"
@@ -6046,6 +6129,7 @@
                             },
                             "required": [
                               "id",
+                              "igdbId",
                               "title",
                               "slug",
                               "coverUrl",
@@ -6128,6 +6212,19 @@
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                 "description": "Identifiant du jeu"
                               },
+                              "igdbId": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"
+                              },
                               "title": {
                                 "type": "string",
                                 "description": "Titre du jeu"
@@ -6213,6 +6310,7 @@
                             },
                             "required": [
                               "id",
+                              "igdbId",
                               "title",
                               "slug",
                               "coverUrl",
@@ -6607,6 +6705,24 @@
                             ],
                             "description": "Date de sortie (YYYY-MM-DD)"
                           },
+                          "releaseDatePrecision": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "day",
+                                  "month",
+                                  "quarter",
+                                  "year",
+                                  "tbd"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Precision de la date annoncee (les dates floues IGDB pointent fin de periode)"
+                          },
                           "coverUrl": {
                             "anyOf": [
                               {
@@ -6703,6 +6819,7 @@
                           "igdbId",
                           "title",
                           "releaseDate",
+                          "releaseDatePrecision",
                           "coverUrl",
                           "hypes",
                           "genres",
@@ -6923,6 +7040,24 @@
                         }
                       ],
                       "description": "Date de sortie (YYYY-MM-DD)"
+                    },
+                    "releaseDatePrecision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "day",
+                            "month",
+                            "quarter",
+                            "year",
+                            "tbd"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Precision de la date annoncee (les dates floues IGDB pointent fin de periode)"
                     },
                     "releaseStatus": {
                       "type": "string",
@@ -7276,6 +7411,7 @@
                     "summary",
                     "storyline",
                     "releaseDate",
+                    "releaseDatePrecision",
                     "releaseStatus",
                     "coverUrl",
                     "artworkUrl",
@@ -7439,7 +7575,7 @@
         "tags": [
           "Games"
         ],
-        "description": "Autocomplete de l'ajout manuel : recherche IGDB par nom, filtree (non-jeux et editions exclus) et classee par popularite. Chaque resultat indique si le jeu est deja dans la collection de l'utilisateur.",
+        "description": "Autocomplete de l'ajout manuel : recherche IGDB par nom, filtree (non-jeux et editions exclus) et classee par popularite. Chaque resultat indique si le jeu est deja dans la collection de l'utilisateur. Le parametre scope=upcoming restreint aux jeux dont la date de sortie est future.",
         "parameters": [
           {
             "schema": {
@@ -7460,6 +7596,17 @@
             },
             "in": "query",
             "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "upcoming"
+              ]
+            },
+            "in": "query",
+            "name": "scope",
             "required": false
           }
         ],

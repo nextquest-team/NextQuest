@@ -565,7 +565,12 @@ async function insertMinimalGameFromIgdb(data: IgdbGame): Promise<string> {
       releaseStatus,
       developer: data.developer,
       publisher: data.publisher,
-      lastSyncedAt: new Date(),
+      // lastSyncedAt volontairement absent (reste NULL) : cet insert minimal n'a
+      // jamais ete synchronise avec IGDB (genres/tags/plateformes/note manquants).
+      // Le laisser NULL garantit que selectCandidates() (igdb.service.ts) selectionne
+      // ce jeu des le prochain enrichGames, notamment le fire-and-forget declenche
+      // juste apres par addIgdbGameToCollection. Le stamper ici rendrait ce
+      // fire-and-forget no-op pendant STALE_DAYS (30 jours).
     })
     // Defense-in-depth : course possible avec un autre flux (ex. enrichGames) qui
     // aurait insere ce meme igdbId entretemps sous un slug different.

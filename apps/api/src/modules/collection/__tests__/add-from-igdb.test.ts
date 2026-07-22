@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import Fastify from "fastify";
 import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
-import { db, users, games, userGames } from "@nextquest/db";
+import { db, users, games, userGames, gameGenres, platforms, gamePlatforms } from "@nextquest/db";
 import { eq } from "drizzle-orm";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
@@ -13,6 +13,7 @@ import {
   type AddIgdbGameDeps,
 } from "../collection.service.js";
 import * as collectionService from "../collection.service.js";
+import { enrichGames, type IgdbDeps } from "../../games/igdb/igdb.service.js";
 import type { IgdbGame } from "../../games/igdb/igdb.client.js";
 
 async function cleanup() {
@@ -72,6 +73,22 @@ function makeDeps(gamesById: Record<number, IgdbGame>): AddIgdbGameDeps {
 // assertions : sans ce tick, le spy peut ne pas encore avoir ete appele.
 async function flushPromises() {
   await new Promise((resolve) => setImmediate(resolve));
+}
+
+// Deps IGDB pour l'enrichissement REEL (par opposition au spy neutre de makeDeps
+// ci-dessus) : seules les dependances externes d'enrichGames (fetch IGDB) sont
+// mockees, la logique de selection des candidats et l'upsert restent reelles.
+// Sert a verifier l'EFFET du fire-and-forget, pas seulement qu'il est appele.
+function makeIgdbEnrichDeps(gamesById: Record<number, IgdbGame>): IgdbDeps {
+  return {
+    getToken: vi.fn(async () => "TOKEN"),
+    findGameIdsBySteamAppids: vi.fn(async () => new Map()),
+    fetchGamesByIds: vi.fn(async (ids: number[]) =>
+      ids.map((id) => gamesById[id]).filter((g): g is IgdbGame => g != null),
+    ),
+    fetchTimeToBeats: vi.fn(async () => new Map()),
+    sleep: vi.fn(async () => {}),
+  };
 }
 
 beforeEach(cleanup);
@@ -190,6 +207,64 @@ describe("addIgdbGameToCollection", () => {
 
     expect(res.ok).toBe(true);
     expect(enrichSpy).toHaveBeenCalledWith({ userId });
+  });
+
+  it("l'enrichissement fire-and-forget peuple reellement genres/plateformes/note (pas un no-op)", async () => {
+    const userId = await seedUser();
+
+    // Reutilise la plateforme PC (igdb_id=6) si deja seedee ; sinon en cree une
+    // dediee avec un code distinct (voir meme pattern dans igdb.service.test.ts).
+    let [pc] = await db.select().from(platforms).where(eq(platforms.igdbId, 6));
+    let createdPlatformId: string | null = null;
+    if (!pc) {
+      [pc] = await db
+        .insert(platforms)
+        .values({ name: "PC (test)", code: "pc-igdb-enrich-test", igdbId: 6 })
+        .returning();
+      createdPlatformId = pc.id;
+    }
+
+    try {
+      const igdbGame = sampleIgdbGame({
+        genres: [{ igdbId: 5, name: "Metroidvania", slug: "metroidvania" }],
+        platformIds: [6],
+        rating: 88,
+        ratingCount: 300,
+      });
+      const deps = makeDeps({ 999: igdbGame });
+      const igdbEnrichDeps = makeIgdbEnrichDeps({ 999: igdbGame });
+      // enrich reel branche sur des deps IGDB mockees : verifie que le
+      // fire-and-forget produit un effet, pas seulement qu'il est appele.
+      // La promesse est capturee ici (le code de prod ne l'attend jamais,
+      // c'est un fire-and-forget) pour pouvoir l'attendre dans le test : un
+      // simple flushPromises ne suffit pas, enrichGames enchaine plusieurs
+      // allers-retours DB reels.
+      let enrichPromise: Promise<unknown> | undefined;
+      const realEnrich: typeof enrichGames = (opts, clientId) => {
+        enrichPromise = enrichGames(opts, clientId, igdbEnrichDeps);
+        return enrichPromise;
+      };
+
+      const res = await addIgdbGameToCollection(userId, { igdbId: 999 }, "CID", {
+        ...deps,
+        enrich: realEnrich,
+      });
+      await enrichPromise;
+
+      expect(res.ok).toBe(true);
+
+      const [g] = await db.select().from(games).where(eq(games.igdbId, 999));
+      expect(g.igdbRating).not.toBeNull();
+
+      const gg = await db.select().from(gameGenres).where(eq(gameGenres.gameId, g.id));
+      expect(gg.length).toBeGreaterThan(0);
+      const gp = await db.select().from(gamePlatforms).where(eq(gamePlatforms.gameId, g.id));
+      expect(gp.length).toBeGreaterThan(0);
+    } finally {
+      if (createdPlatformId) {
+        await db.delete(platforms).where(eq(platforms.id, createdPlatformId));
+      }
+    }
   });
 
   it("n'appelle pas l'enrichissement si l'ajout echoue (conflict)", async () => {

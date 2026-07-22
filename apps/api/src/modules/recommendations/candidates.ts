@@ -311,9 +311,9 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
     }
   }
 
-  // SOURCE 3 : jeux du même studio que les jeux possédés actifs
+  // SOURCE 3 : jeux du meme studio que les jeux possedes actifs
   // Limiter le nombre de studios interrogés pour éviter N+1 calls IGDB.
-  // On prend les studios distincts des jeux possédés actifs, up to 5.
+  // On prend les studios distincts des jeux possedes actifs, up to 5.
   // Plafond : max 3 jeux par studio apres le filtre genre/theme.
   let sameDevByIgdb: number[] = [];
   if (ownedActive.length > 0) {

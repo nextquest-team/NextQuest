@@ -6,6 +6,7 @@ import {
   fetchUpcomingByGenres,
   fetchUpcoming,
   fetchGameDetail,
+  searchGamesByName,
   igdbImageUrl,
   mapRawGame,
   mapReleasePrecision,
@@ -444,5 +445,34 @@ describe("fetchTimeToBeats", () => {
     const map = await fetchTimeToBeats([1, 2], "tok", "cid", fakeFetch as never);
     expect(map.get(1)).toEqual({ normallyMinutes: 120, count: 40 });
     expect(map.has(2)).toBe(false);
+  });
+});
+
+describe("searchGamesByName - scope upcoming", () => {
+  it("scope upcoming : les deux pools filtrent first_release_date", async () => {
+    const bodies: string[] = [];
+    const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
+      bodies.push(init.body);
+      return { ok: true, status: 200, json: async () => [] };
+    });
+    await searchGamesByName("zelda", 10, "tok", "cid", fetchMock, 1750000000);
+    expect(bodies).toHaveLength(2);
+    for (const b of bodies) {
+      expect(b).toContain("first_release_date > 1750000000");
+    }
+  });
+
+  it("sans scope : aucun filtre de date (non-regression autocomplete)", async () => {
+    const bodies: string[] = [];
+    const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
+      bodies.push(init.body);
+      return { ok: true, status: 200, json: async () => [] };
+    });
+    await searchGamesByName("zelda", 10, "tok", "cid", fetchMock);
+    for (const b of bodies) {
+      // SEARCH_FIELDS demande toujours le champ first_release_date (utilise pour
+      // mapper firstReleaseDate en sortie) -- seule l'absence du filtre compte ici.
+      expect(b).not.toContain("first_release_date >");
+    }
   });
 });

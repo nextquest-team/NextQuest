@@ -447,10 +447,15 @@ export async function searchGamesByName(
   token: string,
   clientId: string,
   fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
+  upcomingAfterEpoch: number | null = null,
 ): Promise<IgdbSearchGame[]> {
   const escape = (s: string) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
-  const poolABody = `search "${escape(name)}"; fields ${SEARCH_FIELDS}; limit ${limit};`;
+  // Filtre optionnel "a venir uniquement" (scope=upcoming) : injecte dans le
+  // where de chacun des deux pools, sans toucher aux corps quand il est absent
+  // (non-regression stricte de l'autocomplete existant).
+  const upcomingCond = upcomingAfterEpoch != null ? ` where first_release_date > ${upcomingAfterEpoch};` : "";
+  const poolABody = `search "${escape(name)}"; fields ${SEARCH_FIELDS};${upcomingCond} limit ${limit};`;
   const poolA = (await igdbPost("games", poolABody, token, clientId, fetchImpl)) as RawSearchGame[];
 
   const words = name
@@ -461,9 +466,10 @@ export async function searchGamesByName(
   let poolB: RawSearchGame[] = [];
   if (words.length > 0) {
     const conds = words.map((w) => `name ~ *"${escape(w)}"*`).join(" & ");
+    const dateCond = upcomingAfterEpoch != null ? ` & first_release_date > ${upcomingAfterEpoch}` : "";
     const poolBBody =
       `fields ${SEARCH_FIELDS}; ` +
-      `where ${conds} & game_type = (0,4,8,9,10,11) & version_parent = null; ` +
+      `where ${conds} & game_type = (0,4,8,9,10,11) & version_parent = null${dateCond}; ` +
       `sort total_rating_count desc; limit ${limit};`;
     poolB = (await igdbPost("games", poolBBody, token, clientId, fetchImpl)) as RawSearchGame[];
   }

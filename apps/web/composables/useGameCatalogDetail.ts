@@ -7,7 +7,7 @@ function previewToGame(p: CatalogPreview): IgdbGameDetail {
     summary: p.summary ?? null,
     storyline: p.storyline ?? null,
     releaseDate: p.releaseDate ?? null,
-    releaseStatus: p.releaseStatus ?? 'upcoming',
+    releaseStatus: p.releaseStatus ?? 'released',
     coverUrl: p.coverUrl ?? null,
     artworkUrl: p.artworkUrl ?? null,
     screenshots: p.screenshots ?? [],

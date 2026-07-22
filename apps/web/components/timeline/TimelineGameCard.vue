@@ -27,6 +27,7 @@ function goToDetail() {
     title: props.game.title,
     coverUrl: props.game.coverUrl,
     releaseDate: props.game.releaseDate,
+    releaseStatus: 'upcoming',
     hypes: props.game.hypes,
     genres: props.game.genres,
     platforms: props.game.platforms,
@@ -42,7 +43,7 @@ function goToDetail() {
     tabindex="0"
     :aria-label="game.title"
     @click="goToDetail"
-    @keydown.enter="goToDetail"
+    @keydown.enter.self="goToDetail"
   >
     <div class="tlg-card__cover">
       <img

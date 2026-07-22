@@ -16,6 +16,7 @@ import { steamRoutes } from "./modules/platforms/steam/steam.routes.js";
 import { collectionRoutes } from "./modules/collection/collection.routes.js";
 import { recommendationsRoutes } from "./modules/recommendations/recommendations.routes.js";
 import { igdbRoutes } from "./modules/games/igdb/igdb.routes.js";
+import { followRoutes } from "./modules/games/follow/follow.routes.js";
 import { gamesRoutes } from "./modules/games/games.routes.js";
 import { platformsRoutes } from "./modules/referentials/platforms.routes.js";
 import { genresRoutes } from "./modules/referentials/genres.routes.js";
@@ -54,6 +55,7 @@ async function start() {
   await app.register(collectionRoutes, { prefix: "/api" });
   await app.register(recommendationsRoutes, { prefix: "/api" });
   await app.register(igdbRoutes, { prefix: "/api" });
+  await app.register(followRoutes, { prefix: "/api" });
   await app.register(gamesRoutes, { prefix: "/api" });
   await app.register(platformsRoutes, { prefix: "/api" });
   await app.register(genresRoutes, { prefix: "/api" });

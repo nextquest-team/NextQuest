@@ -22,7 +22,7 @@ export async function followGame(
   const [game] = await db.select({ id: games.id }).from(games).where(eq(games.igdbId, igdbId)).limit(1);
   if (!game) return null;
   await db.insert(userFollowedGames).values({ userId, gameId: game.id }).onConflictDoNothing();
-  const [dto] = await buildFollowedDTOs(userId, [game.id]);
+  const [dto] = await buildFollowedDTOs([game.id]);
   return dto ?? null;
 }
 
@@ -39,13 +39,13 @@ export async function listFollowedGames(userId: string): Promise<FollowedGameDTO
     .select({ gameId: userFollowedGames.gameId })
     .from(userFollowedGames)
     .where(eq(userFollowedGames.userId, userId));
-  return buildFollowedDTOs(userId, followed.map((f) => f.gameId));
+  return buildFollowedDTOs(followed.map((f) => f.gameId));
 }
 
 // Construit les DTOs depuis la BDD : une requete jeux + une genres + une
 // plateformes (pas de N+1), regroupees en memoire. Les genres/plateformes sans
 // igdb_id (customs locaux) sont exclus : le DTO suit la forme du feed IGDB.
-async function buildFollowedDTOs(userId: string, gameIds: string[]): Promise<FollowedGameDTO[]> {
+async function buildFollowedDTOs(gameIds: string[]): Promise<FollowedGameDTO[]> {
   if (gameIds.length === 0) return [];
 
   const rows = await db
@@ -75,6 +75,9 @@ async function buildFollowedDTOs(userId: string, gameIds: string[]): Promise<Fol
     .where(inArray(gamePlatforms.gameId, gameIds));
 
   return rows
+    // Invariant : un jeu suivi provient toujours d'un lookup par igdbId (followGame
+    // hydrate puis lie via games.igdbId), donc igdbId est non-null par construction ici.
+    // Le filtre protege une evolution future (jeux customs sans igdbId).
     .filter((r) => r.igdbId != null)
     .map((r) => ({
       igdbId: r.igdbId!,

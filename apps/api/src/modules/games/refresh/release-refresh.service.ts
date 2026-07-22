@@ -87,8 +87,11 @@ export async function refreshUpcomingReleases(
     let fetched;
     try {
       fetched = await deps.fetchGamesByIds(ids, token, deps.clientId);
-    } catch {
+    } catch (err) {
       // Batch perdu : le run quotidien suivant rattrapera, inutile d'arreter les autres lots.
+      // console.error et non un logger Fastify : ce service tourne aussi via le
+      // script CLI (refresh-releases.ts), sans instance app/logger a injecter.
+      console.error(`[refresh-releases] batch IGDB en echec (${ids.length} ids) :`, ids, err);
       summary.failedBatches += 1;
       continue;
     }
@@ -97,8 +100,14 @@ export async function refreshUpcomingReleases(
       const current = byIgdbId.get(data.igdbId);
       if (!current) continue;
 
-      const nextStatus =
-        data.releaseDate && data.releaseDate > today ? ("upcoming" as const) : ("released" as const);
+      // Si IGDB retire la date (report sine die, cas frequent), on ne bascule pas
+      // released : c'est un report, pas une sortie. Le jeu reste upcoming pour
+      // rester dans le perimetre du refresh, sinon l'erreur ne s'auto-repare jamais.
+      const nextStatus = data.releaseDate
+        ? data.releaseDate > today
+          ? ("upcoming" as const)
+          : ("released" as const)
+        : ("upcoming" as const);
       const dateChanged = data.releaseDate !== current.releaseDate;
       const precisionChanged = data.releaseDatePrecision !== current.releaseDatePrecision;
       const statusChanged = nextStatus !== current.releaseStatus;
@@ -140,9 +149,10 @@ export async function refreshUpcomingReleases(
           }
         });
         summary.updated += 1;
-      } catch {
+      } catch (err) {
         // Jeu isole : une coupure transitoire (BDD distante) ne doit pas stopper
         // les autres jeux du lot ; le run quotidien suivant retentera celui-ci.
+        console.error(`[refresh-releases] echec update/trace du jeu ${current.id} (igdbId ${data.igdbId}) :`, err);
         summary.failedGames += 1;
       }
     }

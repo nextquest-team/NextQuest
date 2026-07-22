@@ -30,7 +30,19 @@ export async function runReleaseRefreshWithLock(
 
 export function scheduleReleaseRefresh(log: FastifyBaseLogger): void {
   if (process.env.RELEASE_REFRESH_ENABLED !== "true") return;
-  const hour = Number(process.env.RELEASE_REFRESH_HOUR ?? 6);
+  const rawHour = process.env.RELEASE_REFRESH_HOUR ?? "6";
+  const hour = Number(rawHour);
+
+  // Une valeur invalide (ex. "6h") donnerait NaN -> setHours(NaN) -> Invalid Date
+  // -> setTimeout(fn, NaN) demarre en ~1ms : boucle chaude de refresh en continu.
+  // On coupe le scheduler plutot que de saturer IGDB/la BDD.
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    log.error(
+      { rawHour },
+      "refresh sorties : RELEASE_REFRESH_HOUR invalide, scheduler desactive",
+    );
+    return;
+  }
 
   const scheduleNext = () => {
     const now = new Date();

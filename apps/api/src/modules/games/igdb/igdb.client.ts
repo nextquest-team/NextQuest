@@ -25,6 +25,7 @@ export interface IgdbGame {
   name: string;
   summary: string | null;
   releaseDate: string | null; // YYYY-MM-DD
+  releaseDatePrecision: ReleaseDatePrecision | null;
   rating: number | null;
   ratingCount: number | null;
   coverImageId: string | null;
@@ -68,6 +69,7 @@ export interface IgdbUpcomingGame {
   igdbId: number;
   name: string;
   releaseDate: string | null; // YYYY-MM-DD
+  releaseDatePrecision: ReleaseDatePrecision | null;
   coverImageId: string | null;
   hypes: number | null;
   genres: IgdbTaxon[];
@@ -82,6 +84,7 @@ export interface IgdbGameDetail {
   summary: string | null;
   storyline: string | null;
   releaseDate: string | null; // YYYY-MM-DD
+  releaseDatePrecision: ReleaseDatePrecision | null;
   rating: number | null;
   ratingCount: number | null;
   hypes: number | null;
@@ -163,6 +166,8 @@ const GAME_FIELDS = [
   "name",
   "summary",
   "first_release_date",
+  "release_dates.date",
+  "release_dates.date_format",
   "rating",
   "rating_count",
   "cover.image_id",
@@ -191,6 +196,7 @@ interface RawGame {
   name: string;
   summary?: string;
   first_release_date?: number;
+  release_dates?: RawReleaseDate[];
   rating?: number;
   rating_count?: number;
   cover?: { image_id?: string };
@@ -218,6 +224,39 @@ function unixToDate(unix: number | undefined): string | null {
   return new Date(unix * 1000).toISOString().slice(0, 10);
 }
 
+export type ReleaseDatePrecision = "day" | "month" | "quarter" | "year" | "tbd";
+
+export interface RawReleaseDate {
+  date?: number;
+  date_format?: number;
+}
+
+// Precision de la date de sortie. IGDB encode la precision dans
+// release_dates.date_format : 0=jour, 1=mois, 2=annee, 3-6=trimestre, 7=TBD.
+// On retient l'entree datee la plus ancienne (la sortie la plus proche, toutes
+// plateformes confondues) -- c'est elle qui alimente first_release_date. Sans
+// release_dates (vieux jeux), une first_release_date presente est reputee au jour.
+export function mapReleasePrecision(
+  releaseDates: RawReleaseDate[] | undefined,
+  firstReleaseDate: number | undefined,
+): ReleaseDatePrecision | null {
+  const FORMAT_MAP: Record<number, ReleaseDatePrecision> = {
+    0: "day",
+    1: "month",
+    2: "year",
+    3: "quarter",
+    4: "quarter",
+    5: "quarter",
+    6: "quarter",
+    7: "tbd",
+  };
+  const entries = releaseDates ?? [];
+  const dated = entries.filter((e) => e.date != null).sort((a, b) => a.date! - b.date!);
+  const chosen = dated[0] ?? entries[0];
+  if (chosen?.date_format != null) return FORMAT_MAP[chosen.date_format] ?? null;
+  return firstReleaseDate != null ? "day" : null;
+}
+
 export function mapRawGame(r: RawGame): IgdbGame {
   const dev = r.involved_companies?.find((c) => c.developer)?.company?.name ?? null;
   const pub = r.involved_companies?.find((c) => c.publisher)?.company?.name ?? null;
@@ -226,6 +265,7 @@ export function mapRawGame(r: RawGame): IgdbGame {
     name: r.name,
     summary: r.summary ?? null,
     releaseDate: unixToDate(r.first_release_date),
+    releaseDatePrecision: mapReleasePrecision(r.release_dates, r.first_release_date),
     rating: r.rating ?? null,
     ratingCount: r.rating_count ?? null,
     coverImageId: r.cover?.image_id ?? null,
@@ -463,6 +503,8 @@ function mapPlatforms(raw: RawPlatform[] | undefined): IgdbPlatform[] {
 const UPCOMING_FIELDS = [
   "name",
   "first_release_date",
+  "release_dates.date",
+  "release_dates.date_format",
   "hypes",
   "cover.image_id",
   "genres.name",
@@ -475,6 +517,7 @@ interface RawUpcomingGame {
   id: number;
   name: string;
   first_release_date?: number;
+  release_dates?: RawReleaseDate[];
   hypes?: number;
   cover?: { image_id?: string };
   genres?: RawTaxon[];
@@ -501,6 +544,7 @@ export async function fetchUpcoming(
     igdbId: r.id,
     name: r.name,
     releaseDate: unixToDate(r.first_release_date),
+    releaseDatePrecision: mapReleasePrecision(r.release_dates, r.first_release_date),
     coverImageId: r.cover?.image_id ?? null,
     hypes: r.hypes ?? null,
     genres: mapTaxa(r.genres),
@@ -513,6 +557,8 @@ const DETAIL_FIELDS = [
   "summary",
   "storyline",
   "first_release_date",
+  "release_dates.date",
+  "release_dates.date_format",
   "rating",
   "rating_count",
   "hypes",
@@ -559,6 +605,7 @@ interface RawGameDetail {
   summary?: string;
   storyline?: string;
   first_release_date?: number;
+  release_dates?: RawReleaseDate[];
   rating?: number;
   rating_count?: number;
   hypes?: number;
@@ -590,6 +637,7 @@ function mapGameDetail(r: RawGameDetail): IgdbGameDetail {
     summary: r.summary ?? null,
     storyline: r.storyline ?? null,
     releaseDate: unixToDate(r.first_release_date),
+    releaseDatePrecision: mapReleasePrecision(r.release_dates, r.first_release_date),
     rating: r.rating ?? null,
     ratingCount: r.rating_count ?? null,
     hypes: r.hypes ?? null,

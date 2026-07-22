@@ -48,6 +48,7 @@ const sampleIgdbGame = (over: Partial<IgdbGame> = {}): IgdbGame => ({
   name: "GTA V",
   summary: "Open world",
   releaseDate: "2013-09-17",
+  releaseDatePrecision: "day",
   rating: 92.3,
   ratingCount: 1500,
   coverImageId: "cover123",

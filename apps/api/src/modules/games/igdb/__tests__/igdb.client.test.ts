@@ -8,6 +8,7 @@ import {
   fetchGameDetail,
   igdbImageUrl,
   mapRawGame,
+  mapReleasePrecision,
 } from "../igdb.client.js";
 
 const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
@@ -387,6 +388,46 @@ describe("fetchGameDetail", () => {
   it("leve si IGDB repond non-200", async () => {
     const fetchMock = vi.fn().mockResolvedValue(err(500));
     await expect(fetchGameDetail(1, "T", "C", fetchMock)).rejects.toThrow(/500/);
+  });
+});
+
+describe("mapReleasePrecision", () => {
+  // date_format IGDB : 0=YYYYMMDD 1=YYYYMM 2=YYYY 3=Q1 4=Q2 5=Q3 6=Q4 7=TBD
+  it.each([
+    [0, "day"],
+    [1, "month"],
+    [2, "year"],
+    [3, "quarter"],
+    [4, "quarter"],
+    [5, "quarter"],
+    [6, "quarter"],
+    [7, "tbd"],
+  ] as const)("date_format %i -> %s", (fmt, expected) => {
+    expect(mapReleasePrecision([{ date: 1800000000, date_format: fmt }], 1800000000)).toBe(expected);
+  });
+
+  it("prend l'entree la plus ancienne (sortie la plus proche)", () => {
+    const dates = [
+      { date: 1900000000, date_format: 2 }, // plus tard, precision year
+      { date: 1800000000, date_format: 0 }, // plus tot, precision day
+    ];
+    expect(mapReleasePrecision(dates, 1800000000)).toBe("day");
+  });
+
+  it("ignore les entrees sans date et retombe sur le format connu", () => {
+    expect(mapReleasePrecision([{ date_format: 7 }], undefined)).toBe("tbd");
+  });
+
+  it("fallback sans release_dates : first_release_date presente -> day", () => {
+    expect(mapReleasePrecision(undefined, 1400000000)).toBe("day");
+  });
+
+  it("fallback sans release_dates ni first_release_date -> null", () => {
+    expect(mapReleasePrecision(undefined, undefined)).toBeNull();
+  });
+
+  it("date_format inconnu -> null (prudence si IGDB ajoute une valeur)", () => {
+    expect(mapReleasePrecision([{ date: 1800000000, date_format: 42 }], 1800000000)).toBeNull();
   });
 });
 

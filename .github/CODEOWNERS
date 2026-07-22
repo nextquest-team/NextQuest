@@ -2,25 +2,32 @@
 # Le owner est ajoute automatiquement comme reviewer sur toute PR
 # qui modifie un fichier matchant son pattern.
 #
+# Les DEUX devs sont owners de tous les chemins : GitHub interdit a l'auteur
+# d'une PR d'approuver sa propre PR, donc un chemin possede par un seul dev
+# rendait ses propres PR im-mergeables avec la regle "code owner review"
+# active (l'approbation de l'autre dev ne comptait pas). Avec les deux owners
+# partout, le non-auteur est toujours un code owner valide : la review
+# croisee fonctionne dans les deux sens.
+#
 # Doc : https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Default : si rien d'autre ne matche, les deux devs reviewent
-*           @Jeeiib @Meii-Dicale
+# Tous les chemins : les deux devs reviewent
+*                   @Jeeiib @Meii-Dicale
 
-# Backend : JB
-/apps/api/          @Jeeiib
-/packages/db/       @Jeeiib
-/docker/            @Jeeiib
-/.github/           @Jeeiib
+# Backend (referent JB)
+/apps/api/          @Jeeiib @Meii-Dicale
+/packages/db/       @Jeeiib @Meii-Dicale
+/docker/            @Jeeiib @Meii-Dicale
+/.github/           @Jeeiib @Meii-Dicale
 
-# Frontend : Lorelei
-/apps/web/          @Meii-Dicale
-/apps/mobile/       @Meii-Dicale
+# Frontend (referente Lorelei)
+/apps/web/          @Jeeiib @Meii-Dicale
+/apps/mobile/       @Jeeiib @Meii-Dicale
 
-# Code partage : les deux reviewent
+# Code partage
 /packages/shared/   @Jeeiib @Meii-Dicale
 /packages/config/   @Jeeiib @Meii-Dicale
 
-# Documentation : les deux peuvent toucher, les deux reviewent
+# Documentation
 /docs/              @Jeeiib @Meii-Dicale
 README.md           @Jeeiib @Meii-Dicale

@@ -35,6 +35,9 @@ export interface IgdbGame {
   themes: IgdbTaxon[];
   similarIgdbIds: number[];
   hypes: number | null;
+  platformIds: number[];
+  gameType: number | null;
+  versionParentIgdbId: number | null;
 }
 
 export interface IgdbPlatform {
@@ -173,6 +176,9 @@ const GAME_FIELDS = [
   "involved_companies.publisher",
   "similar_games",
   "hypes",
+  "platforms",
+  "game_type",
+  "version_parent",
 ].join(",");
 
 interface RawTaxon {
@@ -198,6 +204,9 @@ interface RawGame {
   }>;
   similar_games?: number[];
   hypes?: number;
+  platforms?: number[];
+  game_type?: number;
+  version_parent?: number;
 }
 
 function mapTaxa(raw: RawTaxon[] | undefined): IgdbTaxon[] {
@@ -209,7 +218,7 @@ function unixToDate(unix: number | undefined): string | null {
   return new Date(unix * 1000).toISOString().slice(0, 10);
 }
 
-function mapRawGame(r: RawGame): IgdbGame {
+export function mapRawGame(r: RawGame): IgdbGame {
   const dev = r.involved_companies?.find((c) => c.developer)?.company?.name ?? null;
   const pub = r.involved_companies?.find((c) => c.publisher)?.company?.name ?? null;
   return {
@@ -227,6 +236,9 @@ function mapRawGame(r: RawGame): IgdbGame {
     themes: mapTaxa(r.themes),
     similarIgdbIds: r.similar_games ?? [],
     hypes: r.hypes ?? null,
+    platformIds: r.platforms ?? [],
+    gameType: r.game_type ?? null,
+    versionParentIgdbId: r.version_parent ?? null,
   };
 }
 
@@ -282,8 +294,11 @@ export async function fetchAcclaimedByGenres(
   const body =
     `fields ${GAME_FIELDS}; ` +
     `where first_release_date < ${nowEpochSeconds} & genres = (${igdbGenreIds.join(",")}) ` +
+    // Pool elargi (100 -> 150) : meme requete unique, juste plus de resultats a
+    // trier/filtrer en aval (compense les candidats perdus au plancher de votes
+    // discovery cote candidates.ts, sans appel IGDB supplementaire).
     `& rating_count >= 50 & rating >= 75; ` +
-    `sort rating desc; limit 100;`;
+    `sort rating desc; limit 150;`;
   return requestIgdbGames(body, token, clientId, fetchImpl);
 }
 
@@ -328,10 +343,12 @@ export async function fetchGamesByDeveloper(
   if (companyId == null) return [];
 
   // 2. Jeux developpes par cette societe, sortis (rating_count >= 10), tries par note.
+  // Pool elargi (20 -> 30) : meme appel unique par studio, juste plus de resultats
+  // (compense les candidats perdus au plancher de votes discovery en aval).
   const body =
     `fields ${GAME_FIELDS}; ` +
     `where involved_companies.company = ${companyId} & involved_companies.developer = true & rating_count >= 10; ` +
-    `sort rating desc; limit 20;`;
+    `sort rating desc; limit 30;`;
 
   return requestIgdbGames(body, token, clientId, fetchImpl);
 }

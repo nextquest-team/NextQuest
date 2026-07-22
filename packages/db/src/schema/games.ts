@@ -50,6 +50,12 @@ export const games = pgTable(
     // Sert de signal qualite pour les jeux pas encore sortis (reco bucket "upcoming"),
     // ou la note joueurs n'existe pas encore.
     igdbHypes: integer("igdb_hypes"),
+    // Type IGDB du jeu (0=main, 1=dlc, 2=expansion, 3=bundle, 4=standalone_expansion,
+    // 13=pack). Sert a filtrer les DLC/editions des recommandations.
+    gameType: integer("game_type"),
+    // igdb_id du jeu de base quand ce jeu est une edition/version (ex: "Game GOTY").
+    // Permet de rattacher une edition a son jeu principal pour la reco.
+    versionParentIgdbId: integer("version_parent_igdb_id"),
     // Les jeux custom sont ceux ajoutes manuellement par un user (pas dans IGDB/RAWG)
     isCustom: boolean("is_custom").notNull().default(false),
     createdBy: uuid("created_by").references(() => users.id, {

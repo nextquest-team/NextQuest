@@ -138,6 +138,9 @@ describe("hydrateGamesByIgdbIds", () => {
               hypes: 50,
               coverImageId: null,
               artworkImageId: null,
+              platformIds: [],
+              gameType: null,
+              versionParentIgdbId: null,
             }) as IgdbGame,
         );
       },
@@ -225,6 +228,9 @@ describe("hydrateGamesByIgdbIds", () => {
               hypes: 75,
               coverImageId: null,
               artworkImageId: null,
+              platformIds: [],
+              gameType: null,
+              versionParentIgdbId: null,
             }) as IgdbGame,
         );
       },

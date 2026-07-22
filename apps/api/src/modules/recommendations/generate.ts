@@ -2,12 +2,14 @@ import { db, recommendations, games, gameSimilar, gameGenres, genres } from "@ne
 import { and, eq, isNull, inArray, sql } from "drizzle-orm";
 import {
   getOwnedForProfile,
+  getOwnedPlatformIds,
   getDimensionFrequencies,
   getSwipeDeltas,
   getLibraryUnplayedCandidates,
   getDiscoveryCandidates,
   getUpcomingCandidates,
 } from "./candidates.js";
+import { filterCandidates } from "./reco-filters.js";
 import { buildBaseProfile, applySwipeDeltas, normalize } from "./profile.js";
 import { buildIdfMap } from "./idf.js";
 import {
@@ -51,10 +53,11 @@ export async function generateRecommendations(
   logger: RecoLogger = defaultRecoLogger,
 ): Promise<{ inserted: number }> {
   // 1. Profil de gout normalise (base + apprentissage swipe).
-  const [owned, dims, swipes] = await Promise.all([
+  const [owned, dims, swipes, ownedPlatformIds] = await Promise.all([
     getOwnedForProfile(userId),
     getDimensionFrequencies(),
     getSwipeDeltas(userId),
+    getOwnedPlatformIds(userId),
   ]);
   const idf = buildIdfMap(dims.totalGames, dims.freqs);
   const profile = normalize(
@@ -101,7 +104,9 @@ export async function generateRecommendations(
   const allScoredGameIds: string[] = []; // Pour charger les genres après
 
   for (const { bucket, candidates } of buckets) {
-    const bucketRecos = await buildBucketRecos(profile, candidates, bucket);
+    // library_unplayed est deja possede : pas de filtre plateforme/DLC a lui appliquer.
+    const filtered = bucket === "library_unplayed" ? candidates : filterCandidates(candidates, ownedPlatformIds);
+    const bucketRecos = await buildBucketRecos(profile, filtered, bucket);
     for (const reco of bucketRecos) {
       toInsert.push({
         userId,

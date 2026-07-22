@@ -9,9 +9,11 @@ import {
   tags,
   gameTags,
   gameSimilar,
+  platforms,
+  gamePlatforms,
 } from "@nextquest/db";
 import { eq } from "drizzle-orm";
-import { enrichGames } from "../igdb.service.js";
+import { enrichGames, upsertEnrichedGame } from "../igdb.service.js";
 import type { IgdbGame } from "../igdb.client.js";
 
 async function cleanup() {
@@ -56,6 +58,9 @@ const sampleIgdbGame = (over: Partial<IgdbGame> = {}): IgdbGame => ({
   themes: [{ igdbId: 1, name: "Action", slug: "action" }],
   similarIgdbIds: [11, 22],
   hypes: 850,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
   ...over,
 });
 
@@ -256,5 +261,43 @@ describe("enrichGames (scopé user)", () => {
     const [g] = await db.select().from(games).where(eq(games.id, gameId));
     expect(g.releaseStatus).toBe("released");
     expect(g.releaseDate).toBe("2020-01-15");
+  });
+});
+
+describe("upsertEnrichedGame (plateformes)", () => {
+  it("peuple game_platforms et game_type a l'enrichissement", async () => {
+    // Reutilise une plateforme igdb_id=6 (PC) si deja seedee ; sinon en cree une
+    // dediee au test avec un code distinct (la migration de seed pose "pc" sans
+    // igdb_id, donc reprendre le meme code casserait sur la contrainte unique code).
+    // Le create est nettoye dans le finally, la ligne reutilisee ne l'est jamais.
+    let [pc] = await db.select().from(platforms).where(eq(platforms.igdbId, 6));
+    let createdPlatformId: string | null = null;
+    if (!pc) {
+      [pc] = await db
+        .insert(platforms)
+        .values({ name: "PC (test)", code: "pc-igdb-test", igdbId: 6 })
+        .returning();
+      createdPlatformId = pc.id;
+    }
+
+    try {
+      const gameId = await seedGame(7777, "Enrichi Plateformes");
+
+      await upsertEnrichedGame(
+        gameId,
+        sampleIgdbGame({ platformIds: [6], gameType: 0, versionParentIgdbId: null }),
+      );
+
+      const [g] = await db.select().from(games).where(eq(games.id, gameId));
+      expect(g.gameType).toBe(0);
+
+      const gp = await db.select().from(gamePlatforms).where(eq(gamePlatforms.gameId, gameId));
+      expect(gp).toHaveLength(1);
+      expect(gp[0].platformId).toBe(pc.id);
+    } finally {
+      if (createdPlatformId) {
+        await db.delete(platforms).where(eq(platforms.id, createdPlatformId));
+      }
+    }
   });
 });

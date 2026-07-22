@@ -27,6 +27,7 @@ import {
   type IgdbGame,
 } from "../games/igdb/igdb.client.js";
 import { getTwitchToken } from "../games/igdb/igdb.auth.js";
+import { enrichGames } from "../games/igdb/igdb.service.js";
 import { redis } from "../../lib/redis.js";
 import type {
   GameStatus,
@@ -457,6 +458,7 @@ export type AddIgdbGameResult =
 export interface AddIgdbGameDeps {
   getToken(): Promise<string>;
   fetchGamesByIds: typeof fetchGamesByIds;
+  enrich: typeof enrichGames;
 }
 
 function defaultAddIgdbGameDeps(): AddIgdbGameDeps {
@@ -473,6 +475,7 @@ function defaultAddIgdbGameDeps(): AddIgdbGameDeps {
         redisStore,
       ),
     fetchGamesByIds,
+    enrich: enrichGames,
   };
 }
 
@@ -529,6 +532,14 @@ export async function addIgdbGameToCollection(
     }
     return { ok: false, reason: result.reason };
   }
+
+  // Enrichissement complet en fire-and-forget (genres/tags/plateformes/note) :
+  // l'ajout reste instantane, les metadonnees arrivent apres. Idempotent,
+  // rattrape par le prochain enrichissement en cas d'echec.
+  void deps.enrich({ userId }).catch(() => {
+    /* best-effort : un echec sera rattrape au prochain declenchement */
+  });
+
   return result;
 }
 
@@ -554,7 +565,12 @@ async function insertMinimalGameFromIgdb(data: IgdbGame): Promise<string> {
       releaseStatus,
       developer: data.developer,
       publisher: data.publisher,
-      lastSyncedAt: new Date(),
+      // lastSyncedAt volontairement absent (reste NULL) : cet insert minimal n'a
+      // jamais ete synchronise avec IGDB (genres/tags/plateformes/note manquants).
+      // Le laisser NULL garantit que selectCandidates() (igdb.service.ts) selectionne
+      // ce jeu des le prochain enrichGames, notamment le fire-and-forget declenche
+      // juste apres par addIgdbGameToCollection. Le stamper ici rendrait ce
+      // fire-and-forget no-op pendant STALE_DAYS (30 jours).
     })
     // Defense-in-depth : course possible avec un autre flux (ex. enrichGames) qui
     // aurait insere ce meme igdbId entretemps sous un slug different.

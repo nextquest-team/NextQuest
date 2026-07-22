@@ -4,11 +4,15 @@ import {
   games,
   gameGenres,
   gameTags,
+  gamePlatforms,
+  platforms,
+  services,
+  connectedServices,
   recommendations,
   gameSimilar,
   genres,
 } from "@nextquest/db";
-import { and, eq, count, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, eq, count, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { OwnedGameForProfile, SwipeDelta } from "./profile.js";
 import type { Candidate } from "./scoring.js";
 import { fetchUpcomingByGenres, fetchAcclaimedByGenres, fetchGamesByDeveloper } from "../games/igdb/igdb.client.js";
@@ -36,6 +40,50 @@ async function genreTagIdsByGame(gameIds: string[]) {
   return { g, t };
 }
 
+// Plateformes par jeu (1 requete IN), meme motif que genreTagIdsByGame.
+async function platformIdsByGame(gameIds: string[]): Promise<Map<string, string[]>> {
+  const m = new Map<string, string[]>();
+  if (gameIds.length === 0) return m;
+  const rows = await db
+    .select({ gameId: gamePlatforms.gameId, id: gamePlatforms.platformId })
+    .from(gamePlatforms)
+    .where(inArray(gamePlatforms.gameId, gameIds));
+  for (const r of rows) m.set(r.gameId, [...(m.get(r.gameId) ?? []), r.id]);
+  return m;
+}
+
+// Petite requete locale (pas d'import depuis platforms/steam pour eviter un couplage
+// inter-modules) : un compte Steam lie implique un PC, l'import Steam ne concerne que le PC.
+async function isSteamLinked(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: connectedServices.id })
+    .from(connectedServices)
+    .innerJoin(services, eq(connectedServices.serviceId, services.id))
+    .where(and(eq(connectedServices.userId, userId), eq(services.code, "steam")))
+    .limit(1);
+  return !!row;
+}
+
+// Plateformes reellement possedees par l'user : au moins 2 jeux importes sur la
+// plateforme (un jeu isole ne prouve pas la possession -- cadeau revendu, mauvais
+// tag...). Le compte porte sur TOUS les user_games avec platform_id, ignores inclus :
+// posseder une console est un fait materiel, ignorer un jeu ne la desinstalle pas.
+// PC est toujours inclus si un compte Steam est lie, meme sans jeu tague PC.
+export async function getOwnedPlatformIds(userId: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ platformId: userGames.platformId, n: sql<number>`count(*)::int` })
+    .from(userGames)
+    .where(and(eq(userGames.userId, userId), isNotNull(userGames.platformId)))
+    .groupBy(userGames.platformId);
+  const owned = new Set(rows.filter((r) => r.n >= 2 && r.platformId).map((r) => r.platformId!));
+
+  if (await isSteamLinked(userId)) {
+    const [pc] = await db.select({ id: platforms.id }).from(platforms).where(eq(platforms.code, "pc"));
+    if (pc) owned.add(pc.id);
+  }
+  return owned;
+}
+
 export async function getOwnedForProfile(
   userId: string,
 ): Promise<OwnedGameForProfile[]> {
@@ -49,7 +97,7 @@ export async function getOwnedForProfile(
     })
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
-    .where(eq(userGames.userId, userId));
+    .where(and(eq(userGames.userId, userId), isNull(userGames.excludedAt)));
   const { g, t } = await genreTagIdsByGame(rows.map((r) => r.gameId));
   return rows.map((r) => ({
     gameId: r.gameId,
@@ -120,6 +168,8 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
       igdbRating: games.igdbRating,
       igdbRatingCount: games.igdbRatingCount,
       igdbHypes: games.igdbHypes,
+      gameType: games.gameType,
+      versionParentIgdbId: games.versionParentIgdbId,
     })
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
@@ -128,6 +178,7 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
         eq(userGames.userId, userId),
         inArray(userGames.status, ["backlog", "wishlist"]),
         or(isNull(userGames.playtimeMinutes), lt(userGames.playtimeMinutes, UNPLAYED_MAX_MINUTES)),
+        isNull(userGames.excludedAt),
       ),
     );
   const { g, t } = await genreTagIdsByGame(rows.map((r) => r.gameId));
@@ -139,8 +190,17 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
     igdbRatingCount: r.igdbRatingCount,
     igdbHypes: r.igdbHypes,
     similarVotes: 0, // pas de graphe similaire pour ce bucket
+    platformIds: [], // deja possede : pas de filtre plateforme a lui appliquer
+    gameType: r.gameType,
+    versionParentIgdbId: r.versionParentIgdbId,
   }));
 }
+
+// Plancher de votes joueurs IGDB en discovery : un candidat note mais sur trop peu
+// de votes (indes obscurs a 2-8 votes en pratique) est du bruit statistique, pas un
+// signal de qualite. On l'ecarte. Un candidat SANS note du tout (igdbRatingCount null)
+// est garde : il est gere par le prior de confiance du scoring, pas par ce plancher.
+const DISCOVERY_MIN_RATING_COUNT = 5;
 
 // Candidats du bucket "discovery" : jeux similaires aux jeux possedes via le graphe
 // game_similar (source 1) + jeux acclaimed dans les top genres de l'user (source 2) +
@@ -148,8 +208,26 @@ export async function getLibraryUnplayedCandidates(userId: string): Promise<Cand
 // La source graphe est re-classee par similarite de contenu pour filtrer le bruit.
 // Les trois sources sont fusionnees, deduplicates, et exclues si deja possedes/swipes.
 export async function getDiscoveryCandidates(userId: string): Promise<Candidate[]> {
-  // Jeux possedes et leurs infos (igdbId, genres, developpeur, editeur, note)
+  // Jeux possedes (TOUS, ignores inclus) : sert uniquement a exclure des candidats
+  // les jeux deja dans la bibliotheque. Un jeu ignore reste possede : il ne doit pas
+  // redevenir recommandable juste parce qu'il est ignore.
   const owned = await db
+    .select({
+      gameId: games.id,
+      igdbId: games.igdbId,
+    })
+    .from(userGames)
+    .innerJoin(games, eq(userGames.gameId, games.id))
+    .where(eq(userGames.userId, userId));
+  const ownedGameIds = new Set(owned.map((o) => o.gameId));
+  const ownedIgdbIds = owned.map((o) => o.igdbId).filter((x): x is number => x != null);
+  if (ownedIgdbIds.length === 0) return [];
+
+  // Jeux possedes actifs (non ignores) et leurs infos (igdbId, genres, developpeur,
+  // editeur, note) : sert a construire le profil de gout (genres, developpeurs,
+  // graphe similaire) qui alimente les sources de decouverte. Un jeu ignore ne
+  // doit plus influencer les recos.
+  const ownedActive = await db
     .select({
       gameId: games.id,
       igdbId: games.igdbId,
@@ -159,24 +237,21 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
     })
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
-    .where(eq(userGames.userId, userId));
-  const ownedGameIds = new Set(owned.map((o) => o.gameId));
-  const ownedIgdbIds = owned.map((o) => o.igdbId).filter((x): x is number => x != null);
-  if (ownedIgdbIds.length === 0) return [];
+    .where(and(eq(userGames.userId, userId), isNull(userGames.excludedAt)));
 
-  // Charger les genres des jeux possedes pour filtrer les similaires par contenu
-  const { g: ownedGenres, t: ownedTags } = await genreTagIdsByGame(owned.map((o) => o.gameId));
-  const ownedWithContent = owned.map((o) => ({
+  // Charger les genres des jeux possedes actifs pour filtrer les similaires par contenu
+  const { g: ownedGenres, t: ownedTags } = await genreTagIdsByGame(ownedActive.map((o) => o.gameId));
+  const ownedWithContent = ownedActive.map((o) => ({
     ...o,
     genreIds: ownedGenres.get(o.gameId) ?? [],
     tagIds: ownedTags.get(o.gameId) ?? [],
   }));
 
-  // SOURCE 1 : graphe similaire
+  // SOURCE 1 : graphe similaire (base sur les jeux possedes actifs uniquement)
   const sims = await db
     .select({ ownerGameId: gameSimilar.gameId, similarIgdbId: gameSimilar.similarIgdbId })
     .from(gameSimilar)
-    .where(inArray(gameSimilar.gameId, [...ownedGameIds]));
+    .where(inArray(gameSimilar.gameId, ownedActive.map((o) => o.gameId)));
 
   // Re-classement : filtrer les candidats similaires par similarite de contenu
   // avec le jeu possede le plus proche. Seuil bas pour eviter de perdre des candidats.
@@ -236,14 +311,14 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
     }
   }
 
-  // SOURCE 3 : jeux du même studio que les jeux possédés
+  // SOURCE 3 : jeux du meme studio que les jeux possedes actifs
   // Limiter le nombre de studios interrogés pour éviter N+1 calls IGDB.
-  // On prend les studios distincts des jeux possédés, up to 5.
+  // On prend les studios distincts des jeux possedes actifs, up to 5.
   // Plafond : max 3 jeux par studio apres le filtre genre/theme.
   let sameDevByIgdb: number[] = [];
-  if (owned.length > 0) {
+  if (ownedActive.length > 0) {
     const distinctDevelopers = [
-      ...new Set(owned.map((o) => o.developer).filter((d): d is string => d != null)),
+      ...new Set(ownedActive.map((o) => o.developer).filter((d): d is string => d != null)),
     ].slice(0, 5);
 
     if (distinctDevelopers.length > 0) {
@@ -303,6 +378,8 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
       igdbHypes: games.igdbHypes,
       developer: games.developer,
       publisher: games.publisher,
+      gameType: games.gameType,
+      versionParentIgdbId: games.versionParentIgdbId,
     })
     .from(games)
     .where(inArray(games.igdbId, candidateIgdbIds));
@@ -310,6 +387,7 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
   const { g: candidateGenres, t: candidateTags } = await genreTagIdsByGame(
     resolved.map((r) => r.gameId),
   );
+  const candidatePlatforms = await platformIdsByGame(resolved.map((r) => r.gameId));
 
   // Filtrer les candidats du graphe similaire par similarite de contenu.
   // Si peu d'info (genres manquants sur le jeu ou l'user), passer le seuil.
@@ -410,6 +488,7 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
 
   return filtered
     .filter((r) => !ownedGameIds.has(r.gameId) && !swipedGameIds.has(r.gameId))
+    .filter((r) => r.igdbRatingCount == null || r.igdbRatingCount >= DISCOVERY_MIN_RATING_COUNT)
     .map((r) => ({
       gameId: r.gameId,
       genreIds: candidateGenres.get(r.gameId) ?? [],
@@ -418,13 +497,17 @@ export async function getDiscoveryCandidates(userId: string): Promise<Candidate[
       igdbRatingCount: r.igdbRatingCount,
       igdbHypes: r.igdbHypes,
       similarVotes: similarVotesByIgdb.get(r.igdbId!) ?? 0,
+      platformIds: candidatePlatforms.get(r.gameId) ?? [],
+      gameType: r.gameType,
+      versionParentIgdbId: r.versionParentIgdbId,
     }));
 }
 
 // Candidats du bucket "upcoming" : jeux pas encore sortis, dans les top genres
 // de l'user, tries par hype.
 export async function getUpcomingCandidates(userId: string): Promise<Candidate[]> {
-  // Jeux possedes et leurs genres
+  // Jeux possedes (TOUS, ignores inclus) : sert uniquement a exclure des candidats
+  // les jeux deja dans la bibliotheque. Un jeu ignore reste possede.
   const ownedGameIds = new Set(
     (await db.select({ gameId: userGames.gameId }).from(userGames).where(eq(userGames.userId, userId))).map(
       (r) => r.gameId,
@@ -433,9 +516,19 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
 
   if (ownedGameIds.size === 0) return [];
 
-  const { g } = await genreTagIdsByGame([...ownedGameIds]);
+  // Jeux possedes actifs (non ignores) : sert a determiner les top genres qui
+  // pilotent la recherche des sorties a venir. Un jeu ignore ne doit plus
+  // influencer les recos.
+  const ownedActiveGameIds = (
+    await db
+      .select({ gameId: userGames.gameId })
+      .from(userGames)
+      .where(and(eq(userGames.userId, userId), isNull(userGames.excludedAt)))
+  ).map((r) => r.gameId);
 
-  // Frequences des genres dans les jeux possedes
+  const { g } = await genreTagIdsByGame(ownedActiveGameIds);
+
+  // Frequences des genres dans les jeux possedes actifs
   const genreFreq = new Map<string, number>();
   for (const [, genreIds] of g) {
     for (const gid of genreIds) {
@@ -494,6 +587,8 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
       igdbRating: games.igdbRating,
       igdbRatingCount: games.igdbRatingCount,
       igdbHypes: games.igdbHypes,
+      gameType: games.gameType,
+      versionParentIgdbId: games.versionParentIgdbId,
     })
     .from(games)
     .where(inArray(games.igdbId, upcomingGames.map((g) => g.igdbId)));
@@ -501,6 +596,7 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
   const { g: resolvedGenres, t: resolvedTags } = await genreTagIdsByGame(
     resolved.map((r) => r.gameId),
   );
+  const resolvedPlatforms = await platformIdsByGame(resolved.map((r) => r.gameId));
 
   return resolved
     .filter((r) => !ownedGameIds.has(r.gameId) && !swipedGameIds.has(r.gameId))
@@ -512,5 +608,8 @@ export async function getUpcomingCandidates(userId: string): Promise<Candidate[]
       igdbRatingCount: r.igdbRatingCount,
       igdbHypes: r.igdbHypes,
       similarVotes: 0, // pas de graphe similaire pour ce bucket
+      platformIds: resolvedPlatforms.get(r.gameId) ?? [],
+      gameType: r.gameType,
+      versionParentIgdbId: r.versionParentIgdbId,
     }));
 }

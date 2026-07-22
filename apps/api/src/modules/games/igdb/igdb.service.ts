@@ -8,8 +8,10 @@ import {
   tags,
   gameTags,
   gameSimilar,
+  gamePlatforms,
+  platforms,
 } from "@nextquest/db";
-import { and, eq, inArray, isNull, or, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, or, lt, sql } from "drizzle-orm";
 import {
   igdbImageUrl,
   findGameIdsBySteamAppids,
@@ -106,7 +108,7 @@ async function selectCandidates(userId?: string) {
 }
 
 // Upsert d'un jeu enrichi + ses genres/themes/similar, dans une transaction.
-async function upsertEnrichedGame(
+export async function upsertEnrichedGame(
   gameId: string,
   data: IgdbGame,
   avgPlaytime: number | null = null,
@@ -134,6 +136,8 @@ async function upsertEnrichedGame(
         backgroundUrl: data.artworkImageId ? igdbImageUrl(data.artworkImageId, "t_1080p") : null,
         avgPlaytime: avgPlaytime,
         igdbHypes: igdbHypes,
+        gameType: data.gameType,
+        versionParentIgdbId: data.versionParentIgdbId,
         lastSyncedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -176,6 +180,23 @@ async function upsertEnrichedGame(
         .insert(gameTags)
         .values(themeRows.map((r) => ({ gameId, tagId: r.id })))
         .onConflictDoNothing();
+    }
+
+    // Plateformes : resout les igdbId IGDB vers nos plateformes locales
+    // (platforms.igdb_id) et lie le jeu. Additif + onConflictDoNothing (PK
+    // composite gameId+platformId). Les plateformes sans igdb_id local (ex.
+    // Steam Deck) ne matchent jamais : comportement voulu.
+    if (data.platformIds.length > 0) {
+      const localPlatforms = await tx
+        .select({ id: platforms.id, igdbId: platforms.igdbId })
+        .from(platforms)
+        .where(and(isNotNull(platforms.igdbId), inArray(platforms.igdbId, data.platformIds)));
+      if (localPlatforms.length > 0) {
+        await tx
+          .insert(gamePlatforms)
+          .values(localPlatforms.map((p) => ({ gameId, platformId: p.id })))
+          .onConflictDoNothing();
+      }
     }
 
     // Similar : on remplace l'ensemble des liens du jeu (source de verite = IGDB).

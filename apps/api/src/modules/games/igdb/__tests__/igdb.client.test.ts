@@ -7,6 +7,7 @@ import {
   fetchUpcoming,
   fetchGameDetail,
   igdbImageUrl,
+  mapRawGame,
 } from "../igdb.client.js";
 
 const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
@@ -106,6 +107,18 @@ describe("fetchGamesByIds", () => {
     expect(g.coverImageId).toBeNull();
     expect(g.genres).toEqual([]);
     expect(g.similarIgdbIds).toEqual([]);
+  });
+});
+
+describe("mapRawGame", () => {
+  it("capte platformIds, gameType et versionParentIgdbId", () => {
+    const raw = {
+      id: 42, name: "Test", platforms: [6, 48], game_type: 0, version_parent: null,
+    } as any;
+    const mapped = mapRawGame(raw);
+    expect(mapped.platformIds).toEqual([6, 48]);
+    expect(mapped.gameType).toBe(0);
+    expect(mapped.versionParentIgdbId).toBeNull();
   });
 });
 

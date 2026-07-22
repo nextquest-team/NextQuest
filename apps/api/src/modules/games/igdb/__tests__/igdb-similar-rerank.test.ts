@@ -80,6 +80,9 @@ const divinity: IgdbGame = {
   ],
   similarIgdbIds: [],
   hypes: 50,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 const baldursGateClassic: IgdbGame = {
@@ -102,6 +105,9 @@ const baldursGateClassic: IgdbGame = {
   ],
   similarIgdbIds: [],
   hypes: 20,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 const doom: IgdbGame = {
@@ -121,6 +127,9 @@ const doom: IgdbGame = {
   themes: [],
   similarIgdbIds: [],
   hypes: 10,
+  platformIds: [],
+  gameType: null,
+  versionParentIgdbId: null,
 };
 
 describe("Similaires de fiche re-classés par similarité de contenu", () => {

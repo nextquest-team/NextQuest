@@ -23,6 +23,7 @@ const RECO_FIELDS = {
   score: recommendations.score,
   reason: recommendations.reason,
   gameId: games.id,
+  igdbId: games.igdbId,
   title: games.title,
   slug: games.slug,
   coverUrl: games.coverUrl,

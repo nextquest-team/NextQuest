@@ -1,3 +1,4 @@
+import { skipHydrate } from 'pinia'
 import type { TimelineGameDTO } from '~/types/timeline'
 
 const STORAGE_KEY = 'nq-followed-games'
@@ -6,7 +7,10 @@ const STORAGE_KEY = 'nq-followed-games'
 // /api/games/:igdbId/follow). Persiste en localStorage, propre au navigateur —
 // a remplacer par un appel API des que JB expose la route.
 export const useFollowedGamesStore = defineStore('followedGames', () => {
-  const games = ref<Record<number, TimelineGameDTO>>({})
+  // skipHydrate : cet état est propre au localStorage client, le payload SSR
+  // (toujours vide) ne doit pas l'écraser au boot — sinon le premier persist()
+  // réécrit un localStorage vide par-dessus les jeux déjà suivis.
+  const games = skipHydrate(ref<Record<number, TimelineGameDTO>>({}))
   let hydrated = false
 
   function hydrate() {

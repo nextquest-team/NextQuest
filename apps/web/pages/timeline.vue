@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { TimelineTab } from '~/types/timeline'
 
-definePageMeta({ ssr: false })
-
 const { mobile } = useDisplay()
 
 const activeTab = ref<TimelineTab>('upcoming')

@@ -127,6 +127,7 @@ export async function upsertEnrichedGame(
         igdbId: data.igdbId,
         description: data.summary,
         releaseDate: data.releaseDate,
+        releaseDatePrecision: data.releaseDatePrecision,
         releaseStatus,
         igdbRating: data.rating,
         igdbRatingCount: data.ratingCount,

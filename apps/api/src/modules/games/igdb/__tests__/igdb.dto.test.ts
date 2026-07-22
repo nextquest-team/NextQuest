@@ -53,6 +53,11 @@ describe("toGameDetailDTO", () => {
     expect(toGameDetailDTO(detail, "2026-06-22").releaseStatus).toBe("released");
   });
 
+  it("expose releaseDatePrecision dans le DTO detail", () => {
+    const dto = toGameDetailDTO({ ...detail, releaseDatePrecision: "quarter" }, "2026-06-22");
+    expect(dto.releaseDatePrecision).toBe("quarter");
+  });
+
   it("images absentes -> URLs null", () => {
     const dto = toGameDetailDTO(
       { ...detail, coverImageId: null, artworkImageId: null, screenshotImageIds: [] },
@@ -81,11 +86,26 @@ describe("toUpcomingGameDTO", () => {
       igdbId: 7,
       title: "Coming Soon",
       releaseDate: "2027-03-01",
+      releaseDatePrecision: "day",
       coverUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/cv.jpg",
       hypes: 42,
       genres: [{ igdbId: 12, name: "RPG", slug: "rpg" }],
       platforms: [{ igdbId: 48, name: "PS5", abbreviation: "PS5" }],
     });
+  });
+
+  it("expose releaseDatePrecision dans le DTO upcoming", () => {
+    const dto = toUpcomingGameDTO({
+      igdbId: 1,
+      name: "X",
+      releaseDate: "2027-12-31",
+      coverImageId: null,
+      hypes: 10,
+      genres: [],
+      platforms: [],
+      releaseDatePrecision: "year",
+    });
+    expect(dto.releaseDatePrecision).toBe("year");
   });
 
   it("cover absente -> coverUrl null", () => {

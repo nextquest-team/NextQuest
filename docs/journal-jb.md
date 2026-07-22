@@ -221,3 +221,13 @@
 ## 21 juillet 2026
 
 **Refonte "exclusion" -> "ignoré" (flag sur user_games, plus de table dédiée)** -- La 1re version (table `user_game_exclusions`) recréait le `user_game` en backlog à la réintégration : le statut (terminé, temps de jeu...) était perdu. Remplacé par un flag `excluded_at` directement sur `user_games` (migration 0009, `DROP TABLE user_game_exclusions` + `ADD COLUMN excluded_at`). Un jeu ignoré garde sa ligne intacte, juste masquée de la vue par défaut ; restaurer ne touche qu'`excluded_at`, le statut ne bouge jamais. Nouvelles routes `POST /collection/:userGameId/ignore|restore` (204) remplacent `GET/POST .../exclusions...` ; `GET /collection` prend un `view=library|ignored`. Import Steam : l'upsert ne réactive jamais un jeu ignoré (`excluded_at` absent du `set` du conflit).
+
+---
+
+## 22 juillet 2026
+
+**Qualité des recommandations (PR #106)** -- Fin des recos absurdes : plus jamais de jeu sur une plateforme non possédée (seuil ≥ 2 jeux + PC si Steam lié, `game_platforms` enfin peuplée + migration de référence des igdb_id), plus de DLC/éditions (`game_type`/`version_parent` persistés), les jeux ignorés sortent du profil de goût sans jamais redevenir recommandables, et plancher de 5 votes joueurs en découverte (fini les indés à 3 votes en tête). L'ajout manuel enrichit désormais complètement le jeu (bug sournois attrapé en review finale : le `last_synced_at` posé à l'insert rendait l'enrichissement muet). Backfill du catalogue exécuté. Validation : 455 tests API, E2E réel sur ma bibliothèque. Décision durable : signal de note 100 % joueurs (jamais la presse), IGDB seul suffit -- benchmark 200 jeux, couverture excellente même sur le rétro.
+
+**Vulnérabilités Dependabot corrigées** -- tar ≥ 7.5.19 (DoS critique), js-yaml ≥ 4.3.0 borné < 5 (la leçon vite 8 : jamais de floor sans plafond sur une transitive), shell-quote ≥ 1.9.0. Se fermeront au passage sur main.
+
+**MVP COMPLET (milestone 6/6 fermé)** -- La fermeture de #58 (moteur de reco : profil de goût, candidats IGDB, scoring, swipe, écran Next Quest) clôt le dernier lot du MVP, onze mois avant la soutenance. Restent des issues post-MVP (queue de jobs #68, re-sync #70, notifications #71, keywords #72) et deux petites (#40 device_name, #108 accepter-la-quête → collection).

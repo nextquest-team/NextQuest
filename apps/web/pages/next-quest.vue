@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RecommendationDTO, GroupedRecommendations, FeedbackAction } from '~/types/recommendations'
+import type { RecommendationDTO, GroupedRecommendations, FeedbackAction, RecoBucket } from '~/types/recommendations'
 
 definePageMeta({ ssr: false })
 
@@ -11,7 +11,7 @@ const { mdAndUp } = useDisplay()
 const loading = ref(false)
 const generating = ref(false)
 const error = ref(false)
-const lastFailedOp = ref<'fetch' | 'generate' | null>(null)
+const lastFailedOp = ref<'fetch' | 'generate' | 'refresh' | null>(null)
 const feedbackPending = ref<string | null>(null)
 
 const discoveryQueue = ref<RecommendationDTO[]>([])
@@ -59,9 +59,60 @@ async function generate() {
   }
 }
 
+// Fait tourner la sélection (passe les cartes affichées derrière le pool) sans
+// tout recalculer : contrairement à generate(), garantit des cartes différentes.
+async function refresh() {
+  generating.value = true
+  error.value = false
+  lastFailedOp.value = null
+  try {
+    const skip = [discovery.value?.id, libraryUnplayed.value?.id, upcoming.value?.id]
+      .filter((id): id is string => !!id)
+    const res = await authFetch<GroupedRecommendations>(`${apiBase}/api/recommendations/refresh`, {
+      method: 'POST',
+      body: { skip },
+    })
+    discoveryQueue.value = res.discovery
+    libraryUnplayedQueue.value = res.libraryUnplayed
+    upcomingQueue.value = res.upcoming
+  } catch {
+    error.value = true
+    lastFailedOp.value = 'refresh'
+  } finally {
+    generating.value = false
+  }
+}
+
 function retry() {
   if (lastFailedOp.value === 'generate') generate()
+  else if (lastFailedOp.value === 'refresh') refresh()
   else fetchRecos()
+}
+
+const bucketQueue: Record<RecoBucket, Ref<RecommendationDTO[]>> = {
+  discovery: discoveryQueue,
+  library_unplayed: libraryUnplayedQueue,
+  upcoming: upcomingQueue,
+}
+
+// Ré-approvisionne un bucket vide sans toucher aux états globaux loading/error :
+// les 2 autres cartes restent affichées et interactives.
+// IMPORTANT : le replenish-when-dry (côté API, recommendations.service.ts) n'existe
+// que sur GET /api/recommendations SANS le paramètre "bucket" (getGroupedRecommendations).
+// L'endpoint filtré par bucket (?bucket=X, listRecommendations) ne fait qu'une lecture
+// paginée brute et ne déclenche jamais de réapprovisionnement — d'où le besoin de
+// repasser par l'appel groupé ici.
+async function refillBucket(bucket: RecoBucket) {
+  try {
+    const res = await authFetch<GroupedRecommendations>(`${apiBase}/api/recommendations`)
+    discoveryQueue.value = res.discovery
+    libraryUnplayedQueue.value = res.libraryUnplayed
+    upcomingQueue.value = res.upcoming
+  } catch {
+    // Le refetch a échoué : on vide la file plutôt que de laisser la carte
+    // déclinée affichée à tort (fantôme). La card "Aucune suggestion" prend le relais.
+    bucketQueue[bucket].value = []
+  }
 }
 
 // ── Feedback ───────────────────────────────────────────────────────────────
@@ -73,10 +124,19 @@ async function sendFeedback(reco: RecommendationDTO, action: FeedbackAction) {
       method: 'POST',
       body: { action },
     })
-    if (reco.bucket === 'discovery')        discoveryQueue.value = discoveryQueue.value.slice(1)
-    if (reco.bucket === 'library_unplayed') libraryUnplayedQueue.value = libraryUnplayedQueue.value.slice(1)
-    if (reco.bucket === 'upcoming')         upcomingQueue.value = upcomingQueue.value.slice(1)
-  } catch { /* conserve l'état en cas d'erreur réseau */ }
+    const remaining = bucketQueue[reco.bucket].value.slice(1)
+
+    // On n'assigne jamais un array vide directement : ça déclenche un re-render
+    // avec la card "Aucune suggestion" avant même que refillBucket ait fini.
+    if (remaining.length) {
+      bucketQueue[reco.bucket].value = remaining
+    } else {
+      await refillBucket(reco.bucket)
+    }
+  } catch {
+    // La requête a échoué avant toute mutation de la file : rien à rattraper,
+    // la carte affichée reste celle qu'on vient d'essayer de traiter.
+  }
   finally {
     feedbackPending.value = null
   }
@@ -121,7 +181,7 @@ onMounted(() => fetchRecos())
       :feedback-pending="feedbackPending"
       :generating="generating"
       @feedback="sendFeedback"
-      @generate="generate"
+      @generate="refresh"
     />
   </div>
 
@@ -166,7 +226,7 @@ onMounted(() => fetchRecos())
         :feedback-pending="feedbackPending"
         :generating="generating"
         @feedback="sendFeedback"
-        @generate="generate"
+        @generate="refresh"
       />
     </div>
 

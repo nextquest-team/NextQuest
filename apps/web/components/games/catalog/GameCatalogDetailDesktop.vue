@@ -9,6 +9,12 @@ const followedStore = useFollowedGamesStore()
 const lightboxIndex = ref<number | null>(null)
 
 const isUpcoming = computed(() => game.value?.releaseStatus === 'upcoming')
+const hasMeta = computed(() => {
+  const g = game.value
+  if (!g) return false
+  return !!(g.releaseDate || g.developer || g.publisher || g.genres.length
+    || g.themes.length || g.platforms.length || g.gameModes.length)
+})
 const isFollowed = computed(() => game.value != null && followedStore.isFollowed(game.value.igdbId))
 
 function onToggleFollow() {
@@ -114,11 +120,12 @@ function ratingStars(rating: number | null): string {
             :aria-label="t('gameDetail.screenshotOpen')"
             @click="lightboxIndex = i"
             @keydown.enter="lightboxIndex = i"
+            @keydown.space.prevent="lightboxIndex = i"
           />
         </div>
       </section>
 
-      <section class="cdd__section">
+      <section v-if="hasMeta" class="cdd__section">
         <dl class="cdd__meta nq-felt-panel">
           <template v-if="game.releaseDate">
             <dt class="cdd__dt">{{ t('gameDetail.releaseDate') }}</dt>
@@ -215,8 +222,8 @@ function ratingStars(rating: number | null): string {
   padding: 3rem 1rem;
 }
 
-.cdd__nf-title { font-size: 1.1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.cdd__nf-hint  { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.65); margin: 0; }
+.cdd__nf-title { font-size: clamp(1.15rem, 2.6vw, 1.3rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
+.cdd__nf-hint  { font-size: clamp(0.95rem, 2.2vw, 1.08rem); color: rgba(var(--nq-brown-dark-rgb), 0.65); margin: 0; }
 
 .cdd__hero { display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1.75rem; }
 
@@ -255,15 +262,15 @@ function ratingStars(rating: number | null): string {
 .cdd__follow--active { color: var(--nq-gold-dark, #C8860A); }
 
 .cdd__rating { display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem; }
-.cdd__rating-stars { color: var(--nq-gold-dark); font-size: 0.9rem; }
-.cdd__rating-num { font-weight: 700; font-size: 0.95rem; color: var(--nq-brown-dark); }
-.cdd__rating-count { font-size: 0.8rem; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
+.cdd__rating-stars { color: var(--nq-gold-dark); font-size: clamp(0.95rem, 2.2vw, 1.08rem); }
+.cdd__rating-num { font-weight: 700; font-size: clamp(1rem, 2.3vw, 1.12rem); color: var(--nq-brown-dark); }
+.cdd__rating-count { font-size: clamp(0.85rem, 2vw, 0.98rem); color: rgba(var(--nq-brown-dark-rgb), 0.72); }
 
 .cdd__hype {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.85rem;
+  font-size: clamp(0.9rem, 2.1vw, 1.02rem);
   font-weight: 600;
   color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin: 0 0 1rem;
@@ -272,7 +279,7 @@ function ratingStars(rating: number | null): string {
 .cdd__section { margin-bottom: 1.75rem; }
 
 .cdd__section-title {
-  font-size: 0.8rem;
+  font-size: clamp(0.85rem, 2vw, 0.98rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -282,12 +289,12 @@ function ratingStars(rating: number | null): string {
   border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
 }
 
-.cdd__summary { font-size: 0.9rem; line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
+.cdd__summary { font-size: clamp(0.95rem, 2.2vw, 1.08rem); line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
 
 .cdd__meta { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
 
 .cdd__dt {
-  font-size: 0.75rem;
+  font-size: clamp(0.8rem, 1.8vw, 0.92rem);
   font-weight: 700;
   color: rgba(var(--nq-brown-dark-rgb), 0.72);
   white-space: nowrap;
@@ -297,7 +304,7 @@ function ratingStars(rating: number | null): string {
   letter-spacing: 0.06em;
 }
 
-.cdd__dd { font-size: 0.875rem; color: var(--nq-brown-dark); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.cdd__dd { font-size: clamp(0.92rem, 2.1vw, 1.05rem); color: var(--nq-brown-dark); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 
 .cdd__chip {
   display: inline-block;
@@ -305,7 +312,7 @@ function ratingStars(rating: number | null): string {
   color: var(--nq-brown, #5C3317);
   border-radius: 999px;
   padding: 2px 10px;
-  font-size: 0.78rem;
+  font-size: clamp(0.82rem, 1.9vw, 0.95rem);
   font-weight: 600;
 }
 .cdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
@@ -347,7 +354,7 @@ function ratingStars(rating: number | null): string {
 }
 
 .cdd__similar-title-text {
-  font-size: 0.7rem;
+  font-size: clamp(0.75rem, 1.7vw, 0.88rem);
   color: rgba(var(--nq-brown-dark-rgb), 0.7);
   text-align: center;
   line-height: 1.3;

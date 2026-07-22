@@ -9,6 +9,12 @@ const followedStore = useFollowedGamesStore()
 const lightboxIndex = ref<number | null>(null)
 
 const isUpcoming = computed(() => game.value?.releaseStatus === 'upcoming')
+const hasMeta = computed(() => {
+  const g = game.value
+  if (!g) return false
+  return !!(g.releaseDate || g.developer || g.publisher || g.genres.length
+    || g.themes.length || g.platforms.length || g.gameModes.length)
+})
 const isFollowed = computed(() => game.value != null && followedStore.isFollowed(game.value.igdbId))
 
 function onToggleFollow() {
@@ -124,12 +130,13 @@ function ratingStars(rating: number | null): string {
               :aria-label="t('gameDetail.screenshotOpen')"
               @click="lightboxIndex = i"
               @keydown.enter="lightboxIndex = i"
+              @keydown.space.prevent="lightboxIndex = i"
             />
           </div>
         </section>
 
         <!-- Infos meta -->
-        <section class="cdm__section">
+        <section v-if="hasMeta" class="cdm__section">
           <dl class="cdm__meta nq-felt-panel">
             <template v-if="game.releaseDate">
               <dt class="cdm__dt">{{ t('gameDetail.releaseDate') }}</dt>
@@ -234,8 +241,8 @@ function ratingStars(rating: number | null): string {
   text-align: center;
 }
 
-.cdm__nf-title { font-size: 1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.cdm__nf-hint  { font-size: 0.85rem; color: rgba(var(--nq-brown-dark-rgb), 0.72); margin: 0; }
+.cdm__nf-title { font-size: clamp(1.05rem, 2.6vw, 1.2rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
+.cdm__nf-hint  { font-size: clamp(0.9rem, 2.2vw, 1.02rem); color: rgba(var(--nq-brown-dark-rgb), 0.72); margin: 0; }
 
 /* Cover pleine largeur */
 .cdm__cover {
@@ -274,15 +281,15 @@ function ratingStars(rating: number | null): string {
 .cdm__follow--active { color: var(--nq-gold-dark, #C8860A); }
 
 .cdm__rating { display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem; }
-.cdm__rating-stars { color: var(--nq-gold-dark); font-size: 0.85rem; }
-.cdm__rating-num { font-weight: 700; font-size: 0.9rem; color: var(--nq-brown-dark); }
-.cdm__rating-count { font-size: 0.75rem; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
+.cdm__rating-stars { color: var(--nq-gold-dark); font-size: clamp(0.9rem, 2.1vw, 1.02rem); }
+.cdm__rating-num { font-weight: 700; font-size: clamp(0.95rem, 2.2vw, 1.08rem); color: var(--nq-brown-dark); }
+.cdm__rating-count { font-size: clamp(0.8rem, 1.9vw, 0.92rem); color: rgba(var(--nq-brown-dark-rgb), 0.72); }
 
 .cdm__hype {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.8rem;
+  font-size: clamp(0.85rem, 2vw, 0.98rem);
   font-weight: 600;
   color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin: 0 0 0.85rem;
@@ -291,7 +298,7 @@ function ratingStars(rating: number | null): string {
 .cdm__meta { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; margin: 0; }
 
 .cdm__dt {
-  font-size: 0.72rem;
+  font-size: clamp(0.76rem, 1.8vw, 0.88rem);
   font-weight: 700;
   color: rgba(var(--nq-brown-dark-rgb), 0.72);
   white-space: nowrap;
@@ -301,7 +308,7 @@ function ratingStars(rating: number | null): string {
   letter-spacing: 0.06em;
 }
 
-.cdm__dd { font-size: 0.82rem; color: var(--nq-brown-dark); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.cdm__dd { font-size: clamp(0.86rem, 2vw, 1rem); color: var(--nq-brown-dark); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 
 .cdm__chip {
   display: inline-block;
@@ -309,7 +316,7 @@ function ratingStars(rating: number | null): string {
   color: var(--nq-brown, #5C3317);
   border-radius: 999px;
   padding: 2px 9px;
-  font-size: 0.72rem;
+  font-size: clamp(0.76rem, 1.8vw, 0.88rem);
   font-weight: 600;
 }
 .cdm__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
@@ -319,7 +326,7 @@ function ratingStars(rating: number | null): string {
 .cdm__section { margin-bottom: 1.5rem; }
 
 .cdm__section-title {
-  font-size: 0.72rem;
+  font-size: clamp(0.8rem, 1.9vw, 0.92rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -329,7 +336,7 @@ function ratingStars(rating: number | null): string {
   border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
 }
 
-.cdm__summary { font-size: 0.875rem; line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
+.cdm__summary { font-size: clamp(0.92rem, 2.1vw, 1.05rem); line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
 
 /* ── Screenshots ── */
 .cdm__screenshots {
@@ -376,7 +383,7 @@ function ratingStars(rating: number | null): string {
   padding: 4px 6px;
 }
 .cdm__similar-title-text {
-  font-size: 0.65rem;
+  font-size: clamp(0.72rem, 1.7vw, 0.84rem);
   color: rgba(var(--nq-brown-dark-rgb), 0.7);
   text-align: center;
   line-height: 1.3;

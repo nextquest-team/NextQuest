@@ -27,6 +27,7 @@ function goToGame() {
     title: g.title,
     coverUrl: g.coverUrl,
     releaseDate: g.releaseDate,
+    releaseStatus: g.releaseStatus === 'upcoming' ? 'upcoming' : 'released',
     rating: g.igdbRating,
     genres: g.genres.map(genre => ({ igdbId: Number(genre.id), name: genre.name, slug: genre.slug })),
   }
@@ -226,14 +227,16 @@ function ratingStars(rating: number | null): string {
 
 .nq-card-cover {
   flex-shrink: 0;
-  width: 90px;
-  height: 120px;
+  align-self: stretch;
+  width: auto;
+  max-width: 140px;
+  aspect-ratio: 3 / 4;
   border-radius: 4px;
   overflow: hidden;
   background: rgba(var(--nq-brown-rgb), 0.06);
 }
 
-.nq-card-cover--sm { width: 80px; height: 108px; }
+.nq-card-cover--sm { max-width: 110px; }
 
 .nq-card-cover img {
   width: 100%;
@@ -291,12 +294,6 @@ function ratingStars(rating: number | null): string {
 
 /* ── Desktop compact (cards secondaires) ── */
 @media (min-width: 960px) {
-  .nq-card-body      { padding: 0.4rem 0.55rem; gap: 0.5rem; }
-  .nq-card-cover     { width: 72px;  height: 96px; }
-  .nq-card-cover--sm { width: 54px;  height: 72px; }
-  .nq-card-title     { font-size: 0.95rem; }
-  .nq-card-reason    { font-size: 0.76rem; }
-  .nq-card-reason--sm { font-size: 0.72rem; }
   .nq-card-info      { gap: 3px; }
   .nq-quest-cta      { padding: 5px 9px; font-size: 0.78rem; gap: 4px; }
   .nq-quest-cta--sm  { padding: 4px 7px; font-size: 0.72rem; }
@@ -327,8 +324,6 @@ function ratingStars(rating: number | null): string {
 
 @media (min-width: 960px) {
   .nq-card-body      { padding: 0.45rem 0.6rem; gap: 0.6rem; }
-  .nq-card-cover     { width: 100px; height: 134px; }
-  .nq-card-cover--sm { width: 78px; height: 104px; }
   .nq-card-title     { font-size: 1.05rem; }
   .nq-card-reason    { font-size: 0.82rem; }
   .nq-card-reason--sm { font-size: 0.76rem; }
@@ -371,11 +366,12 @@ function ratingStars(rating: number | null): string {
 .nq-hero-col .nq-tags       { justify-content: center; }
 .nq-hero-col .nq-card-meta  { justify-content: center; }
 
-/* Image fixe, format respecté (contain), avec padding visuel */
+/* Image : absorbe l'espace vertical restant de la colonne hero, garde ses
+   proportions via aspect-ratio (object-fit: contain grandit proprement). */
 .nq-hero-img {
-  flex-shrink: 0;
-  width: 130px;
-  height: 173px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   border-radius: 5px;
   overflow: hidden;
   background: rgba(var(--nq-brown-rgb), 0.06);
@@ -405,7 +401,6 @@ function ratingStars(rating: number | null): string {
 
 @media (min-width: 960px) {
   .nq-hero-col  { padding: 0.5rem 0.65rem; gap: 0.4rem; }
-  .nq-hero-img  { width: 145px; height: 193px; }
 
   .nq-card-title--hero { font-size: 1rem; }
 
@@ -565,5 +560,11 @@ function ratingStars(rating: number | null): string {
   width: 100%;
 }
 
-.nq-card-details.nq-felt-panel { gap: 0.3rem; padding: 0.4rem 0.55rem; }
+.nq-card-details.nq-felt-panel {
+  gap: 0.3rem;
+  padding: 0.4rem 0.55rem;
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
+}
 </style>

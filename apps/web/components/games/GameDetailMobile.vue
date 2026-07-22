@@ -108,6 +108,7 @@ const lightboxIndex = ref<number | null>(null)
                 :aria-label="t('gameDetail.screenshotOpen')"
                 @click="lightboxIndex = i"
                 @keydown.enter="lightboxIndex = i"
+                @keydown.space.prevent="lightboxIndex = i"
               />
             </div>
           </section>
@@ -280,8 +281,8 @@ const lightboxIndex = ref<number | null>(null)
   text-align: center;
 }
 
-.gdm__nf-title { font-size: 1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.gdm__nf-hint  { font-size: 0.85rem; color: rgba(var(--nq-brown-dark-rgb), 0.72); margin: 0; }
+.gdm__nf-title { font-size: clamp(1.05rem, 2.6vw, 1.2rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
+.gdm__nf-hint  { font-size: clamp(0.9rem, 2.2vw, 1.02rem); color: rgba(var(--nq-brown-dark-rgb), 0.72); margin: 0; }
 
 /* ── Hero mobile : cover pleine largeur ── */
 .gdm__cover {
@@ -311,7 +312,7 @@ const lightboxIndex = ref<number | null>(null)
 }
 
 .gdm__label {
-  font-size: 0.7rem;
+  font-size: clamp(0.75rem, 1.7vw, 0.88rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -319,7 +320,7 @@ const lightboxIndex = ref<number | null>(null)
   margin: 0 0 5px;
 }
 
-.gdm__value { font-size: 0.85rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 0.85rem; }
+.gdm__value { font-size: clamp(0.9rem, 2.1vw, 1.02rem); color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 0.85rem; }
 
 .gdm__statuses { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 0.85rem; }
 
@@ -352,7 +353,7 @@ const lightboxIndex = ref<number | null>(null)
   border: 1px solid rgba(var(--nq-gold-rgb), 0.3);
   border-radius: 10px;
   padding: 10px 14px;
-  font-size: 0.82rem;
+  font-size: clamp(0.87rem, 2vw, 1rem);
   color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin-bottom: 1.25rem;
 }
@@ -361,7 +362,7 @@ const lightboxIndex = ref<number | null>(null)
 .gdm__section { margin-bottom: 1.5rem; }
 
 .gdm__section-title {
-  font-size: 0.72rem;
+  font-size: clamp(0.8rem, 1.9vw, 0.92rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -371,13 +372,13 @@ const lightboxIndex = ref<number | null>(null)
   border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
 }
 
-.gdm__summary { font-size: 0.875rem; line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
+.gdm__summary { font-size: clamp(0.92rem, 2.1vw, 1.05rem); line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
 
 /* ── Meta ── */
 .gdm__meta { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; margin: 0; }
 
 .gdm__dt {
-  font-size: 0.72rem;
+  font-size: clamp(0.76rem, 1.8vw, 0.88rem);
   font-weight: 700;
   color: rgba(var(--nq-brown-dark-rgb), 0.75);
   white-space: nowrap;
@@ -385,7 +386,7 @@ const lightboxIndex = ref<number | null>(null)
   padding-top: 2px;
 }
 
-.gdm__dd { font-size: 0.82rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.gdm__dd { font-size: clamp(0.86rem, 2vw, 1rem); color: var(--nq-brown-dark, #3A1A0A); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 
 /* ── Chips ── */
 .gdm__chip {
@@ -394,7 +395,7 @@ const lightboxIndex = ref<number | null>(null)
   color: var(--nq-brown, #5C3317);
   border-radius: 999px;
   padding: 2px 9px;
-  font-size: 0.72rem;
+  font-size: clamp(0.76rem, 1.8vw, 0.88rem);
   font-weight: 600;
 }
 
@@ -457,7 +458,7 @@ const lightboxIndex = ref<number | null>(null)
   padding: 4px 6px;
 }
 .gdm__similar-title-text {
-  font-size: 0.65rem;
+  font-size: clamp(0.72rem, 1.7vw, 0.84rem);
   color: rgba(var(--nq-brown-dark-rgb), 0.7);
   text-align: center;
   line-height: 1.3;
@@ -468,13 +469,13 @@ const lightboxIndex = ref<number | null>(null)
 }
 
 /* ── Note ── */
-.gdm__rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.9rem; color: var(--nq-brown-dark); }
-.gdm__rating-max { font-size: 0.7rem; font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.65); }
+.gdm__rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: clamp(0.95rem, 2.2vw, 1.08rem); color: var(--nq-brown-dark); }
+.gdm__rating-max { font-size: clamp(0.76rem, 1.8vw, 0.88rem); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.65); }
 
 /* ── Danger zone ── */
 .gdm__danger { padding: 1.5rem 0 0.5rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.4rem; }
 
-.gdm__remove-error { font-size: 0.78rem; color: var(--nq-red); margin: 0; }
+.gdm__remove-error { font-size: clamp(0.83rem, 1.9vw, 0.95rem); color: var(--nq-red); margin: 0; }
 
 .gdm__remove-btn {
   display: inline-flex;
@@ -516,7 +517,7 @@ const lightboxIndex = ref<number | null>(null)
   box-shadow: 0 8px 32px rgba(var(--nq-brown-dark-rgb), 0.2);
 }
 
-.gdm__confirm-text { font-size: 0.9rem; color: var(--nq-brown-dark); margin: 0 0 1.25rem; text-align: center; }
+.gdm__confirm-text { font-size: clamp(0.95rem, 2.2vw, 1.08rem); color: var(--nq-brown-dark); margin: 0 0 1.25rem; text-align: center; }
 
 .gdm__confirm-actions { display: flex; gap: 0.75rem; justify-content: center; }
 

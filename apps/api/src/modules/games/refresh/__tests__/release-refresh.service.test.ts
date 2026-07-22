@@ -119,6 +119,29 @@ describe("refreshUpcomingReleases", () => {
     expect(updates).toHaveLength(0);
   });
 
+  it("date retiree par IGDB (report) : reste upcoming, date nulle, trace release_date old->null", async () => {
+    const gameId = await seedUpcomingGame();
+    const deps = makeDeps([
+      igdbGameFixture({ releaseDate: null, releaseDatePrecision: "tbd" }),
+    ]);
+    const summary = await refreshUpcomingReleases(deps);
+    expect(summary.updated).toBe(1);
+
+    const [row] = await db.select().from(games).where(eq(games.id, gameId));
+    expect(row.releaseDate).toBeNull();
+    expect(row.releaseDatePrecision).toBe("tbd");
+    expect(row.releaseStatus).toBe("upcoming");
+
+    const updates = await db.select().from(gameUpdates).where(eq(gameUpdates.gameId, gameId));
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({
+      fieldChanged: "release_date",
+      oldValue: "2027-12-31",
+      newValue: null,
+      source: "igdb",
+    });
+  });
+
   it("un batch IGDB en echec est compte et n'interrompt pas le run", async () => {
     await seedUpcomingGame();
     const deps = {

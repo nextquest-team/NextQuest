@@ -8023,6 +8023,623 @@
         }
       }
     },
+    "/api/games/{igdbId}/follow": {
+      "post": {
+        "operationId": "followGame",
+        "summary": "Suivre la sortie d'un jeu (etoile timeline)",
+        "tags": [
+          "Games"
+        ],
+        "description": "Hydrate le jeu IGDB dans le catalogue si besoin puis enregistre le suivi. Idempotent.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "igdbId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Jeu suivi (etoile timeline), meme forme que le feed upcoming",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "igdbId": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Identifiant IGDB du jeu"
+                    },
+                    "title": {
+                      "type": "string",
+                      "description": "Titre du jeu"
+                    },
+                    "releaseDate": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Date de sortie (YYYY-MM-DD)"
+                    },
+                    "releaseDatePrecision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "day",
+                            "month",
+                            "quarter",
+                            "year",
+                            "tbd"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Precision de la date annoncee"
+                    },
+                    "coverUrl": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "URL de la jaquette"
+                    },
+                    "hypes": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Nombre d'anticipations IGDB"
+                    },
+                    "genres": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "igdbId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "igdbId",
+                          "name",
+                          "slug"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "Genres du jeu (referentiel local, genres custom exclus)"
+                    },
+                    "platforms": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "igdbId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "abbreviation": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "igdbId",
+                          "name",
+                          "abbreviation"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "Plateformes du jeu (referentiel local)"
+                    }
+                  },
+                  "required": [
+                    "igdbId",
+                    "title",
+                    "releaseDate",
+                    "releaseDatePrecision",
+                    "coverUrl",
+                    "hypes",
+                    "genres",
+                    "platforms"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Jeu suivi (etoile timeline), meme forme que le feed upcoming"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (erreur de validation ou erreur metier)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Libelle de l'erreur",
+                          "enum": [
+                            "Validation Error"
+                          ]
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "field": {
+                                "type": "string",
+                                "description": "Chemin du champ invalide (ex: email)"
+                              },
+                              "message": {
+                                "type": "string",
+                                "description": "Raison de l'invalidite"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Liste des champs invalides"
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "details"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur de validation des entrees"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Message d'erreur lisible"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur"
+                    }
+                  ],
+                  "description": "Requete invalide (erreur de validation ou erreur metier)"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "unfollowGame",
+        "summary": "Ne plus suivre la sortie d'un jeu",
+        "tags": [
+          "Games"
+        ],
+        "description": "Idempotent : 204 meme si le suivi n'existait pas.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "igdbId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Aucun contenu"
+          },
+          "400": {
+            "description": "Requete invalide (erreur de validation ou erreur metier)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Libelle de l'erreur",
+                          "enum": [
+                            "Validation Error"
+                          ]
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "field": {
+                                "type": "string",
+                                "description": "Chemin du champ invalide (ex: email)"
+                              },
+                              "message": {
+                                "type": "string",
+                                "description": "Raison de l'invalidite"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Liste des champs invalides"
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "details"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur de validation des entrees"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Message d'erreur lisible"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur"
+                    }
+                  ],
+                  "description": "Requete invalide (erreur de validation ou erreur metier)"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/games/followed": {
+      "get": {
+        "operationId": "listFollowedGames",
+        "summary": "Lister les jeux dont l'utilisateur suit la sortie",
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Jeux suivis de l'utilisateur, tries par date de sortie croissante",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "igdbId": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Identifiant IGDB du jeu"
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Titre du jeu"
+                          },
+                          "releaseDate": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Date de sortie (YYYY-MM-DD)"
+                          },
+                          "releaseDatePrecision": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "day",
+                                  "month",
+                                  "quarter",
+                                  "year",
+                                  "tbd"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Precision de la date annoncee"
+                          },
+                          "coverUrl": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "URL de la jaquette"
+                          },
+                          "hypes": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Nombre d'anticipations IGDB"
+                          },
+                          "genres": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "igdbId": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "slug": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "igdbId",
+                                "name",
+                                "slug"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Genres du jeu (referentiel local, genres custom exclus)"
+                          },
+                          "platforms": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "igdbId": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "abbreviation": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "igdbId",
+                                "name",
+                                "abbreviation"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "description": "Plateformes du jeu (referentiel local)"
+                          }
+                        },
+                        "required": [
+                          "igdbId",
+                          "title",
+                          "releaseDate",
+                          "releaseDatePrecision",
+                          "coverUrl",
+                          "hypes",
+                          "genres",
+                          "platforms"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Jeu suivi (etoile timeline), meme forme que le feed upcoming"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Jeux suivis de l'utilisateur, tries par date de sortie croissante"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/games": {
       "get": {
         "operationId": "searchGames",
@@ -8230,6 +8847,200 @@
                     }
                   ],
                   "description": "Requete invalide (erreur de validation ou erreur metier)"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platforms": {
+      "get": {
+        "operationId": "listPlatforms",
+        "summary": "Lister les plateformes du referentiel",
+        "tags": [
+          "Referentials"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des plateformes du referentiel, triee par nom",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "description": "Identifiant de la plateforme"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Nom de la plateforme (ex: PlayStation 5)"
+                          },
+                          "code": {
+                            "type": "string",
+                            "description": "Code unique de la plateforme (ex: ps5)"
+                          },
+                          "iconUrl": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "URL de l'icone de la plateforme"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "code",
+                          "iconUrl"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Plateforme du referentiel"
+                      },
+                      "description": "Liste des plateformes"
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Liste des plateformes du referentiel, triee par nom"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/genres": {
+      "get": {
+        "operationId": "listGenres",
+        "summary": "Lister les genres du referentiel",
+        "tags": [
+          "Referentials"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des genres du referentiel, triee par nom",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "description": "Identifiant du genre"
+                          },
+                          "igdbId": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Identifiant IGDB (null = genre custom)"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Nom du genre (ex: Role-playing (RPG))"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "description": "Slug IGDB du genre (ex: role-playing-rpg)"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "igdbId",
+                          "name",
+                          "slug"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Genre du referentiel"
+                      },
+                      "description": "Liste des genres"
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Liste des genres du referentiel, triee par nom"
                 }
               }
             }

@@ -44,6 +44,7 @@ export async function followRoutes(app: FastifyInstance) {
     "/games/:igdbId/follow",
     {
       onRequest: [requireAuth],
+      preHandler: app.rateLimit({ max: 60, timeWindow: "1 minute" }),
       schema: {
         tags: ["Games"],
         operationId: "unfollowGame",
@@ -67,6 +68,7 @@ export async function followRoutes(app: FastifyInstance) {
     "/games/followed",
     {
       onRequest: [requireAuth],
+      preHandler: app.rateLimit({ max: 60, timeWindow: "1 minute" }),
       schema: {
         tags: ["Games"],
         operationId: "listFollowedGames",

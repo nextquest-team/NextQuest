@@ -92,6 +92,7 @@ export interface SimilarGameRef {
   id: string
   title: string
   coverUrl: string | null
+  igdbId: number | null
 }
 
 export interface CollectionItemDTO {

@@ -87,6 +87,10 @@ export const similarGameRefSchema = z
     id: z.uuid().describe("Identifiant interne du jeu similaire"),
     title: z.string().describe("Titre du jeu similaire"),
     coverUrl: z.string().nullable().describe("URL de la jaquette"),
+    igdbId: z
+      .number()
+      .nullable()
+      .describe("Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"),
   })
   .describe("Jeu similaire (recommandation IGDB)");
 export type SimilarGameRef = z.infer<typeof similarGameRefSchema>;

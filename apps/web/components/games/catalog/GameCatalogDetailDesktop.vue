@@ -1,7 +1,30 @@
 <script setup lang="ts">
+import type { TimelineGameDTO } from '~/types/timeline'
+
 const { t } = useI18n()
 
 const { game, loading } = useGameCatalogDetail()
+const followedStore = useFollowedGamesStore()
+
+const lightboxIndex = ref<number | null>(null)
+
+const isUpcoming = computed(() => game.value?.releaseStatus === 'upcoming')
+const isFollowed = computed(() => game.value != null && followedStore.isFollowed(game.value.igdbId))
+
+function onToggleFollow() {
+  if (!game.value) return
+  const g = game.value
+  const dto: TimelineGameDTO = {
+    igdbId: g.igdbId,
+    title: g.title,
+    releaseDate: g.releaseDate,
+    coverUrl: g.coverUrl,
+    hypes: g.hypes,
+    genres: g.genres,
+    platforms: g.platforms,
+  }
+  followedStore.toggleFollow(dto)
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -39,7 +62,20 @@ function ratingStars(rating: number | null): string {
         </div>
 
         <div class="cdd__hero-info">
-          <h1 class="cdd__title">{{ game.title }}</h1>
+          <div class="cdd__title-row">
+            <h1 class="cdd__title">{{ game.title }}</h1>
+            <button
+              v-if="isUpcoming"
+              class="cdd__follow"
+              :class="{ 'cdd__follow--active': isFollowed }"
+              :aria-pressed="isFollowed"
+              :aria-label="isFollowed ? t('timeline.unfollow') : t('timeline.follow')"
+              :title="isFollowed ? t('timeline.unfollow') : t('timeline.follow')"
+              @click="onToggleFollow"
+            >
+              <v-icon size="24">{{ isFollowed ? 'mdi-star' : 'mdi-star-outline' }}</v-icon>
+            </button>
+          </div>
 
           <div v-if="game.rating !== null" class="cdd__rating">
             <span class="cdd__rating-stars">{{ ratingStars(game.rating) }}</span>
@@ -56,12 +92,12 @@ function ratingStars(rating: number | null): string {
 
       <section v-if="game.summary" class="cdd__section">
         <h2 class="cdd__section-title">{{ t('gameDetail.summary') }}</h2>
-        <p class="cdd__summary">{{ game.summary }}</p>
+        <p class="cdd__summary nq-felt-panel">{{ game.summary }}</p>
       </section>
 
       <section v-if="game.storyline && game.storyline !== game.summary" class="cdd__section">
         <h2 class="cdd__section-title">{{ t('gameDetail.storyline') }}</h2>
-        <p class="cdd__summary">{{ game.storyline }}</p>
+        <p class="cdd__summary nq-felt-panel">{{ game.storyline }}</p>
       </section>
 
       <section v-if="game.screenshots.length" class="cdd__section">
@@ -73,12 +109,17 @@ function ratingStars(rating: number | null): string {
             :src="url"
             :alt="`${game.title} screenshot ${i + 1}`"
             class="cdd__screenshot"
+            role="button"
+            tabindex="0"
+            :aria-label="t('gameDetail.screenshotOpen')"
+            @click="lightboxIndex = i"
+            @keydown.enter="lightboxIndex = i"
           />
         </div>
       </section>
 
       <section class="cdd__section">
-        <dl class="cdd__meta">
+        <dl class="cdd__meta nq-felt-panel">
           <template v-if="game.releaseDate">
             <dt class="cdd__dt">{{ t('gameDetail.releaseDate') }}</dt>
             <dd class="cdd__dd">{{ formatDate(game.releaseDate) }}</dd>
@@ -123,16 +164,31 @@ function ratingStars(rating: number | null): string {
       <section v-if="game.similarGames.length" class="cdd__section">
         <h2 class="cdd__section-title">{{ t('gameDetail.similarGames') }}</h2>
         <div class="cdd__similar">
-          <div v-for="sim in game.similarGames" :key="sim.igdbId" class="cdd__similar-item">
+          <NuxtLink
+            v-for="sim in game.similarGames"
+            :key="sim.igdbId"
+            :to="`/games/catalog/${sim.igdbId}`"
+            class="cdd__similar-item"
+          >
             <div class="cdd__similar-cover">
               <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
               <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
             </div>
-            <span class="cdd__similar-title">{{ sim.title }}</span>
-          </div>
+            <div class="cdd__similar-title nq-felt-panel">
+              <span class="cdd__similar-title-text">{{ sim.title }}</span>
+            </div>
+          </NuxtLink>
         </div>
       </section>
     </template>
+
+    <UiScreenshotModal
+      v-if="game"
+      :screenshots="game.screenshots"
+      :index="lightboxIndex"
+      :alt="game.title"
+      @update:index="lightboxIndex = $event"
+    />
   </div>
 </template>
 
@@ -181,12 +237,27 @@ function ratingStars(rating: number | null): string {
 
 .cdd__hero-info { flex: 1; min-width: 0; }
 
-.cdd__title { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 0.75rem; line-height: 1.25; }
+.cdd__title-row { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0 0 0.75rem; }
+
+.cdd__title { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; line-height: 1.25; }
+
+.cdd__follow {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 6px;
+  color: rgba(var(--nq-brown-rgb), 0.45);
+  transition: color 0.1s, background 0.1s;
+}
+.cdd__follow:hover { color: var(--nq-brown); background: rgba(var(--nq-brown-rgb), 0.1); }
+.cdd__follow--active { color: var(--nq-gold-dark, #C8860A); }
 
 .cdd__rating { display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem; }
 .cdd__rating-stars { color: var(--nq-gold-dark); font-size: 0.9rem; }
 .cdd__rating-num { font-weight: 700; font-size: 0.95rem; color: var(--nq-brown-dark); }
-.cdd__rating-count { font-size: 0.8rem; color: rgba(var(--nq-brown-dark-rgb), 0.55); }
+.cdd__rating-count { font-size: 0.8rem; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
 
 .cdd__hype {
   display: inline-flex;
@@ -218,7 +289,7 @@ function ratingStars(rating: number | null): string {
 .cdd__dt {
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgba(var(--nq-brown-dark-rgb), 0.5);
+  color: rgba(var(--nq-brown-dark-rgb), 0.72);
   white-space: nowrap;
   align-self: start;
   padding-top: 2px;
@@ -237,20 +308,52 @@ function ratingStars(rating: number | null): string {
   font-size: 0.78rem;
   font-weight: 600;
 }
-.cdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.6); }
+.cdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
 .cdd__chip--platform { background: rgba(26, 47, 72, 0.07); color: var(--nq-navy); font-weight: 500; }
 
 .cdd__screenshots { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
 .cdd__screenshots::-webkit-scrollbar { display: none; }
 
-.cdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(var(--nq-brown-rgb), 0.08); }
+.cdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(var(--nq-brown-rgb), 0.08); cursor: pointer; }
+.cdd__screenshot:hover { filter: brightness(0.92); }
 
-.cdd__similar { display: flex; gap: 12px; flex-wrap: wrap; }
+.cdd__similar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; }
 
-.cdd__similar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 80px; }
+.cdd__similar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 80px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.cdd__similar-item:hover .cdd__similar-title-text { color: var(--nq-brown-dark); }
+.cdd__similar-item:hover .cdd__similar-cover { box-shadow: 0 0 0 2px rgba(var(--nq-brown-rgb), 0.3); }
 
-.cdd__similar-cover { width: 80px; height: 106px; border-radius: 8px; background: rgba(var(--nq-brown-rgb), 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.cdd__similar-cover { width: 80px; height: 106px; flex-shrink: 0; border-radius: 8px; background: rgba(var(--nq-brown-rgb), 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .cdd__similar-cover img { width: 100%; height: 100%; object-fit: cover; }
 
-.cdd__similar-title { font-size: 0.7rem; color: rgba(var(--nq-brown-dark-rgb), 0.7); text-align: center; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* flex:1 + align-items:stretch sur .cdd__similar font que chaque tuile occupe
+   toute la hauteur de sa rangee (calee sur le titre le plus long) */
+.cdd__similar-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background-size: auto, 90px 90px;
+  padding: 4px 6px;
+}
+
+.cdd__similar-title-text {
+  font-size: 0.7rem;
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
+  text-align: center;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 </style>

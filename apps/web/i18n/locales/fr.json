@@ -158,6 +158,11 @@
     "similarGames": "Jeux similaires",
     "storyline": "Histoire",
     "screenshots": "Captures d'écran",
+    "screenshotOpen": "Agrandir la capture d'écran",
+    "screenshotClose": "Fermer",
+    "screenshotPrev": "Capture précédente",
+    "screenshotNext": "Capture suivante",
+    "screenshotCounter": "{current} / {total}",
     "gameModes": "Modes de jeu",
     "comingSoon": "Aucune donnée pour ce jeu."
   },
@@ -231,7 +236,7 @@
     "subtitle": "Ce que le destin te réserve",
     "tabs": {
       "upcoming": "Prophéties à venir",
-      "followed": "Quêtes annoncées"
+      "followed": "Quêtes acceptées"
     },
     "searchPlaceholder": "Rechercher un jeu…",
     "filterBtn": "Filtres",

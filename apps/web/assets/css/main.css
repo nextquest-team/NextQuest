@@ -288,3 +288,19 @@ html, body {
   margin-bottom: 4px;
   display: block;
 }
+
+/*
+ * Panneau feutrine : fond opaque (voile parchemin + texture tuilée) posé derrière
+ * du texte, pour un contraste fiable indépendant de la texture de fond variable
+ * de la page (fond.png). Utilisé sur les pages de detail de jeu (résumé, meta infos).
+ */
+.nq-felt-panel {
+  background-image:
+    linear-gradient(rgba(var(--nq-cream-alt-rgb), 0.55), rgba(var(--nq-cream-alt-rgb), 0.55)),
+    url('/images/backgrounds/feutrine-panel.jpg');
+  background-size: auto, 220px 220px;
+  background-repeat: no-repeat, repeat;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 1px 3px rgba(var(--nq-brown-dark-rgb), 0.1);
+}

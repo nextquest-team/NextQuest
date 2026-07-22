@@ -11,6 +11,8 @@ const {
 } = useGameDetail()
 
 onMounted(load)
+
+const lightboxIndex = ref<number | null>(null)
 </script>
 
 <template>
@@ -74,12 +76,12 @@ onMounted(load)
       <template v-else>
         <section v-if="igdb?.summary || game.description" class="gdd__section">
           <h2 class="gdd__section-title">{{ t('gameDetail.summary') }}</h2>
-          <p class="gdd__summary">{{ igdb?.summary ?? game.description }}</p>
+          <p class="gdd__summary nq-felt-panel">{{ igdb?.summary ?? game.description }}</p>
         </section>
 
         <section v-if="igdb?.storyline && igdb.storyline !== igdb.summary" class="gdd__section">
           <h2 class="gdd__section-title">{{ t('gameDetail.storyline') }}</h2>
-          <p class="gdd__summary">{{ igdb.storyline }}</p>
+          <p class="gdd__summary nq-felt-panel">{{ igdb.storyline }}</p>
         </section>
 
         <section v-if="igdb?.screenshots.length" class="gdd__section">
@@ -91,12 +93,17 @@ onMounted(load)
               :src="url"
               :alt="`${game.game.title} screenshot ${i + 1}`"
               class="gdd__screenshot"
+              role="button"
+              tabindex="0"
+              :aria-label="t('gameDetail.screenshotOpen')"
+              @click="lightboxIndex = i"
+              @keydown.enter="lightboxIndex = i"
             />
           </div>
         </section>
 
         <section class="gdd__section">
-          <dl class="gdd__meta">
+          <dl class="gdd__meta nq-felt-panel">
             <template v-if="game.game.releaseDate">
               <dt class="gdd__dt">{{ t('gameDetail.releaseDate') }}</dt>
               <dd class="gdd__dd">{{ formatReleaseDate(game.game.releaseDate) }}</dd>
@@ -151,22 +158,37 @@ onMounted(load)
           <h2 class="gdd__section-title">{{ t('gameDetail.similarGames') }}</h2>
           <div class="gdd__similar">
             <template v-if="igdb?.similarGames.length">
-              <div v-for="sim in igdb.similarGames" :key="sim.igdbId" class="gdd__similar-item">
+              <NuxtLink
+                v-for="sim in igdb.similarGames"
+                :key="sim.igdbId"
+                :to="`/games/catalog/${sim.igdbId}`"
+                class="gdd__similar-item"
+              >
                 <div class="gdd__similar-cover">
                   <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
                   <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
                 </div>
-                <span class="gdd__similar-title">{{ sim.title }}</span>
-              </div>
+                <div class="gdd__similar-title nq-felt-panel">
+                  <span class="gdd__similar-title-text">{{ sim.title }}</span>
+                </div>
+              </NuxtLink>
             </template>
             <template v-else>
-              <div v-for="sim in game.similarGames" :key="sim.id" class="gdd__similar-item">
+              <component
+                :is="sim.igdbId ? 'NuxtLink' : 'div'"
+                v-for="sim in game.similarGames"
+                :key="sim.id"
+                :to="sim.igdbId ? `/games/catalog/${sim.igdbId}` : undefined"
+                class="gdd__similar-item"
+              >
                 <div class="gdd__similar-cover">
                   <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
                   <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
                 </div>
-                <span class="gdd__similar-title">{{ sim.title }}</span>
-              </div>
+                <div class="gdd__similar-title nq-felt-panel">
+                  <span class="gdd__similar-title-text">{{ sim.title }}</span>
+                </div>
+              </component>
             </template>
           </div>
         </section>
@@ -198,6 +220,14 @@ onMounted(load)
         </div>
       </Transition>
     </template>
+
+    <UiScreenshotModal
+      v-if="igdb"
+      :screenshots="igdb.screenshots"
+      :index="lightboxIndex"
+      :alt="game?.game.title ?? ''"
+      @update:index="lightboxIndex = $event"
+    />
   </div>
 </template>
 
@@ -262,7 +292,7 @@ onMounted(load)
   border-radius: 999px;
   border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
   background: transparent;
-  color: rgba(var(--nq-brown-dark-rgb), 0.6);
+  color: rgba(var(--nq-brown-dark-rgb), 0.72);
   font-family: var(--nq-font);
   font-size: 0.75rem;
   cursor: pointer;
@@ -308,22 +338,41 @@ onMounted(load)
 .gdd__dd { font-size: 0.875rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 
 .gdd__chip { display: inline-block; background: rgba(var(--nq-brown-rgb), 0.08); color: var(--nq-brown, #5C3317); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; }
-.gdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.6); }
+.gdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
 .gdd__chip--platform { background: rgba(26, 47, 72, 0.07); color: var(--nq-navy); font-weight: 500; }
 
 .gdd__screenshots { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
 .gdd__screenshots::-webkit-scrollbar { display: none; }
 
-.gdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(var(--nq-brown-rgb), 0.08); }
+.gdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(var(--nq-brown-rgb), 0.08); cursor: pointer; }
+.gdd__screenshot:hover { filter: brightness(0.92); }
 
-.gdd__similar { display: flex; gap: 12px; flex-wrap: wrap; }
+.gdd__similar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; }
 
-.gdd__similar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 80px; }
+.gdd__similar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 80px; text-decoration: none; }
 
-.gdd__similar-cover { width: 80px; height: 106px; border-radius: 8px; background: rgba(var(--nq-brown-rgb), 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.gdd__similar-cover { width: 80px; height: 106px; flex-shrink: 0; border-radius: 8px; background: rgba(var(--nq-brown-rgb), 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .gdd__similar-cover img { width: 100%; height: 100%; object-fit: cover; }
 
-.gdd__similar-title { font-size: 0.7rem; color: rgba(var(--nq-brown-dark-rgb), 0.7); text-align: center; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.gdd__similar-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background-size: auto, 90px 90px;
+  padding: 4px 6px;
+}
+.gdd__similar-title-text {
+  font-size: 0.7rem;
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
+  text-align: center;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 .gdd__rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.95rem; color: var(--nq-brown-dark); }
 .gdd__rating-max { font-size: 0.75rem; font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.65); }

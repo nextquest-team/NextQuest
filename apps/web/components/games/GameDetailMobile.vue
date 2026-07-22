@@ -11,6 +11,8 @@ const {
 } = useGameDetail()
 
 onMounted(load)
+
+const lightboxIndex = ref<number | null>(null)
 </script>
 
 <template>
@@ -82,13 +84,13 @@ onMounted(load)
           <!-- Synopsis -->
           <section v-if="igdb?.summary || game.description" class="gdm__section">
             <h2 class="gdm__section-title">{{ t('gameDetail.summary') }}</h2>
-            <p class="gdm__summary">{{ igdb?.summary ?? game.description }}</p>
+            <p class="gdm__summary nq-felt-panel">{{ igdb?.summary ?? game.description }}</p>
           </section>
 
           <!-- Storyline -->
           <section v-if="igdb?.storyline && igdb.storyline !== igdb.summary" class="gdm__section">
             <h2 class="gdm__section-title">{{ t('gameDetail.storyline') }}</h2>
-            <p class="gdm__summary">{{ igdb.storyline }}</p>
+            <p class="gdm__summary nq-felt-panel">{{ igdb.storyline }}</p>
           </section>
 
           <!-- Screenshots -->
@@ -101,13 +103,18 @@ onMounted(load)
                 :src="url"
                 :alt="`${game.game.title} screenshot ${i + 1}`"
                 class="gdm__screenshot"
+                role="button"
+                tabindex="0"
+                :aria-label="t('gameDetail.screenshotOpen')"
+                @click="lightboxIndex = i"
+                @keydown.enter="lightboxIndex = i"
               />
             </div>
           </section>
 
           <!-- Infos meta -->
           <section class="gdm__section">
-            <dl class="gdm__meta">
+            <dl class="gdm__meta nq-felt-panel">
               <template v-if="game.game.releaseDate">
                 <dt class="gdm__dt">{{ t('gameDetail.releaseDate') }}</dt>
                 <dd class="gdm__dd">{{ formatReleaseDate(game.game.releaseDate) }}</dd>
@@ -163,22 +170,37 @@ onMounted(load)
             <h2 class="gdm__section-title">{{ t('gameDetail.similarGames') }}</h2>
             <div class="gdm__similar">
               <template v-if="igdb?.similarGames.length">
-                <div v-for="sim in igdb.similarGames" :key="sim.igdbId" class="gdm__similar-item">
+                <NuxtLink
+                  v-for="sim in igdb.similarGames"
+                  :key="sim.igdbId"
+                  :to="`/games/catalog/${sim.igdbId}`"
+                  class="gdm__similar-item"
+                >
                   <div class="gdm__similar-cover">
                     <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
                     <v-icon v-else size="20" color="primary-light">mdi-gamepad-variant</v-icon>
                   </div>
-                  <span class="gdm__similar-title">{{ sim.title }}</span>
-                </div>
+                  <div class="gdm__similar-title nq-felt-panel">
+                    <span class="gdm__similar-title-text">{{ sim.title }}</span>
+                  </div>
+                </NuxtLink>
               </template>
               <template v-else>
-                <div v-for="sim in game.similarGames" :key="sim.id" class="gdm__similar-item">
+                <component
+                  :is="sim.igdbId ? 'NuxtLink' : 'div'"
+                  v-for="sim in game.similarGames"
+                  :key="sim.id"
+                  :to="sim.igdbId ? `/games/catalog/${sim.igdbId}` : undefined"
+                  class="gdm__similar-item"
+                >
                   <div class="gdm__similar-cover">
                     <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
                     <v-icon v-else size="20" color="primary-light">mdi-gamepad-variant</v-icon>
                   </div>
-                  <span class="gdm__similar-title">{{ sim.title }}</span>
-                </div>
+                  <div class="gdm__similar-title nq-felt-panel">
+                    <span class="gdm__similar-title-text">{{ sim.title }}</span>
+                  </div>
+                </component>
               </template>
             </div>
           </section>
@@ -213,6 +235,14 @@ onMounted(load)
         </div>
       </div>
     </Transition>
+
+    <UiScreenshotModal
+      v-if="igdb"
+      :screenshots="igdb.screenshots"
+      :index="lightboxIndex"
+      :alt="game?.game.title ?? ''"
+      @update:index="lightboxIndex = $event"
+    />
 
   </div>
 </template>
@@ -251,7 +281,7 @@ onMounted(load)
 }
 
 .gdm__nf-title { font-size: 1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.gdm__nf-hint  { font-size: 0.85rem; color: rgba(var(--nq-brown-dark-rgb), 0.6); margin: 0; }
+.gdm__nf-hint  { font-size: 0.85rem; color: rgba(var(--nq-brown-dark-rgb), 0.72); margin: 0; }
 
 /* ── Hero mobile : cover pleine largeur ── */
 .gdm__cover {
@@ -301,7 +331,7 @@ onMounted(load)
   border-radius: 999px;
   border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
   background: transparent;
-  color: rgba(var(--nq-brown-dark-rgb), 0.6);
+  color: rgba(var(--nq-brown-dark-rgb), 0.72);
   font-family: var(--nq-font);
   font-size: 0.72rem;
   cursor: pointer;
@@ -368,7 +398,7 @@ onMounted(load)
   font-weight: 600;
 }
 
-.gdm__chip--tag     { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.6); }
+.gdm__chip--tag     { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
 .gdm__chip--platform { background: rgba(26, 47, 72, 0.07); color: var(--nq-navy); font-weight: 500; }
 
 /* ── Screenshots ── */
@@ -394,17 +424,19 @@ onMounted(load)
   border-radius: 8px;
   object-fit: cover;
   background: rgba(var(--nq-brown-rgb), 0.08);
+  cursor: pointer;
 }
 
 /* ── Similaires ── */
-.gdm__similar { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.gdm__similar { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; align-items: stretch; }
 .gdm__similar::-webkit-scrollbar { display: none; }
 
-.gdm__similar-item { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 70px; flex-shrink: 0; }
+.gdm__similar-item { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 70px; flex-shrink: 0; text-decoration: none; }
 
 .gdm__similar-cover {
   width: 70px;
   height: 93px;
+  flex-shrink: 0;
   border-radius: 7px;
   background: rgba(var(--nq-brown-rgb), 0.08);
   overflow: hidden;
@@ -416,6 +448,15 @@ onMounted(load)
 .gdm__similar-cover img { width: 100%; height: 100%; object-fit: cover; }
 
 .gdm__similar-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background-size: auto, 90px 90px;
+  padding: 4px 6px;
+}
+.gdm__similar-title-text {
   font-size: 0.65rem;
   color: rgba(var(--nq-brown-dark-rgb), 0.7);
   text-align: center;

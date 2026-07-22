@@ -158,6 +158,11 @@
     "similarGames": "Similar games",
     "storyline": "Storyline",
     "screenshots": "Screenshots",
+    "screenshotOpen": "Open screenshot",
+    "screenshotClose": "Close",
+    "screenshotPrev": "Previous screenshot",
+    "screenshotNext": "Next screenshot",
+    "screenshotCounter": "{current} / {total}",
     "gameModes": "Game modes",
     "comingSoon": "IGDB data will be available once the API is connected."
   },
@@ -231,7 +236,7 @@
     "subtitle": "What fate has in store for you",
     "tabs": {
       "upcoming": "Foretold releases",
-      "followed": "Announced quests"
+      "followed": "Accepted quests"
     },
     "searchPlaceholder": "Search a game…",
     "filterBtn": "Filters",

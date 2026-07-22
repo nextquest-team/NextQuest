@@ -163,11 +163,14 @@ export async function replenishRecommendations(
     ).map((r) => r.gameId),
   );
 
-  // 2. Construire le profil de l'user
-  const [owned, dims, swipes] = await Promise.all([
+  // 2. Construire le profil de l'user. Les plateformes possedees partent dans le
+  // meme Promise.all (pas d'aller-retour DB en serie) ; null pour library_unplayed
+  // qui n'a pas de filtre plateforme a appliquer (jeux deja possedes).
+  const [owned, dims, swipes, ownedPlatformIds] = await Promise.all([
     getOwnedForProfile(userId),
     getDimensionFrequencies(),
     getSwipeDeltas(userId),
+    bucket === "library_unplayed" ? Promise.resolve(null) : getOwnedPlatformIds(userId),
   ]);
   const idf = buildIdfMap(dims.totalGames, dims.freqs);
   const profile = normalize(applySwipeDeltas(buildBaseProfile(owned, idf), swipes));
@@ -186,11 +189,11 @@ export async function replenishRecommendations(
   const notAlreadyRecommended = candidates.filter((c) => !alreadyRecommended.has(c.gameId));
 
   // Filtre plateforme possedee + exclusion DLC/editions (library_unplayed est
-  // deja possede, pas de filtre a lui appliquer).
+  // deja possede, pas de filtre a lui appliquer : ownedPlatformIds vaut null).
   const filteredCandidates =
-    bucket === "library_unplayed"
+    ownedPlatformIds == null
       ? notAlreadyRecommended
-      : filterCandidates(notAlreadyRecommended, await getOwnedPlatformIds(userId));
+      : filterCandidates(notAlreadyRecommended, ownedPlatformIds);
 
   // 4. Scorer, diversifier et construire les recos
   const toInsert = await buildBucketRecos(profile, filteredCandidates, bucket);

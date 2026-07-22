@@ -1,5 +1,34 @@
 # Journal de bord — Lorelei
 
+## 2026-07-22 — Session 4 : Corrections review JB sur fix/generation-next-quest
+
+### Résumé exécutif
+
+Retour de review de JB sur le fix de génération Next Quest (endpoint groupé pour déclencher le replenish-when-dry) : diagnostic validé, CI verte, mais deux points à corriger avant merge — logs de debug oubliés et un échec silencieux qui laissait une carte fantôme affichée après un décline raté.
+
+### Ce qui a été fait
+
+#### `pages/next-quest.vue`
+- Suppression des 7 `console.log`/`console.error` `[nextQuest]` dans `refillBucket` et `sendFeedback` (le repo est public, le reste du front n'a quasiment aucun `console.*`)
+- `refillBucket` : le `catch` vide désormais la file du bucket concerné (`bucketQueue[bucket].value = []`) au lieu de se contenter d'un log — la card « Aucune suggestion » prend le relais plutôt que la carte déclinée qui restait affichée à tort
+- `lastFailedOp` étendu à `'refresh'` : `refresh()` pose cet état en cas d'échec, et `retry()` rappelle `refresh()` (et non `generate()`) dans ce cas — avant, un échec de rotation faisait relancer `generate()` par le bouton « Réessayer », l'inverse de ce que la PR cherchait à corriger
+
+### Décisions techniques
+
+**Pas de toast/état d'erreur global pour l'échec de `refillBucket`.** JB proposait soit un état d'erreur, soit vider la file ; vider la file suffit à éviter la carte fantôme sans complexifier l'état global (`error.value` reste réservé aux échecs de `fetchRecos`/`generate`/`refresh`).
+
+**`sendFeedback` : catch laissé vide (avec commentaire) plutôt que de déclencher `error.value = true`.** Si le POST de feedback échoue, aucune mutation de la file n'a eu lieu — rien à rattraper, et basculer toute la page en état d'erreur aurait caché les deux autres buckets encore valides pour un échec ponctuel.
+
+**Point "à surveiller" non traité.** Le comportement où `refillBucket` remplace les 3 files (donc peut faire bouger l'ordre des 2 autres buckets non vides) reste tel quel — c'est un point de vérification navigateur signalé par JB, pas un bug confirmé.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/pages/next-quest.vue` | Retrait logs debug, fix carte fantôme sur échec refill, fix retry après échec refresh |
+
+---
+
 ## 2026-06-23 — Session 3 : Dashboard desktop — données réelles
 
 ### Résumé exécutif

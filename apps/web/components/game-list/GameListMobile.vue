@@ -7,12 +7,19 @@ const {
   view, setView,
   drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
   toggleStatus, applyFilters, resetFilters,
+  platforms, selectedPlatformIds, togglePlatform,
   currentPage, totalPages, goToPage,
   gamesLoading, games, fetchGames,
   onStatusChange, onIgnoreGame, onRestoreGame, onCardClick,
   addModalOpen,
   progressOpen, progressStatus, onProgressBackground,
 } = inject<ReturnType<typeof useGameList>>('gameList')!
+
+// Accordeon : une seule zone de filtre ouverte a la fois dans le drawer.
+const openSection = ref<string | null>(null)
+function toggleSection(key: string) {
+  openSection.value = openSection.value === key ? null : key
+}
 </script>
 
 <template>
@@ -165,21 +172,53 @@ const {
         </div>
 
         <div class="gl-drawer__section">
-          <p class="gl-drawer__section-title">{{ t('gameList.status.label') }}</p>
-          <div class="gl-drawer__checks">
-            <label v-for="s in STATUS_OPTIONS" :key="s.key" class="gl-drawer__check-item">
-              <input type="checkbox" class="gl-drawer__checkbox" :checked="selectedStatuses.includes(s.key)" @change="toggleStatus(s.key)" />
-              <v-icon size="16">{{ s.icon }}</v-icon>
-              <span>{{ t(`gameList.status.${s.key}`) }}</span>
-            </label>
+          <button
+            type="button"
+            class="gl-drawer__section-toggle"
+            :aria-expanded="openSection === 'status'"
+            @click="toggleSection('status')"
+          >
+            <span class="gl-drawer__section-title">{{ t('gameList.status.label') }}</span>
+            <v-icon size="18" class="gl-drawer__chevron" :class="{ 'gl-drawer__chevron--collapsed': openSection !== 'status' }">
+              mdi-chevron-down
+            </v-icon>
+          </button>
+          <div v-show="openSection === 'status'" class="gl-drawer__section-body">
+            <div class="gl-drawer__checks">
+              <label v-for="s in STATUS_OPTIONS" :key="s.key" class="gl-drawer__check-item">
+                <input type="checkbox" class="gl-drawer__checkbox" :checked="selectedStatuses.includes(s.key)" @change="toggleStatus(s.key)" />
+                <v-icon size="16">{{ s.icon }}</v-icon>
+                <span>{{ t(`gameList.status.${s.key}`) }}</span>
+              </label>
+            </div>
           </div>
         </div>
 
-        <div class="gl-drawer__section gl-drawer__section--soon">
-          <p class="gl-drawer__section-title">
-            {{ t('gameList.filterPlatform') }}
-            <span class="gl-drawer__soon">{{ t('gameList.soon') }}</span>
-          </p>
+        <div v-if="platforms.length > 0" class="gl-drawer__section">
+          <button
+            type="button"
+            class="gl-drawer__section-toggle"
+            :aria-expanded="openSection === 'platform'"
+            @click="toggleSection('platform')"
+          >
+            <span class="gl-drawer__section-title">{{ t('gameList.filterPlatform') }}</span>
+            <v-icon size="18" class="gl-drawer__chevron" :class="{ 'gl-drawer__chevron--collapsed': openSection !== 'platform' }">
+              mdi-chevron-down
+            </v-icon>
+          </button>
+          <div v-show="openSection === 'platform'" class="gl-drawer__section-body">
+            <div class="gl-drawer__checks">
+              <label v-for="p in platforms" :key="p.id" class="gl-drawer__check-item">
+                <input
+                  type="checkbox"
+                  class="gl-drawer__checkbox"
+                  :checked="selectedPlatformIds.includes(p.id)"
+                  @change="togglePlatform(p.id)"
+                />
+                <span>{{ p.name }}</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div class="gl-drawer__footer">
@@ -524,6 +563,29 @@ const {
   padding: 2px 7px;
   border-radius: 999px;
 }
+
+.gl-drawer__section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--nq-font);
+  text-align: left;
+}
+
+.gl-drawer__section-toggle .gl-drawer__section-title { margin: 0 0 0.75rem; }
+
+.gl-drawer__chevron {
+  color: rgba(var(--nq-brown-dark-rgb), 0.5);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.gl-drawer__chevron--collapsed { transform: rotate(-90deg); }
 
 .gl-drawer__checks { display: flex; flex-direction: column; gap: 6px; }
 

@@ -129,7 +129,27 @@ const ITEM_FIELDS = {
   publisher: games.publisher,
   igdbRating: games.igdbRating,
   igdbId: games.igdbId,
+  platformId: userGames.platformId,
+  platformName: platforms.name,
+  platformCode: platforms.code,
+  platformIconUrl: platforms.iconUrl,
 } as const;
+
+// Sous-requete : genre "principal" (alphabetique) par jeu, utilisee pour trier
+// la collection par genre malgre la relation many-to-many game<->genres. min()
+// donne un ordre stable et deterministe sans avoir a choisir arbitrairement
+// "le premier genre" en base.
+function genreSortSubquery() {
+  return db
+    .select({
+      gameId: gameGenres.gameId,
+      sortGenre: sql<string>`min(${genres.name})`.as("sort_genre"),
+    })
+    .from(gameGenres)
+    .innerJoin(genres, eq(gameGenres.genreId, genres.id))
+    .groupBy(gameGenres.gameId)
+    .as("genre_sort");
+}
 
 // Genres groupes par game_id (une requete IN, assemblage en memoire). Evite N+1.
 async function genresByGame(
@@ -185,13 +205,24 @@ export async function listCollection(params: {
   userId: string;
   status?: GameStatus;
   search?: string;
+  platformIds?: string[];
+  sortBy?: "recent" | "platform" | "genre";
   limit: number;
   offset: number;
   includeHidden: boolean;
   view?: "library" | "ignored";
 }): Promise<{ items: CollectionItemDTO[]; total: number }> {
-  const { userId, status, search, limit, offset, includeHidden, view = "library" } =
-    params;
+  const {
+    userId,
+    status,
+    search,
+    platformIds,
+    sortBy = "recent",
+    limit,
+    offset,
+    includeHidden,
+    view = "library",
+  } = params;
   const conds = [eq(userGames.userId, userId)];
   conds.push(
     view === "ignored"
@@ -200,6 +231,10 @@ export async function listCollection(params: {
   );
   if (status) conds.push(eq(userGames.status, status));
   if (search) conds.push(ilike(games.title, `%${search}%`));
+  // match "au moins une" des plateformes selectionnees (OR), pas une intersection :
+  // un user_game n'a qu'une seule platformId, inArray couvre 1..n valeurs.
+  if (platformIds && platformIds.length > 0)
+    conds.push(inArray(userGames.platformId, platformIds));
   if (!includeHidden) conds.push(eq(userGames.isHidden, false));
   const where = and(...conds);
 
@@ -213,12 +248,36 @@ export async function listCollection(params: {
     : countQuery.where(where));
   if (total === 0) return { items: [], total: 0 };
 
-  const rows = await db
+  let itemsQuery = db
     .select(ITEM_FIELDS)
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
+    .leftJoin(platforms, eq(userGames.platformId, platforms.id))
+    .$dynamic();
+
+  // desc(createdAt) reste le tie-break sur les deux tris alternatifs, pour un
+  // ordre stable entre jeux de meme plateforme/genre (ou sans plateforme/genre).
+  let orderByClauses = [desc(userGames.createdAt)];
+  if (sortBy === "platform") {
+    orderByClauses = [
+      sql`${platforms.name} asc nulls last`,
+      desc(userGames.createdAt),
+    ];
+  } else if (sortBy === "genre") {
+    const genreSort = genreSortSubquery();
+    itemsQuery = itemsQuery.leftJoin(
+      genreSort,
+      eq(userGames.gameId, genreSort.gameId),
+    );
+    orderByClauses = [
+      sql`${genreSort.sortGenre} asc nulls last`,
+      desc(userGames.createdAt),
+    ];
+  }
+
+  const rows = await itemsQuery
     .where(where)
-    .orderBy(desc(userGames.createdAt))
+    .orderBy(...orderByClauses)
     .limit(limit)
     .offset(offset);
 
@@ -244,6 +303,7 @@ export async function getCollectionItem(
     .select({ ...ITEM_FIELDS, description: games.description })
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
+    .leftJoin(platforms, eq(userGames.platformId, platforms.id))
     .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
     .limit(1);
   if (!row) return null;
@@ -282,6 +342,7 @@ async function fetchItem(
     .select(ITEM_FIELDS)
     .from(userGames)
     .innerJoin(games, eq(userGames.gameId, games.id))
+    .leftJoin(platforms, eq(userGames.platformId, platforms.id))
     .where(and(eq(userGames.id, userGameId), eq(userGames.userId, userId)))
     .limit(1);
   if (!row) return null;

@@ -31,9 +31,25 @@ export const userGameParamsSchema = z.object({
 // "false" donnerait true).
 // view distingue la collection visible ("library", defaut) des jeux ignores
 // ("ignored") : un meme jeu ignore garde son statut, il change juste de vue.
+// sortBy : "recent" (defaut, date d'ajout desc) ; "platform"/"genre" trient par
+// nom de plateforme/genre (alpha, nulls en dernier), avec le meme desc(createdAt)
+// en tie-break. "genre" est prevu par anticipation d'un futur referentiel genres
+// cote front (route dediee non encore exposee), le tri fonctionne deja cote API.
+// platformId accepte une ou plusieurs valeurs (repeter le param dans l'URL :
+// ?platformId=a&platformId=b). Fastify parse deja les cles repetees en tableau
+// (fast-querystring), donc une seule valeur arrive en string simple : on
+// normalise toujours vers un tableau pour que le service n'ait qu'une forme a
+// gerer (match "au moins une des plateformes selectionnees").
+const platformIdParam = z
+  .union([z.string().uuid(), z.array(z.string().uuid())])
+  .optional()
+  .transform((v) => (v === undefined ? undefined : Array.isArray(v) ? v : [v]));
+
 export const listCollectionQuerySchema = z.object({
   status: z.enum(GAME_STATUSES).optional(),
   search: z.string().trim().min(1).max(100).optional(),
+  platformId: platformIdParam,
+  sortBy: z.enum(["recent", "platform", "genre"]).default("recent"),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
   includeHidden: z

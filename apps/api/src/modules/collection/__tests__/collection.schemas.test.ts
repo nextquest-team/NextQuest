@@ -23,13 +23,14 @@ describe("updateGameStatusSchema", () => {
 });
 
 describe("listCollectionQuerySchema", () => {
-  it("applique les défauts limit=20 offset=0 includeHidden=false view=library", () => {
+  it("applique les défauts limit=20 offset=0 includeHidden=false view=library sortBy=recent", () => {
     const r = listCollectionQuerySchema.parse({});
     expect(r).toEqual({
       limit: 20,
       offset: 0,
       includeHidden: false,
       view: "library",
+      sortBy: "recent",
     });
   });
   it("accepte view=ignored, rejette une valeur inconnue", () => {

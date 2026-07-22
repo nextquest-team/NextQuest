@@ -1,4 +1,4 @@
-import type { UserGame, GameStatus, CollectionListResponse } from '~/types/game'
+import type { UserGame, GameStatus, CollectionListResponse, Platform } from '~/types/game'
 import { toUserGame } from '~/types/game'
 
 export type CollectionView = 'library' | 'ignored'
@@ -90,7 +90,28 @@ export function useGameList() {
     { key: 'abandoned', icon: 'mdi-close-circle-outline' },
   ]
 
-  const activeFilterCount = computed(() => selectedStatuses.value.length)
+  // Referentiel plateformes (pour les cases du drawer), charge une fois au init.
+  const platforms = ref<Platform[]>([])
+  const selectedPlatformIds = ref<string[]>([])
+
+  async function fetchPlatforms() {
+    try {
+      const res = await authFetch<{ items: Platform[] }>(`${apiBase}/api/platforms`)
+      platforms.value = res.items
+    } catch (e) {
+      console.error('[useGameList] fetchPlatforms', e)
+    }
+  }
+
+  function togglePlatform(platformId: string) {
+    const idx = selectedPlatformIds.value.indexOf(platformId)
+    if (idx >= 0) selectedPlatformIds.value.splice(idx, 1)
+    else selectedPlatformIds.value.push(platformId)
+  }
+
+  const activeFilterCount = computed(
+    () => selectedStatuses.value.length + selectedPlatformIds.value.length,
+  )
 
   function toggleStatus(status: GameStatus) {
     const idx = selectedStatuses.value.indexOf(status)
@@ -106,6 +127,7 @@ export function useGameList() {
 
   function resetFilters() {
     selectedStatuses.value = []
+    selectedPlatformIds.value = []
     currentPage.value = 1
     fetchGames()
     drawerOpen.value = false
@@ -139,13 +161,17 @@ export function useGameList() {
     gamesLoading.value = true
     gamesError.value = false
     try {
-      const query: Record<string, string | number> = {
+      const query: Record<string, string | number | string[]> = {
         view: view.value,
         limit: LIMIT,
         offset: (currentPage.value - 1) * LIMIT,
       }
       if (searchQuery.value.trim()) query.search = searchQuery.value.trim()
       if (selectedStatuses.value.length === 1) query.status = selectedStatuses.value[0]
+      // platformId peut etre repete dans l'URL : ufo serialise un tableau en
+      // plusieurs occurrences (?platformId=a&platformId=b), Fastify les recompose
+      // en tableau cote API (match "au moins une des plateformes selectionnees").
+      if (selectedPlatformIds.value.length > 0) query.platformId = selectedPlatformIds.value
 
       const res = await authFetch<CollectionListResponse>(`${apiBase}/api/collection`, { query })
       games.value = res.items.map(toUserGame)
@@ -213,6 +239,7 @@ export function useGameList() {
   // ── Init ─────────────────────────────────────────────────
   function init() {
     fetchSteamStatus()
+    fetchPlatforms()
     fetchGames()
 
     if (route.query.steam === 'linked') {
@@ -237,6 +264,7 @@ export function useGameList() {
     // Filtres
     drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
     toggleStatus, applyFilters, resetFilters,
+    platforms, selectedPlatformIds, togglePlatform,
     // Pagination
     currentPage, total, totalPages, goToPage,
     // Jeux

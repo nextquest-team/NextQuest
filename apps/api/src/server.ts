@@ -20,6 +20,7 @@ import { followRoutes } from "./modules/games/follow/follow.routes.js";
 import { gamesRoutes } from "./modules/games/games.routes.js";
 import { platformsRoutes } from "./modules/referentials/platforms.routes.js";
 import { genresRoutes } from "./modules/referentials/genres.routes.js";
+import { scheduleReleaseRefresh } from "./modules/games/refresh/release-refresh.scheduler.js";
 
 const app = Fastify({
   logger: {
@@ -66,6 +67,8 @@ async function start() {
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`API running on http://localhost:${port}`);
   console.log(`Docs on http://localhost:${port}/docs`);
+
+  scheduleReleaseRefresh(app.log);
 }
 
 start().catch((err) => {

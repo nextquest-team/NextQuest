@@ -22,16 +22,16 @@ const catalogPreview = useState<CatalogPreview | null>('catalog-preview', () => 
 function goToGame() {
   if (!props.reco) return
   const g = props.reco.game
+  if (g.igdbId == null) return
   catalogPreview.value = {
-    igdbId: Number(g.id),
+    igdbId: g.igdbId,
     title: g.title,
     coverUrl: g.coverUrl,
     releaseDate: g.releaseDate,
     releaseStatus: g.releaseStatus === 'upcoming' ? 'upcoming' : 'released',
     rating: g.igdbRating,
-    genres: g.genres.map(genre => ({ igdbId: Number(genre.id), name: genre.name, slug: genre.slug })),
   }
-  navigateTo(`/games/catalog/${g.id}`)
+  navigateTo(`/games/catalog/${g.igdbId}`)
 }
 
 const badgeConfig = computed(() => ({

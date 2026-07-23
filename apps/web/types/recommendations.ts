@@ -4,6 +4,7 @@ export type RecoBucket = 'library_unplayed' | 'discovery' | 'upcoming'
 
 export interface RecoGame {
   id: string
+  igdbId: number | null
   title: string
   slug: string
   coverUrl: string | null

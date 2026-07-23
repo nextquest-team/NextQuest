@@ -1,5 +1,29 @@
 # Journal de bord — Lorelei
 
+## 2026-07-23 — Session 6 : Fix navigation RecoCard vers jeu introuvable
+
+### Résumé exécutif
+
+Cliquer sur une recommandation Next Quest renvoyait systématiquement sur « jeu introuvable ». `RecoCard.goToGame` naviguait vers `/games/catalog/${g.id}`, l'UUID interne du jeu — la page catalogue attend l'`igdbId` numérique (cf. `TimelineGameCard.vue`, même pattern). Le champ `igdbId` existe côté API depuis la PR #112 (`recommendations.dto.ts`, closes #110) mais n'avait jamais été répercuté dans le type front `RecoGame`.
+
+### Ce qui a été fait
+
+#### `types/recommendations.ts`
+- Ajout de `igdbId: number | null` sur `RecoGame`
+
+#### `RecoCard.vue`
+- `goToGame()` utilise désormais `g.igdbId` pour la navigation et le `catalogPreview`, avec garde si `null`
+- Suppression du mapping `genres` bancal du preview (`Number(genre.id)` sur un UUID — `IgdbTaxonRef[]` attend un `igdbId` numérique que les recos ne fournissent pas) ; la fiche complète est de toute façon refetchée juste après via `useGameCatalogDetail`
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/types/recommendations.ts` | Ajout `igdbId` sur `RecoGame` |
+| `apps/web/components/next-quest/RecoCard.vue` | Fix navigation vers la fiche jeu (utilise `igdbId` au lieu de l'UUID interne) |
+
+---
+
 ## 2026-07-23 — Session 5 : Fix cover étirée sur RecoCard
 
 ### Résumé exécutif

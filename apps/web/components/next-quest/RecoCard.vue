@@ -227,9 +227,10 @@ function ratingStars(rating: number | null): string {
 
 .nq-card-cover {
   flex-shrink: 0;
-  align-self: stretch;
+  align-self: flex-start;
   width: auto;
   max-width: 140px;
+  max-height: 100%;
   aspect-ratio: 3 / 4;
   border-radius: 4px;
   overflow: hidden;

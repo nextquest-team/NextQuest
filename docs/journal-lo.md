@@ -1,5 +1,25 @@
 # Journal de bord — Lorelei
 
+## 2026-07-23 — Session 5 : Fix cover étirée sur RecoCard
+
+### Résumé exécutif
+
+Correctif visuel isolé sur `RecoCard.vue` : la cover du jeu était étirée en hauteur (`align-self: stretch`) pour remplir tout le corps de la carte, ce qui déformait des covers plus courtes que le corps. La cover garde maintenant son `aspect-ratio: 3/4` natif et s'aligne en haut de la carte.
+
+### Ce qui a été fait
+
+#### `RecoCard.vue`
+- `.nq-card-cover` : `align-self: stretch` → `flex-start` (la cover ne s'étire plus verticalement pour combler `.nq-card-body`)
+- Ajout de `max-height: 100%` pour éviter tout débordement si l'aspect-ratio pousse la cover plus haut que le corps de la carte
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/next-quest/RecoCard.vue` | Fix CSS cover étirée dans le corps de carte |
+
+---
+
 ## 2026-07-22 — Session 4 : Corrections review JB sur fix/generation-next-quest
 
 ### Résumé exécutif

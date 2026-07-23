@@ -1,5 +1,39 @@
 # Journal de bord — Lorelei
 
+## 2026-07-23 — Session 7 : Recherche live sur l'onglet « Prophéties à venir »
+
+### Résumé exécutif
+
+Sur `/timeline`, la recherche ne portait que sur les 20 jeux préchargés de la page courante côté « Prophéties à venir » — taper un titre absent du lot affiché ne remontait rien. La recherche appelle désormais `GET /api/games/igdb/search?scope=upcoming` à chaque frappe (debounce 300 ms), pour chercher dans tout le catalogue IGDB à venir. L'onglet « Quêtes annoncées » (jeux suivis/étoilés) garde son filtrage 100 % client sur la liste déjà en mémoire, sans appel réseau.
+
+### Ce qui a été fait
+
+#### `useTimeline.ts`
+- Ajout de l'état de recherche live : `searchActive` (computed, actif dès 2 caractères), `searchLoading`, `searchResults`
+- `watch(searchQuery, ...)` avec debounce 300 ms, `AbortController` pour annuler la requête précédente et compteur de séquence pour ignorer les réponses obsolètes (même pattern que `GameListAddModal.vue`)
+- `toTimelineGame()` mappe `IgdbSearchResult` (résultat de recherche, sans genres ni date précise) vers `TimelineGameDTO`
+- `filteredUpcoming` : bascule sur `searchResults` si une recherche est active, sinon filtrage client habituel sur le feed préchargé (le filtre genres ne s'applique plus en mode recherche, les résultats de recherche n'exposant pas de genres)
+- `filteredFollowed` inchangé : toujours filtré côté client sur la liste des jeux suivis
+
+#### `TimelineDesktop.vue` / `TimelineMobile.vue`
+- Loader de l'onglet upcoming tient compte de `searchLoading` quand une recherche est active
+- Bouton « charger plus » masqué pendant une recherche (résultats non paginés)
+
+#### `TimelineGameCard.vue` / `types/timeline.ts`
+- `releaseLabel` retombe sur `releaseYear` quand `releaseDate` est absent (cas des résultats de recherche, qui n'exposent que l'année)
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/composables/useTimeline.ts` | Recherche live débouncée sur l'onglet upcoming (API IGDB) |
+| `apps/web/components/timeline/TimelineDesktop.vue` | Loader + masquage load-more en mode recherche |
+| `apps/web/components/timeline/TimelineMobile.vue` | Idem, version mobile |
+| `apps/web/components/timeline/TimelineGameCard.vue` | Fallback `releaseYear` sur `releaseLabel` |
+| `apps/web/types/timeline.ts` | Ajout `releaseYear?` sur `TimelineGameDTO` |
+
+---
+
 ## 2026-07-23 — Session 6 : Fix navigation RecoCard vers jeu introuvable
 
 ### Résumé exécutif

@@ -8,8 +8,11 @@ const emit = defineEmits<{ toggleFollow: [game: TimelineGameDTO] }>()
 const { t } = useI18n()
 
 const releaseLabel = computed(() => {
-  if (!props.game.releaseDate) return t('timeline.releaseUnknown')
-  return new Date(props.game.releaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+  if (props.game.releaseDate) {
+    return new Date(props.game.releaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+  }
+  if (props.game.releaseYear) return String(props.game.releaseYear)
+  return t('timeline.releaseUnknown')
 })
 
 const genresLabel = computed(() => props.game.genres.slice(0, 2).map(g => g.name).join(' · '))

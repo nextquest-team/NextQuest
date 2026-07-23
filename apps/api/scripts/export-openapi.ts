@@ -17,7 +17,10 @@ import { steamRoutes } from '../src/modules/platforms/steam/steam.routes.js'
 import { collectionRoutes } from '../src/modules/collection/collection.routes.js'
 import { recommendationsRoutes } from '../src/modules/recommendations/recommendations.routes.js'
 import { igdbRoutes } from '../src/modules/games/igdb/igdb.routes.js'
+import { followRoutes } from '../src/modules/games/follow/follow.routes.js'
 import { gamesRoutes } from '../src/modules/games/games.routes.js'
+import { platformsRoutes } from '../src/modules/referentials/platforms.routes.js'
+import { genresRoutes } from '../src/modules/referentials/genres.routes.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 config({ path: resolve(__dirname, '../../../.env') })
@@ -44,7 +47,10 @@ async function main() {
   await app.register(collectionRoutes, { prefix: '/api' })
   await app.register(recommendationsRoutes, { prefix: '/api' })
   await app.register(igdbRoutes, { prefix: '/api' })
+  await app.register(followRoutes, { prefix: '/api' })
   await app.register(gamesRoutes, { prefix: '/api' })
+  await app.register(platformsRoutes, { prefix: '/api' })
+  await app.register(genresRoutes, { prefix: '/api' })
   await app.register(oauthRoutes, { prefix: '/api/auth' })
 
   await app.ready()

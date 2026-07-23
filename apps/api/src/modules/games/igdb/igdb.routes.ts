@@ -95,7 +95,7 @@ export async function igdbRoutes(app: FastifyInstance) {
         operationId: "searchIgdbGames",
         summary: "Recherche live de jeux IGDB par nom",
         description:
-          "Autocomplete de l'ajout manuel : recherche IGDB par nom, filtree (non-jeux et editions exclus) et classee par popularite. Chaque resultat indique si le jeu est deja dans la collection de l'utilisateur.",
+          "Autocomplete de l'ajout manuel : recherche IGDB par nom, filtree (non-jeux et editions exclus) et classee par popularite. Chaque resultat indique si le jeu est deja dans la collection de l'utilisateur. Le parametre scope=upcoming restreint aux jeux dont la date de sortie est future.",
         security: [{ bearerAuth: [] }],
         querystring: searchIgdbQuerySchema,
         response: {
@@ -105,9 +105,9 @@ export async function igdbRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { q, limit } = request.query;
+      const { q, limit, scope } = request.query;
       try {
-        const items = await searchIgdbGames(q, userIdOf(request), limit);
+        const items = await searchIgdbGames(q, userIdOf(request), limit, scope);
         return { items };
       } catch (err) {
         request.log.error({ err }, "IGDB search indisponible");

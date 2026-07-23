@@ -41,6 +41,7 @@ const sampleIgdbGame = (over: Partial<IgdbGame> = {}): IgdbGame => ({
   name: "Hollow Knight",
   summary: "A bug-themed metroidvania.",
   releaseDate: "2017-02-24",
+  releaseDatePrecision: "day",
   rating: 90,
   ratingCount: 200,
   coverImageId: "cover-hk",

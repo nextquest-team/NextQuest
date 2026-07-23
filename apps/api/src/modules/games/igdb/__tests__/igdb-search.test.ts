@@ -226,7 +226,7 @@ describe("searchIgdbGames", () => {
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
 
-    const res = await searchIgdbGames("halo", "user-1", 12, "CID", deps);
+    const res = await searchIgdbGames("halo", "user-1", 12, undefined, "CID", deps);
 
     expect(res).toEqual([
       {
@@ -251,16 +251,18 @@ describe("searchIgdbGames", () => {
     ]);
     // Le pool de candidats bruts demande a IGDB est toujours de 50, independamment
     // du `limit` final demande par l'appelant (ici 12).
-    expect(searchGamesByNameMock).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID");
+    // scope absent -> upcomingAfterEpoch = null (aucun filtre de date, comportement historique).
+    expect(searchGamesByNameMock).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID", null);
     // Union dedupliquee des platformIds de tous les resultats : une seule requete DB.
     expect(findPlatformsByIgdbIdsMock).toHaveBeenCalledWith([6, 48]);
-    expect(cache.set).toHaveBeenCalledWith("igdb:search:halo:12", expect.any(String), "EX", 3600);
+    // La cle de cache integre le scope ("all" par defaut) : voir describe dedie plus bas.
+    expect(cache.set).toHaveBeenCalledWith("igdb:search:all:halo:12", expect.any(String), "EX", 3600);
     // Le cache ne stocke pas alreadyInCollection (specifique a l'utilisateur) ni
     // les plateformes mappees (recalculees a chaque lecture, nos plateformes
     // pouvant evoluer independamment du TTL de la recherche). Il stocke en
     // revanche gameType/totalRatingCount/hypes : le filtrage/classement se fait
     // apres lecture du cache, pas avant.
-    const cached = JSON.parse(cache.store.get("igdb:search:halo:12") as string);
+    const cached = JSON.parse(cache.store.get("igdb:search:all:halo:12") as string);
     expect(cached[0].alreadyInCollection).toBeUndefined();
     expect(cached[0].platforms).toBeUndefined();
     expect(cached[0].platformIds).toEqual([6, 48]);
@@ -270,7 +272,7 @@ describe("searchIgdbGames", () => {
   it("cache hit: renvoie le cache sans appeler IGDB, mais remappe les plateformes depuis la BDD", async () => {
     const cache = fakeCache();
     cache.store.set(
-      "igdb:search:zelda:12",
+      "igdb:search:all:zelda:12",
       JSON.stringify([
         { igdbId: 9, name: "Cached", coverUrl: null, releaseYear: null, platformIds: [6] },
       ]),
@@ -290,7 +292,7 @@ describe("searchIgdbGames", () => {
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
 
-    const res = await searchIgdbGames("zelda", "user-1", 12, "CID", deps);
+    const res = await searchIgdbGames("zelda", "user-1", 12, undefined, "CID", deps);
 
     expect(res).toEqual([
       {
@@ -321,7 +323,7 @@ describe("searchIgdbGames", () => {
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
 
-    const res = await searchIgdbGames("halo", "user-1", 12, "CID", deps);
+    const res = await searchIgdbGames("halo", "user-1", 12, undefined, "CID", deps);
 
     expect(res.find((r) => r.igdbId === 101)?.alreadyInCollection).toBe(true);
     expect(res.find((r) => r.igdbId === 102)?.alreadyInCollection).toBe(false);
@@ -343,7 +345,7 @@ describe("searchIgdbGames", () => {
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
 
-    const res = await searchIgdbGames("halo", "user-1", 12, "CID", deps);
+    const res = await searchIgdbGames("halo", "user-1", 12, undefined, "CID", deps);
 
     expect(res.find((r) => r.igdbId === 101)?.platforms).toEqual([]);
   });
@@ -365,8 +367,58 @@ describe("searchIgdbGames", () => {
       now: () => FIXED_NOW,
     } as unknown as DiscoveryDeps;
 
-    await expect(searchIgdbGames("halo", "user-1", 12, "CID", deps)).rejects.toThrow(/503/);
+    await expect(searchIgdbGames("halo", "user-1", 12, undefined, "CID", deps)).rejects.toThrow(/503/);
     expect(cache.set).not.toHaveBeenCalled();
+  });
+});
+
+describe("searchIgdbGames - scope upcoming", () => {
+  it("scope=upcoming : cle de cache distincte et epoch calcule depuis l'horloge injectee", async () => {
+    const cache = fakeCache();
+    const searchGamesByNameMock = vi.fn(async () => searchSample);
+    const deps = {
+      getToken: vi.fn(async () => "TOKEN"),
+      fetchUpcoming: vi.fn(),
+      fetchGameDetail: vi.fn(),
+      fetchGamesByIds: vi.fn(),
+      fetchGamesByDeveloper: vi.fn(),
+      searchGamesByName: searchGamesByNameMock,
+      findOwnedIgdbIds: vi.fn(async () => new Set<number>()),
+      findPlatformsByIgdbIds: vi.fn(async () => localPlatforms),
+      cache,
+      now: () => FIXED_NOW,
+    } as unknown as DiscoveryDeps;
+
+    await searchIgdbGames("halo", "user-1", 12, "upcoming", "CID", deps);
+
+    const expectedEpoch = Math.floor(FIXED_NOW.getTime() / 1000);
+    expect(searchGamesByNameMock).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID", expectedEpoch);
+    expect(cache.set).toHaveBeenCalledWith("igdb:search:upcoming:halo:12", expect.any(String), "EX", 3600);
+  });
+
+  it("scope=upcoming et scope absent ne partagent jamais le meme pool en cache", async () => {
+    const cache = fakeCache();
+    // Le cache contient deja un pool "all" pour la meme query/limit : un
+    // cache hit sur scope=upcoming ne doit jamais le reutiliser.
+    cache.store.set("igdb:search:all:halo:12", JSON.stringify(searchSample));
+    const searchGamesByNameMock = vi.fn(async () => searchSample);
+    const deps = {
+      getToken: vi.fn(async () => "TOKEN"),
+      fetchUpcoming: vi.fn(),
+      fetchGameDetail: vi.fn(),
+      fetchGamesByIds: vi.fn(),
+      fetchGamesByDeveloper: vi.fn(),
+      searchGamesByName: searchGamesByNameMock,
+      findOwnedIgdbIds: vi.fn(async () => new Set<number>()),
+      findPlatformsByIgdbIds: vi.fn(async () => localPlatforms),
+      cache,
+      now: () => FIXED_NOW,
+    } as unknown as DiscoveryDeps;
+
+    await searchIgdbGames("halo", "user-1", 12, "upcoming", "CID", deps);
+
+    // Cache miss sur la cle scope=upcoming -> IGDB est bien rappele.
+    expect(searchGamesByNameMock).toHaveBeenCalled();
   });
 });
 
@@ -404,9 +456,9 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
   it("recupere toujours un pool de 50 candidats aupres d'IGDB, quel que soit le limit demande", async () => {
     const deps = depsWithPool([]);
 
-    await searchIgdbGames("halo", "user-1", 5, "CID", deps);
+    await searchIgdbGames("halo", "user-1", 5, undefined, "CID", deps);
 
-    expect(deps.searchGamesByName).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID");
+    expect(deps.searchGamesByName).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID", null);
   });
 
   it("exclut les DLC/bundles/packs (game_type) mais garde un candidat sans game_type connu", async () => {
@@ -419,7 +471,7 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     ];
     const deps = depsWithPool(pool);
 
-    const res = await searchIgdbGames("base game", "user-1", 18, "CID", deps);
+    const res = await searchIgdbGames("base game", "user-1", 18, undefined, "CID", deps);
 
     const ids = res.map((r) => r.igdbId);
     expect(ids).toContain(1);
@@ -436,7 +488,7 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     ];
     const deps = depsWithPool(pool);
 
-    const res = await searchIgdbGames("base game", "user-1", 18, "CID", deps);
+    const res = await searchIgdbGames("base game", "user-1", 18, undefined, "CID", deps);
 
     const ids = res.map((r) => r.igdbId);
     expect(ids).toContain(1);
@@ -450,7 +502,7 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     ];
     const deps = depsWithPool(pool);
 
-    const res = await searchIgdbGames("quest", "user-1", 18, "CID", deps);
+    const res = await searchIgdbGames("quest", "user-1", 18, undefined, "CID", deps);
 
     expect(res.map((r) => r.igdbId)).toEqual([2, 1]);
   });
@@ -469,7 +521,7 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     ];
     const deps = depsWithPool(pool);
 
-    const res = await searchIgdbGames("zelda", "user-1", 18, "CID", deps);
+    const res = await searchIgdbGames("zelda", "user-1", 18, undefined, "CID", deps);
 
     expect(res[0]?.igdbId).toBe(2);
   });
@@ -486,7 +538,7 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     ];
     const deps = depsWithPool(pool);
 
-    const res = await searchIgdbGames("gta", "user-1", 18, "CID", deps);
+    const res = await searchIgdbGames("gta", "user-1", 18, undefined, "CID", deps);
 
     expect(res.map((r) => r.igdbId)).toEqual([1, 2]);
   });
@@ -503,7 +555,7 @@ describe("searchIgdbGames - pool, filtrage et classement", () => {
     );
     const deps = depsWithPool(pool);
 
-    const res = await searchIgdbGames("quest", "user-1", 3, "CID", deps);
+    const res = await searchIgdbGames("quest", "user-1", 3, undefined, "CID", deps);
 
     expect(res).toHaveLength(3);
     expect(res.map((r) => r.igdbId)).toEqual([1, 2, 3]);
@@ -567,7 +619,8 @@ describe("GET /api/games/igdb/search", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ items: searchResultSample });
-    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 18);
+    // scope absent de la querystring -> undefined transmis tel quel au service.
+    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 18, undefined);
   });
 
   it("passe le limit custom au service", async () => {
@@ -579,7 +632,31 @@ describe("GET /api/games/igdb/search", () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(200);
-    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 5);
+    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 5, undefined);
+  });
+
+  it("passe scope=upcoming au service", async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/igdb/search?q=halo&scope=upcoming",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(searchSpy).toHaveBeenCalledWith("halo", "u", 18, "upcoming");
+  });
+
+  it("400 si scope a une valeur inconnue", async () => {
+    const app = await buildApp();
+    const token = app.jwt.sign({ sub: "u", role: "user" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/games/igdb/search?q=halo&scope=released",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(searchSpy).not.toHaveBeenCalled();
   });
 
   it("400 si q manquant", async () => {

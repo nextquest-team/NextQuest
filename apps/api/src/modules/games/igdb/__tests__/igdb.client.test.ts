@@ -116,7 +116,7 @@ describe("mapRawGame", () => {
   it("capte platformIds, gameType et versionParentIgdbId", () => {
     const raw = {
       id: 42, name: "Test", platforms: [6, 48], game_type: 0, version_parent: null,
-    } as any;
+    } as unknown as Parameters<typeof mapRawGame>[0];
     const mapped = mapRawGame(raw);
     expect(mapped.platformIds).toEqual([6, 48]);
     expect(mapped.gameType).toBe(0);
@@ -265,22 +265,24 @@ describe("fetchUpcoming", () => {
 
     const init = fetchMock.mock.calls[0][1];
     expect(init.body).toContain(`first_release_date > ${now}`);
+    expect(init.body).toContain(`| (first_release_date = null & hypes >= 1)`);
     expect(init.body).toContain("sort hypes desc");
     expect(init.body).toContain("limit 20");
     expect(init.body).toContain("offset 0");
     expect(init.body).toContain("platforms.abbreviation");
   });
 
-  it("trie par date asc quand sort=date et passe limit/offset", async () => {
+  it("trie par date asc quand sort=date et passe limit/offset (pas de branche TBD)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(ok([]));
     await fetchUpcoming({ limit: 10, offset: 5, sort: "date" }, 1700000000, "T", "C", fetchMock);
     const init = fetchMock.mock.calls[0][1];
     expect(init.body).toContain("sort first_release_date asc");
     expect(init.body).toContain("limit 10");
     expect(init.body).toContain("offset 5");
+    expect(init.body).not.toContain("first_release_date = null");
   });
 
-  it("tolere les champs absents (jeu minimal)", async () => {
+  it("tolere les champs absents (jeu minimal) -> TBD (aucune date connue)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(ok([{ id: 1, name: "Bare" }]));
     const [g] = await fetchUpcoming(
       { limit: 20, offset: 0, sort: "hype" },
@@ -293,6 +295,40 @@ describe("fetchUpcoming", () => {
     expect(g.genres).toEqual([]);
     expect(g.platforms).toEqual([]);
     expect(g.hypes).toBeNull();
+    expect(g.releaseDate).toBeNull();
+    expect(g.releaseDatePrecision).toBe("tbd");
+  });
+
+  it("sans date mais avec release_dates TBD explicite -> tbd (chemin existant, non-regression)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      ok([{ id: 2, name: "TBD via release_dates", release_dates: [{ date_format: 7 }] }]),
+    );
+    const [g] = await fetchUpcoming(
+      { limit: 20, offset: 0, sort: "hype" },
+      1700000000,
+      "T",
+      "C",
+      fetchMock,
+    );
+    expect(g.releaseDate).toBeNull();
+    expect(g.releaseDatePrecision).toBe("tbd");
+  });
+
+  it("sans first_release_date, une entree release_dates non datee (bruit IGDB) ne force pas sa precision -> tbd", async () => {
+    // Constate en reel (Soulframe, Deadlock) : release_dates contient une entree
+    // sans date mais avec date_format=0, ce qui donnerait "day" sans aucune date.
+    const fetchMock = vi.fn().mockResolvedValue(
+      ok([{ id: 3, name: "Bruit release_dates", release_dates: [{ date_format: 0 }] }]),
+    );
+    const [g] = await fetchUpcoming(
+      { limit: 20, offset: 0, sort: "hype" },
+      1700000000,
+      "T",
+      "C",
+      fetchMock,
+    );
+    expect(g.releaseDate).toBeNull();
+    expect(g.releaseDatePrecision).toBe("tbd");
   });
 
   it("leve si IGDB repond non-200", async () => {
@@ -449,7 +485,7 @@ describe("fetchTimeToBeats", () => {
 });
 
 describe("searchGamesByName - scope upcoming", () => {
-  it("scope upcoming : les deux pools filtrent first_release_date", async () => {
+  it("scope upcoming : les deux pools filtrent first_release_date OU null (TBD)", async () => {
     const bodies: string[] = [];
     const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
       bodies.push(init.body);
@@ -459,6 +495,7 @@ describe("searchGamesByName - scope upcoming", () => {
     expect(bodies).toHaveLength(2);
     for (const b of bodies) {
       expect(b).toContain("first_release_date > 1750000000");
+      expect(b).toContain("(first_release_date > 1750000000 | first_release_date = null)");
     }
   });
 

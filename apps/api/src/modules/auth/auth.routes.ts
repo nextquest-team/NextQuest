@@ -1,8 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
+import { db, users } from "@nextquest/db";
+import { eq } from "drizzle-orm";
 import {
   registerSchema,
   loginSchema,
+  restoreSchema,
   authTokensSchema,
   pendingDeletionSchema,
   RESTORE_TOKEN_PURPOSE,
@@ -18,7 +21,11 @@ import {
   revokeAllSessions,
   getUserById,
 } from "./auth.service.js";
-import { verifyPendingDeletionCredentials, purgeAfterOf } from "../users/account-deletion.service.js";
+import {
+  verifyPendingDeletionCredentials,
+  purgeAfterOf,
+  restoreAccount,
+} from "../users/account-deletion.service.js";
 
 // Cookie httpOnly + secure + sameSite strict = protection XSS + CSRF
 const REFRESH_COOKIE = "refresh_token";
@@ -160,6 +167,77 @@ export async function authRoutes(app: FastifyInstance) {
       refreshToken,
     });
   });
+
+  // Restauration d'un compte en grace de suppression. Le restore token (JWT
+  // 15 min, purpose dedie) vaut preuve d'identite : il n'est emis qu'apres un
+  // login valide (mdp correct) ou un OAuth reussi. Reconnecte completement.
+  r.post(
+    "/auth/restore",
+    {
+      // Anti-bruteforce du token : action rare, limite serree.
+      config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
+      schema: {
+        tags: ["Auth"],
+        operationId: "restoreAccount",
+        summary: "Annule la suppression du compte pendant la grace",
+        description:
+          "Verifie le restore token (emis par le login 403 accountPendingDeletion ou le callback OAuth), annule le soft delete et ouvre une session complete. 410 si la grace est expiree ou le compte deja restaure/purge.",
+        body: restoreSchema,
+        response: {
+          200: authTokensSchema,
+          ...errorResponses(400, 401, 410, 429),
+        },
+      },
+    },
+    async (request, reply) => {
+      let claims: { sub?: string; purpose?: string };
+      try {
+        claims = app.jwt.verify(request.body.restoreToken);
+      } catch {
+        return reply.code(401).send({ error: "Restore token invalide ou expire" });
+      }
+      if (claims.purpose !== RESTORE_TOKEN_PURPOSE || !claims.sub) {
+        return reply.code(401).send({ error: "Restore token invalide ou expire" });
+      }
+
+      const outcome = await restoreAccount(claims.sub);
+      if (outcome === "gone") {
+        return reply.code(410).send({ error: "Grace expiree ou compte deja restaure" });
+      }
+
+      // Meme forme que le login (authUserSchema) : sous-ensemble du profil,
+      // pas le UserDTO complet renvoye par getUserById. On requete les memes
+      // colonnes que rotateRefreshToken pour ne pas dupliquer un mapping.
+      const [user] = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          username: users.username,
+          displayName: users.displayName,
+          locale: users.locale,
+          role: users.role,
+        })
+        .from(users)
+        .where(eq(users.id, claims.sub))
+        .limit(1);
+      if (!user) {
+        return reply.code(410).send({ error: "Grace expiree ou compte deja restaure" });
+      }
+
+      const refreshToken = await createSession(
+        claims.sub,
+        undefined,
+        request.ip,
+        request.headers["user-agent"],
+      );
+      const accessToken = app.jwt.sign(
+        { sub: claims.sub, role: user.role },
+        { expiresIn: "15m" },
+      );
+      reply.setCookie(REFRESH_COOKIE, refreshToken, COOKIE_OPTIONS);
+      return reply.send({ user, accessToken, refreshToken });
+    },
+  );
 
   // Rotation du refresh token : l'ancien est invalide, un nouveau est emis
   app.post("/auth/refresh", {

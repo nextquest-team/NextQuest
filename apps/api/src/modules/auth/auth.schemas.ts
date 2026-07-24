@@ -19,6 +19,10 @@ export const refreshSchema = z.object({
   refreshToken: z.string().optional(),
 });
 
+export const restoreSchema = z.object({
+  restoreToken: z.string().min(1).describe("JWT recu du login (403) ou du callback OAuth"),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 

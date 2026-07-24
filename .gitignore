@@ -19,10 +19,6 @@ out/
 .env.test.local
 .env.production.local
 
-# Instructions locales par dev (contiennent des details d'infra perso)
-CLAUDE.md
-CLAUDE.local.md
-
 # IDE
 .idea/
 .vscode/

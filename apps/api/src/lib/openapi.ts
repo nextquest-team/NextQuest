@@ -20,8 +20,8 @@ export const validationErrorSchema = z
   })
   .describe("Erreur de validation des entrees");
 
-// Autres erreurs (401 / 403 / 404 / 409 / 413 / 422 / 500 / 502 / 503) : message seul.
-// 413 = fichier trop volumineux (upload), 503 = service indisponible (ex: stockage objet).
+// Autres erreurs (401 / 403 / 404 / 409 / 413 / 422 / 429 / 500 / 502 / 503) : message seul.
+// 413 = fichier trop volumineux (upload), 429 = rate limit depasse, 503 = service indisponible (ex: stockage objet).
 export const errorResponseSchema = z
   .object({
     error: z.string().describe("Message d'erreur lisible"),
@@ -36,7 +36,7 @@ export const badRequestSchema = z
   .union([validationErrorSchema, errorResponseSchema])
   .describe("Requete invalide (erreur de validation ou erreur metier)");
 
-type ErrorCode = 400 | 401 | 403 | 404 | 409 | 413 | 422 | 500 | 502 | 503;
+type ErrorCode = 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500 | 502 | 503;
 
 // Schema associe a un code d'erreur : 400 = requete invalide (union), sinon message.
 type ErrorSchemaFor<K extends ErrorCode> = K extends 400

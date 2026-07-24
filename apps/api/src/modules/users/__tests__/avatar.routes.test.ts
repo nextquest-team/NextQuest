@@ -7,6 +7,7 @@ import { db, users } from "@nextquest/db";
 import { registerJwt } from "../../../plugins/jwt.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
 import { registerSwagger } from "../../../plugins/swagger.js";
+import { registerRateLimit } from "../../../plugins/rate-limit.js";
 
 vi.mock("../../../lib/storage.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/storage.js")>();
@@ -156,6 +157,55 @@ describe("POST /api/users/me/avatar", () => {
       payload,
     });
     expect(res.statusCode).toBe(503);
+  });
+});
+
+// Suite dediee au rate limit de la route (config.rateLimit sur la route,
+// cf. avatar.routes.ts). Instance d'app SEPAREE avec le plugin rate-limit
+// enregistre : les autres describe ci-dessus n'en ont pas besoin et doivent
+// rester libres de toute limite pour ne pas devenir flaky.
+async function buildAppWithRateLimit() {
+  const app = Fastify();
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+  registerErrorHandler(app);
+  await registerSwagger(app);
+  await registerJwt(app);
+  await registerRateLimit(app);
+  await app.register(avatarRoutes, { prefix: "/api" });
+  await app.ready();
+  return app;
+}
+
+describe("POST /api/users/me/avatar — rate limit dedie", () => {
+  it("bloque la 11e requete en 429 (limite 10/heure)", async () => {
+    const app = await buildAppWithRateLimit();
+    const user = await createTestUser();
+    const token = getToken(app, user.id);
+
+    // Le keyGenerator par defaut de @fastify/rate-limit indexe par req.ip.
+    // Le store est en memoire et scope a CETTE instance d'app (fraiche a
+    // chaque appel de buildAppWithRateLimit), donc pas de pollution
+    // inter-tests en soi ; on fixe quand meme une IP dediee et aleatoire
+    // pour rendre le test deterministe si jamais le fichier est relance
+    // dans le meme process (watch mode) sans recreer l'app.
+    const remoteAddress = `10.42.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+
+    let lastRes: Awaited<ReturnType<typeof app.inject>> | undefined;
+    for (let i = 0; i < 11; i++) {
+      const { payload, headers } = multipartPayload(await makePng());
+      lastRes = await app.inject({
+        method: "POST",
+        url: "/api/users/me/avatar",
+        headers: { ...headers, authorization: `Bearer ${token}` },
+        payload,
+        remoteAddress,
+      });
+      if (i < 10) {
+        expect(lastRes.statusCode).toBe(200);
+      }
+    }
+    expect(lastRes!.statusCode).toBe(429);
   });
 });
 

@@ -22,6 +22,10 @@ export async function avatarRoutes(app: FastifyInstance) {
     "/users/me/avatar",
     {
       onRequest: [requireAuth],
+      // Limite dediee, plus stricte que le filet global (300/min) : le
+      // recadrage/reencodage sharp cote serveur coute du CPU par requete,
+      // pas question de laisser un abus d'upload saturer le process.
+      config: { rateLimit: { max: 10, timeWindow: "1 hour" } },
       schema: {
         tags: ["Users"],
         operationId: "uploadMyAvatar",
@@ -35,7 +39,7 @@ export async function avatarRoutes(app: FastifyInstance) {
         // est faite a la main dans le handler.
         response: {
           200: userDTOSchema,
-          ...errorResponses(400, 401, 413, 503),
+          ...errorResponses(400, 401, 413, 429, 503),
         },
       },
     },

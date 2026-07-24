@@ -1623,6 +1623,417 @@
         }
       }
     },
+    "/api/users/me/avatar": {
+      "post": {
+        "operationId": "uploadMyAvatar",
+        "summary": "Upload de l'avatar",
+        "tags": [
+          "Users"
+        ],
+        "description": "Remplace l'avatar par l'image envoyee (multipart, un champ fichier). Formats jpeg/png/webp, 5 Mo max. L'image est recadree en 512x512, convertie en WebP et servie depuis le stockage objet.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profil public d'un utilisateur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "description": "Identifiant unique de l'utilisateur"
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email",
+                      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                      "description": "Adresse email"
+                    },
+                    "username": {
+                      "type": "string",
+                      "description": "Nom d'utilisateur unique"
+                    },
+                    "displayName": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Nom d'affichage public"
+                    },
+                    "avatarUrl": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "URL de l'avatar"
+                    },
+                    "bio": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Biographie"
+                    },
+                    "country": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Code pays ISO 3166-1 alpha-2"
+                    },
+                    "birthdate": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Date de naissance (YYYY-MM-DD)"
+                    },
+                    "favoritePlatform": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "pc",
+                            "playstation",
+                            "xbox",
+                            "nintendo",
+                            "mobile"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Plateforme mise en avant sur le profil"
+                    },
+                    "socialLinks": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "twitch": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "youtube": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "discord": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "twitter": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "instagram": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Liens sociaux whitelists"
+                    },
+                    "locale": {
+                      "type": "string",
+                      "description": "Langue preferee (ex: fr, en)"
+                    },
+                    "visibility": {
+                      "type": "string",
+                      "enum": [
+                        "private",
+                        "friends_only",
+                        "public"
+                      ],
+                      "description": "Visibilite du profil"
+                    },
+                    "emailVerified": {
+                      "type": "boolean",
+                      "description": "Adresse email verifiee"
+                    },
+                    "onboardingCompleted": {
+                      "type": "boolean",
+                      "description": "Tour d'onboarding termine"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "description": "Date de creation du compte (ISO 8601)"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "email",
+                    "username",
+                    "displayName",
+                    "avatarUrl",
+                    "bio",
+                    "country",
+                    "birthdate",
+                    "favoritePlatform",
+                    "socialLinks",
+                    "locale",
+                    "visibility",
+                    "emailVerified",
+                    "onboardingCompleted",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Profil public d'un utilisateur"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (erreur de validation ou erreur metier)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Libelle de l'erreur",
+                          "enum": [
+                            "Validation Error"
+                          ]
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "field": {
+                                "type": "string",
+                                "description": "Chemin du champ invalide (ex: email)"
+                              },
+                              "message": {
+                                "type": "string",
+                                "description": "Raison de l'invalidite"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Liste des champs invalides"
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "details"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur de validation des entrees"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Message d'erreur lisible"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur"
+                    }
+                  ],
+                  "description": "Requete invalide (erreur de validation ou erreur metier)"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMyAvatar",
+        "summary": "Suppression de l'avatar",
+        "tags": [
+          "Users"
+        ],
+        "description": "Supprime l'avatar uploade et remet avatar_url a null (le front retombe sur l'avatar genere). Idempotent.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Aucun contenu"
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/platforms/steam/link": {
       "get": {
         "operationId": "linkSteam",

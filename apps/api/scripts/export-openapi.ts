@@ -13,6 +13,7 @@ import { healthRoutes } from '../src/modules/health/health.routes.js'
 import { authRoutes } from '../src/modules/auth/auth.routes.js'
 import { oauthRoutes } from '../src/modules/auth/oauth/oauth.routes.js'
 import { usersRoutes } from '../src/modules/users/users.routes.js'
+import { avatarRoutes } from '../src/modules/users/avatar.routes.js'
 import { steamRoutes } from '../src/modules/platforms/steam/steam.routes.js'
 import { collectionRoutes } from '../src/modules/collection/collection.routes.js'
 import { recommendationsRoutes } from '../src/modules/recommendations/recommendations.routes.js'
@@ -43,6 +44,7 @@ async function main() {
   await app.register(healthRoutes, { prefix: '/api' })
   await app.register(authRoutes, { prefix: '/api' })
   await app.register(usersRoutes, { prefix: '/api' })
+  await app.register(avatarRoutes, { prefix: '/api' })
   await app.register(steamRoutes, { prefix: '/api' })
   await app.register(collectionRoutes, { prefix: '/api' })
   await app.register(recommendationsRoutes, { prefix: '/api' })

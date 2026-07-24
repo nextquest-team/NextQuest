@@ -133,6 +133,11 @@
       "library": "My library",
       "ignored": "Ignored",
       "emptyIgnored": "No ignored games."
+    },
+    "sortBy": {
+      "label": "Sort by",
+      "recent": "Recently added",
+      "platform": "Platform"
     }
   },
   "gameDetail": {

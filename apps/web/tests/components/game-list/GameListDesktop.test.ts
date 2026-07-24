@@ -2,9 +2,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import GameListDesktop from '~/components/game-list/GameListDesktop.vue'
 import type { UserGame } from '~/types/game'
+import type { useGameList } from '~/composables/useGameList'
 
 mockNuxtImport('useI18n', () => () => ({
   t: (key: string) => key.split('.').pop() ?? key,
@@ -32,7 +33,7 @@ const gameListMock = {
   drawerOpen: ref(false),
   searchQuery: ref(''),
   selectedStatuses: ref([]),
-  activeFilterCount: mockActiveFilterCount,
+  activeFilterCount: computed(() => mockActiveFilterCount.value),
   STATUS_OPTIONS: [
     { key: 'playing', icon: 'mdi-play-circle-outline' },
     { key: 'backlog', icon: 'mdi-bookmark-outline' },
@@ -42,11 +43,17 @@ const gameListMock = {
   toggleStatus: vi.fn(),
   applyFilters: vi.fn(),
   resetFilters: vi.fn(),
+  platforms: ref([]),
+  selectedPlatformIds: ref([]),
+  togglePlatform: vi.fn(),
+  sortBy: ref('recent'),
+  setSortBy: vi.fn(),
   currentPage: mockCurrentPage,
   total: ref(0),
-  totalPages: mockTotalPages,
+  totalPages: computed(() => mockTotalPages.value),
   goToPage: vi.fn(),
   gamesLoading: mockGamesLoading,
+  gamesError: ref(false),
   games: mockGames,
   fetchGames: vi.fn(),
   onStatusChange: vi.fn(),
@@ -59,7 +66,7 @@ const gameListMock = {
   onProgressBackground: vi.fn(),
   onProgressClose: vi.fn(),
   init: initMock,
-}
+} satisfies ReturnType<typeof useGameList>
 
 const stubs = {
   VIcon: { template: '<span v-bind="$attrs" />' },

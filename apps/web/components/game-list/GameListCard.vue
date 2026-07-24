@@ -37,6 +37,9 @@ function onRestore(e: Event) {
   e.stopPropagation()
   emit('restore', props.game.id)
 }
+
+const platformColor = computed(() => getPlatformColor(props.game.platform?.code))
+const platformIcon = computed(() => getPlatformIcon(props.game.platform?.code))
 </script>
 
 <template>
@@ -58,6 +61,16 @@ function onRestore(e: Event) {
       <div v-else class="gl-card__cover-placeholder">
         <v-icon size="40" color="primary-light">mdi-gamepad-variant</v-icon>
       </div>
+
+      <!-- Badge plateforme -->
+      <span
+        v-if="game.platform"
+        class="gl-card__platform-badge"
+        :style="{ '--gl-card-platform-color': platformColor }"
+        :title="game.platform.name"
+      >
+        <v-icon size="14" color="white">{{ platformIcon }}</v-icon>
+      </span>
     </button>
 
     <!-- Infos -->
@@ -155,6 +168,22 @@ function onRestore(e: Event) {
   padding: 0;
   cursor: pointer;
   display: block;
+  position: relative;
+}
+
+.gl-card__platform-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--gl-card-platform-color, #8A8A8A);
+  border: 2px solid var(--nq-cream, #F8F4EA);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .gl-card__cover-img {

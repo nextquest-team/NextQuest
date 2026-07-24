@@ -25,6 +25,10 @@ const baseRow: CollectionRow = {
   publisher: "Team Cherry",
   igdbRating: 91.2,
   igdbId: 123,
+  platformId: null,
+  platformName: null,
+  platformCode: null,
+  platformIconUrl: null,
 };
 
 describe("toCollectionItemDTO", () => {
@@ -46,6 +50,29 @@ describe("toCollectionItemDTO", () => {
     const dto = toCollectionItemDTO({ ...baseRow, igdbId: null }, [], []);
     expect(dto.game.isEnriched).toBe(false);
     expect(dto.game.igdbId).toBeNull();
+  });
+  it("platform=null quand platformId est null", () => {
+    const dto = toCollectionItemDTO(baseRow, [], []);
+    expect(dto.platform).toBeNull();
+  });
+  it("mappe la plateforme quand platformId est renseigne", () => {
+    const dto = toCollectionItemDTO(
+      {
+        ...baseRow,
+        platformId: "p1",
+        platformName: "PC",
+        platformCode: "pc",
+        platformIconUrl: "icon.png",
+      },
+      [],
+      [],
+    );
+    expect(dto.platform).toEqual({
+      id: "p1",
+      name: "PC",
+      code: "pc",
+      iconUrl: "icon.png",
+    });
   });
 });
 

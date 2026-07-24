@@ -74,7 +74,7 @@ export async function collectionRoutes(app: FastifyInstance) {
         operationId: "listCollection",
         summary: "Lister les jeux de la collection",
         description:
-          "Liste paginee de la collection de l'utilisateur, genres/tags inline. Filtrable par statut et recherche texte sur le titre. view=library (defaut) exclut les jeux ignores, view=ignored ne montre que ceux-la.",
+          "Liste paginee de la collection de l'utilisateur, genres/tags inline. Filtrable par statut, plateforme(s) (platformId, repetable dans l'URL pour matcher plusieurs plateformes a la fois) et recherche texte sur le titre. Triable via sortBy (recent par defaut, platform, genre). view=library (defaut) exclut les jeux ignores, view=ignored ne montre que ceux-la.",
         security: [{ bearerAuth: [] }],
         querystring: listCollectionQuerySchema,
         response: {
@@ -85,12 +85,14 @@ export async function collectionRoutes(app: FastifyInstance) {
     },
     async (request) => {
       const userId = userIdOf(request);
-      const { status, search, limit, offset, includeHidden, view } =
+      const { status, search, platformId, sortBy, limit, offset, includeHidden, view } =
         request.query;
       const { items, total } = await listCollection({
         userId,
         status,
         search,
+        platformIds: platformId,
+        sortBy,
         limit,
         offset,
         includeHidden,

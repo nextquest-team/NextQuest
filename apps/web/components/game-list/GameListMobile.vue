@@ -8,6 +8,7 @@ const {
   drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
   toggleStatus, applyFilters, resetFilters,
   platforms, selectedPlatformIds, togglePlatform,
+  sortBy, setSortBy,
   currentPage, totalPages, goToPage,
   gamesLoading, games, fetchGames,
   onStatusChange, onIgnoreGame, onRestoreGame, onCardClick,
@@ -167,6 +168,26 @@ function toggleSection(key: string) {
               @click="setView('ignored')"
             >
               {{ t('gameList.view.ignored') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="gl-drawer__section">
+          <p class="gl-drawer__section-title">{{ t('gameList.sortBy.label') }}</p>
+          <div class="gl-drawer__seg">
+            <button
+              class="gl-drawer__seg-btn"
+              :class="{ 'gl-drawer__seg-btn--active': sortBy === 'recent' }"
+              @click="setSortBy('recent')"
+            >
+              {{ t('gameList.sortBy.recent') }}
+            </button>
+            <button
+              class="gl-drawer__seg-btn"
+              :class="{ 'gl-drawer__seg-btn--active': sortBy === 'platform' }"
+              @click="setSortBy('platform')"
+            >
+              {{ t('gameList.sortBy.platform') }}
             </button>
           </div>
         </div>

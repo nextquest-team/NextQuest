@@ -228,11 +228,11 @@ export function toCollectionItemDTO(
       igdbId: row.igdbId,
       isEnriched: row.igdbId !== null,
     },
-    platform: row.platformId
+    platform: row.platformId && row.platformName && row.platformCode
       ? {
           id: row.platformId,
-          name: row.platformName as string,
-          code: row.platformCode as string,
+          name: row.platformName,
+          code: row.platformCode,
           iconUrl: row.platformIconUrl,
         }
       : null,

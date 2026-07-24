@@ -119,6 +119,14 @@ export function useGameList() {
     else selectedStatuses.value.push(status)
   }
 
+  // Tri : "recent" (defaut) ou "platform". "genre" est deja gere cote API mais
+  // pas encore expose ici, faute de referentiel genres cote front (cf. commentaire
+  // sur listCollectionQuerySchema).
+  const sortBy = ref<'recent' | 'platform'>('recent')
+  function setSortBy(value: 'recent' | 'platform') {
+    sortBy.value = value
+  }
+
   function applyFilters() {
     currentPage.value = 1
     drawerOpen.value = false
@@ -128,6 +136,7 @@ export function useGameList() {
   function resetFilters() {
     selectedStatuses.value = []
     selectedPlatformIds.value = []
+    sortBy.value = 'recent'
     currentPage.value = 1
     fetchGames()
     drawerOpen.value = false
@@ -172,6 +181,7 @@ export function useGameList() {
       // plusieurs occurrences (?platformId=a&platformId=b), Fastify les recompose
       // en tableau cote API (match "au moins une des plateformes selectionnees").
       if (selectedPlatformIds.value.length > 0) query.platformId = selectedPlatformIds.value
+      if (sortBy.value !== 'recent') query.sortBy = sortBy.value
 
       const res = await authFetch<CollectionListResponse>(`${apiBase}/api/collection`, { query })
       games.value = res.items.map(toUserGame)
@@ -265,6 +275,7 @@ export function useGameList() {
     drawerOpen, searchQuery, selectedStatuses, activeFilterCount, STATUS_OPTIONS,
     toggleStatus, applyFilters, resetFilters,
     platforms, selectedPlatformIds, togglePlatform,
+    sortBy, setSortBy,
     // Pagination
     currentPage, total, totalPages, goToPage,
     // Jeux

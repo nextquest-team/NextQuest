@@ -41,7 +41,7 @@ export const userGameParamsSchema = z.object({
 // normalise toujours vers un tableau pour que le service n'ait qu'une forme a
 // gerer (match "au moins une des plateformes selectionnees").
 const platformIdParam = z
-  .union([z.string().uuid(), z.array(z.string().uuid())])
+  .union([z.uuid(), z.array(z.uuid())])
   .optional()
   .transform((v) => (v === undefined ? undefined : Array.isArray(v) ? v : [v]));
 

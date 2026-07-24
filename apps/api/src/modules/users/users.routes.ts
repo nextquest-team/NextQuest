@@ -52,7 +52,7 @@ export async function usersRoutes(app: FastifyInstance) {
         operationId: "updateMyProfile",
         summary: "Mise a jour du profil",
         description:
-          "Met a jour displayName, avatarUrl, bio, locale, visibility. Tous optionnels mais au moins un requis. Renvoie le profil mis a jour.",
+          "Met a jour displayName, avatarUrl, bio, locale, visibility, country, birthdate, favoritePlatform, socialLinks. Tous optionnels mais au moins un requis ; null efface les champs du profil etendu. Renvoie le profil mis a jour.",
         security: [{ bearerAuth: [] }],
         body: updateProfileSchema,
         response: {

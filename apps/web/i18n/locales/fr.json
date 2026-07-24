@@ -64,7 +64,55 @@
     "onboarding": {
       "completed": "Profil complété",
       "pending": "Profil incomplet"
-    }
+    },
+    "avatar": {
+      "change": "Changer l'avatar",
+      "remove": "Supprimer l'avatar",
+      "invalidType": "Le fichier doit être une image (jpeg, png ou webp).",
+      "tooLarge": "Image trop volumineuse (5 Mo max).",
+      "uploadError": "Impossible d'envoyer l'avatar, réessaie.",
+      "deleteError": "Impossible de supprimer l'avatar, réessaie."
+    },
+    "country": {
+      "label": "Pays",
+      "edit": "Modifier le pays",
+      "none": "Non renseigné",
+      "FR": "France",
+      "BE": "Belgique",
+      "CH": "Suisse",
+      "CA": "Canada",
+      "LU": "Luxembourg",
+      "GB": "Royaume-Uni",
+      "DE": "Allemagne",
+      "ES": "Espagne",
+      "IT": "Italie",
+      "US": "États-Unis"
+    },
+    "countrySaveError": "Impossible de sauvegarder le pays, réessaie.",
+    "birthdate": {
+      "label": "Date de naissance",
+      "edit": "Modifier la date de naissance",
+      "none": "Non renseignée"
+    },
+    "birthdateSaveError": "Impossible de sauvegarder la date de naissance, réessaie.",
+    "platform": {
+      "label": "Plateforme favorite",
+      "edit": "Modifier la plateforme favorite",
+      "none": "Aucune",
+      "pc": "PC",
+      "playstation": "PlayStation",
+      "xbox": "Xbox",
+      "nintendo": "Nintendo",
+      "mobile": "Mobile"
+    },
+    "favoritePlatformSaveError": "Impossible de sauvegarder la plateforme favorite, réessaie.",
+    "socialLinks": {
+      "label": "Réseaux sociaux",
+      "edit": "Modifier les réseaux sociaux",
+      "none": "Aucun réseau social renseigné.",
+      "placeholder": "https://…"
+    },
+    "socialLinksSaveError": "Impossible de sauvegarder les réseaux sociaux, réessaie."
   },
   "gameList": {
     "title": "Ma liste de jeux",

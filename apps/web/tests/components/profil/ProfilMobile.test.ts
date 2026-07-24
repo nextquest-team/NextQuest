@@ -6,6 +6,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { ref } from 'vue'
 import ProfilMobile from '~/components/profil/ProfilMobile.vue'
 import { useAuthStore } from '~/stores/auth'
+import type { FavoritePlatform, SocialLinks } from '@nextquest/shared'
 
 const fakeUser = {
   id: 'u-1',
@@ -15,6 +16,10 @@ const fakeUser = {
   avatarUrl: null as string | null,
   locale: 'fr' as const,
   bio: null as string | null,
+  country: null as string | null,
+  birthdate: null as string | null,
+  favoritePlatform: null as FavoritePlatform | null,
+  socialLinks: null as SocialLinks | null,
   visibility: 'public' as const,
   emailVerified: false,
   onboardingCompleted: false,
@@ -45,6 +50,7 @@ mockNuxtImport('useAuthFetch', () => () => ({
 const stubs = {
   NuxtLink: { template: '<a :href="to" v-bind="$attrs"><slot /></a>', props: ['to'] },
   VIcon: { template: '<span v-bind="$attrs"><slot /></span>' },
+  VProgressCircular: { template: '<span v-bind="$attrs"><slot /></span>' },
   ClientOnly: { template: '<slot />' },
   UiPageHeader: { template: '<div><slot /></div>' },
   UiBackButton: { template: '<button v-bind="$attrs"><slot /></button>', props: ['to'] },
@@ -168,5 +174,110 @@ describe('ProfilMobile', () => {
     await wrapper.find('.pm__logout').trigger('click')
     await flushPromises()
     expect(logoutMock).toHaveBeenCalledOnce()
+  })
+
+  describe('avatar', () => {
+    it('affiche le bouton de suppression uniquement si avatarUrl est renseignée', () => {
+      const wrapper = mount(ProfilMobile, { global: { stubs } })
+      expect(wrapper.find('.pm__avatar-remove-btn').exists()).toBe(false)
+    })
+
+    it('envoie un POST multipart quand un fichier est sélectionné', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, avatarUrl: 'https://cdn.example.com/new.png' })
+      const wrapper = mount(ProfilMobile, { global: { stubs } })
+      const file = new File([new Uint8Array(10)], 'avatar.png', { type: 'image/png' })
+      const input = wrapper.find('.pm__avatar-input').element as HTMLInputElement
+      Object.defineProperty(input, 'files', { value: [file] })
+      await wrapper.find('.pm__avatar-input').trigger('change')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me/avatar',
+        expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
+      )
+    })
+
+    it('appelle DELETE au clic sur le bouton de suppression', async () => {
+      mockUser.value = { ...fakeUser, avatarUrl: 'https://cdn.example.com/a.png' }
+      authFetchMock.mockResolvedValue(undefined)
+      const wrapper = mount(ProfilMobile, { global: { stubs } })
+      await wrapper.find('.pm__avatar-remove-btn').trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me/avatar',
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    })
+  })
+
+  describe('pays', () => {
+    it('appelle PATCH avec le pays sélectionné', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, country: 'BE' })
+      const wrapper = mount(ProfilMobile, { global: { stubs } })
+      await wrapper.findAll('.pm__info-row--visibility .pm__edit-btn')[1].trigger('click')
+      await wrapper.find('.pm__info-row--visibility select').setValue('BE')
+      await wrapper.find('.pm__info-row--visibility .pm__action-btn--save').trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me',
+        expect.objectContaining({ method: 'PATCH', body: { country: 'BE' } }),
+      )
+    })
+  })
+
+  describe('date de naissance', () => {
+    it('appelle PATCH avec la date saisie', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, birthdate: '1990-01-01' })
+      const wrapper = mount(ProfilMobile, { global: { stubs } })
+      await wrapper.findAll('.pm__info-row--visibility .pm__edit-btn')[2].trigger('click')
+      await wrapper.find('input[type="date"]').setValue('1990-01-01')
+      await wrapper.find('.pm__info-row--visibility .pm__action-btn--save').trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me',
+        expect.objectContaining({ method: 'PATCH', body: { birthdate: '1990-01-01' } }),
+      )
+    })
+  })
+
+  describe('plateforme favorite', () => {
+    it('appelle PATCH avec la plateforme choisie', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, favoritePlatform: 'pc' })
+      const wrapper = mount(ProfilMobile, { global: { stubs } })
+      await wrapper.findAll('.pm__info-row--visibility .pm__edit-btn')[3].trigger('click')
+      await wrapper.findAll('.pm__info-row--visibility .pm__visibility-opt')[0].trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me',
+        expect.objectContaining({ method: 'PATCH', body: { favoritePlatform: 'pc' } }),
+      )
+    })
+  })
+
+  describe('réseaux sociaux', () => {
+    it('affiche les liens quand ils sont renseignés', () => {
+      mockUser.value = { ...fakeUser, socialLinks: { twitch: 'https://twitch.tv/lo' } }
+      const wrapper = mount(ProfilMobile, { global: { stubs } })
+      expect(wrapper.find('.pm__social-link').attributes('href')).toBe('https://twitch.tv/lo')
+    })
+
+    it('appelle PATCH avec les liens saisis', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, socialLinks: { twitch: 'https://twitch.tv/lo' } })
+      const wrapper = mount(ProfilMobile, { global: { stubs } })
+      const socialSection = wrapper.findAll('.pm__section')[1]
+      await socialSection.find('.pm__section-header .pm__edit-btn').trigger('click')
+      await wrapper.find('.pm__social-field input').setValue('https://twitch.tv/lo')
+      await socialSection.find('.pm__action-btn--save').trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me',
+        expect.objectContaining({ method: 'PATCH', body: { socialLinks: { twitch: 'https://twitch.tv/lo' } } }),
+      )
+    })
   })
 })

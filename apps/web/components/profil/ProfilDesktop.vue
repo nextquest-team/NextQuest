@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { BIO_MAX, VISIBILITY_OPTIONS } from '~/composables/useProfil'
+import {
+  BIO_MAX, VISIBILITY_OPTIONS,
+  COUNTRIES, FAVORITE_PLATFORMS, FAVORITE_PLATFORM_ICONS,
+  SOCIAL_LINK_KEYS,
+} from '~/composables/useProfil'
 
 const { t } = useI18n()
 
@@ -8,12 +12,35 @@ const {
   isLoggingOut,
   isEditingBio, bioInput, isSavingBio, bioError,
   isEditingVisibility, isSavingVisibility, visibilityError,
-  avatarSrc, displayName, memberSince, visibilityKey,
+  isUploadingAvatar, avatarError,
+  isEditingCountry, countryInput, isSavingCountry, countryError,
+  isEditingBirthdate, birthdateInput, isSavingBirthdate, birthdateError,
+  isEditingFavoritePlatform, isSavingFavoritePlatform, favoritePlatformError,
+  isEditingSocialLinks, socialLinksInput, isSavingSocialLinks, socialLinksError,
+  avatarSrc, displayName, memberSince, visibilityKey, socialLinksList,
   startEditBio, cancelEditBio, saveBio,
   saveVisibility,
+  uploadAvatar, removeAvatar,
+  startEditCountry, cancelEditCountry, saveCountry,
+  startEditBirthdate, cancelEditBirthdate, saveBirthdate,
+  saveFavoritePlatform,
+  startEditSocialLinks, cancelEditSocialLinks, saveSocialLinks,
   handleLogout,
   init,
 } = useProfil()
+
+const avatarInputRef = ref<HTMLInputElement | null>(null)
+
+function triggerAvatarInput() {
+  avatarInputRef.value?.click()
+}
+
+function onAvatarChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) uploadAvatar(file)
+  input.value = ''
+}
 
 onMounted(init)
 </script>
@@ -35,7 +62,37 @@ onMounted(init)
             class="pd__avatar-img"
             @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
           />
+          <div v-if="isUploadingAvatar" class="pd__avatar-loading">
+            <v-progress-circular indeterminate size="24" width="2" color="#edc78e" />
+          </div>
+          <button
+            type="button"
+            class="pd__avatar-edit-btn"
+            :aria-label="t('profil.avatar.change')"
+            :disabled="isUploadingAvatar"
+            @click="triggerAvatarInput"
+          >
+            <v-icon size="16">mdi-camera-outline</v-icon>
+          </button>
+          <button
+            v-if="user?.avatarUrl"
+            type="button"
+            class="pd__avatar-remove-btn"
+            :aria-label="t('profil.avatar.remove')"
+            :disabled="isUploadingAvatar"
+            @click="removeAvatar"
+          >
+            <v-icon size="14">mdi-trash-can-outline</v-icon>
+          </button>
+          <input
+            ref="avatarInputRef"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="pd__avatar-input"
+            @change="onAvatarChange"
+          />
         </div>
+        <p v-if="avatarError" class="pd__error">{{ avatarError }}</p>
 
         <!-- Nom + username -->
         <h2 class="pd__name">{{ displayName }}</h2>
@@ -92,6 +149,89 @@ onMounted(init)
             <v-icon size="18" class="pd__info-icon">mdi-calendar-outline</v-icon>
             <span>{{ t('profil.memberSince') }} {{ memberSince }}</span>
           </li>
+
+          <!-- Pays -->
+          <li class="pd__info-row pd__info-row--visibility">
+            <v-icon size="18" class="pd__info-icon">mdi-earth</v-icon>
+            <template v-if="!isEditingCountry">
+              <span>{{ t('profil.country.label') }} : {{ user?.country ? t(`profil.country.${user.country}`) : t('profil.country.none') }}</span>
+              <button class="pd__edit-btn" :aria-label="t('profil.country.edit')" @click="startEditCountry">
+                <v-icon size="16">mdi-pencil-outline</v-icon>
+              </button>
+            </template>
+            <template v-else>
+              <select v-model="countryInput" class="pd__select" :disabled="isSavingCountry">
+                <option value="">{{ t('profil.country.none') }}</option>
+                <option v-for="code in COUNTRIES" :key="code" :value="code">{{ t(`profil.country.${code}`) }}</option>
+              </select>
+              <button class="pd__action-btn pd__action-btn--save" :disabled="isSavingCountry" @click="saveCountry">
+                {{ isSavingCountry ? '…' : t('profil.save') }}
+              </button>
+              <button class="pd__edit-btn" :aria-label="t('profil.cancel')" @click="cancelEditCountry">
+                <v-icon size="16">mdi-close</v-icon>
+              </button>
+              <p v-if="countryError" class="pd__error">{{ countryError }}</p>
+            </template>
+          </li>
+
+          <!-- Date de naissance -->
+          <li class="pd__info-row pd__info-row--visibility">
+            <v-icon size="18" class="pd__info-icon">mdi-cake-variant-outline</v-icon>
+            <template v-if="!isEditingBirthdate">
+              <span>{{ t('profil.birthdate.label') }} : {{ user?.birthdate ?? t('profil.birthdate.none') }}</span>
+              <button class="pd__edit-btn" :aria-label="t('profil.birthdate.edit')" @click="startEditBirthdate">
+                <v-icon size="16">mdi-pencil-outline</v-icon>
+              </button>
+            </template>
+            <template v-else>
+              <input v-model="birthdateInput" type="date" class="pd__select" :disabled="isSavingBirthdate" />
+              <button class="pd__action-btn pd__action-btn--save" :disabled="isSavingBirthdate" @click="saveBirthdate">
+                {{ isSavingBirthdate ? '…' : t('profil.save') }}
+              </button>
+              <button class="pd__edit-btn" :aria-label="t('profil.cancel')" @click="cancelEditBirthdate">
+                <v-icon size="16">mdi-close</v-icon>
+              </button>
+              <p v-if="birthdateError" class="pd__error">{{ birthdateError }}</p>
+            </template>
+          </li>
+
+          <!-- Plateforme favorite -->
+          <li class="pd__info-row pd__info-row--visibility">
+            <v-icon size="18" class="pd__info-icon">mdi-controller-classic-outline</v-icon>
+            <template v-if="!isEditingFavoritePlatform">
+              <span>{{ t('profil.platform.label') }} : {{ user?.favoritePlatform ? t(`profil.platform.${user.favoritePlatform}`) : t('profil.platform.none') }}</span>
+              <button class="pd__edit-btn" :aria-label="t('profil.platform.edit')" @click="isEditingFavoritePlatform = true">
+                <v-icon size="16">mdi-pencil-outline</v-icon>
+              </button>
+            </template>
+            <template v-else>
+              <div class="pd__visibility-picker">
+                <button
+                  v-for="opt in FAVORITE_PLATFORMS"
+                  :key="opt"
+                  class="pd__visibility-opt"
+                  :class="{ 'pd__visibility-opt--active': user?.favoritePlatform === opt }"
+                  :disabled="isSavingFavoritePlatform"
+                  @click="saveFavoritePlatform(opt)"
+                >
+                  <v-icon size="14">{{ FAVORITE_PLATFORM_ICONS[opt] }}</v-icon>
+                  {{ t(`profil.platform.${opt}`) }}
+                </button>
+                <button
+                  class="pd__visibility-opt"
+                  :class="{ 'pd__visibility-opt--active': !user?.favoritePlatform }"
+                  :disabled="isSavingFavoritePlatform"
+                  @click="saveFavoritePlatform(null)"
+                >
+                  {{ t('profil.platform.none') }}
+                </button>
+                <button class="pd__edit-btn" :aria-label="t('profil.cancel')" @click="isEditingFavoritePlatform = false">
+                  <v-icon size="16">mdi-close</v-icon>
+                </button>
+              </div>
+              <p v-if="favoritePlatformError" class="pd__error">{{ favoritePlatformError }}</p>
+            </template>
+          </li>
         </ul>
 
         <hr class="pd__divider" />
@@ -135,6 +275,57 @@ onMounted(init)
           </template>
 
           <p v-else class="pd__bio">{{ user?.bio ?? t('profil.noBio') }}</p>
+        </div>
+
+        <!-- Réseaux sociaux -->
+        <div class="pd__section">
+          <div class="pd__section-header">
+            <p class="pd__section-label">{{ t('profil.socialLinks.label') }}</p>
+            <button v-if="!isEditingSocialLinks" class="pd__edit-btn" :aria-label="t('profil.socialLinks.edit')" @click="startEditSocialLinks">
+              <v-icon size="16">mdi-pencil-outline</v-icon>
+            </button>
+          </div>
+
+          <template v-if="isEditingSocialLinks">
+            <div class="pd__social-form">
+              <div v-for="key in SOCIAL_LINK_KEYS" :key="key" class="pd__social-field">
+                <ProfilSocialLinkIcon :platform="key" :size="18" class="pd__info-icon" />
+                <input
+                  v-model="socialLinksInput[key]"
+                  type="url"
+                  class="pd__select pd__social-input"
+                  :placeholder="t('profil.socialLinks.placeholder')"
+                  :disabled="isSavingSocialLinks"
+                />
+              </div>
+            </div>
+            <div class="pd__bio-footer">
+              <div class="pd__bio-actions">
+                <button class="pd__action-btn pd__action-btn--cancel" @click="cancelEditSocialLinks">
+                  {{ t('profil.cancel') }}
+                </button>
+                <button class="pd__action-btn pd__action-btn--save" :disabled="isSavingSocialLinks" @click="saveSocialLinks">
+                  {{ isSavingSocialLinks ? '…' : t('profil.save') }}
+                </button>
+              </div>
+            </div>
+            <p v-if="socialLinksError" class="pd__error">{{ socialLinksError }}</p>
+          </template>
+
+          <div v-else-if="socialLinksList.length > 0" class="pd__social-list">
+            <a
+              v-for="entry in socialLinksList"
+              :key="entry.key"
+              :href="entry.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="pd__social-link"
+              :aria-label="entry.key"
+            >
+              <ProfilSocialLinkIcon :platform="entry.key" :size="20" />
+            </a>
+          </div>
+          <p v-else class="pd__bio">{{ t('profil.socialLinks.none') }}</p>
         </div>
 
         <!-- Déconnexion -->
@@ -181,6 +372,7 @@ onMounted(init)
 
 /* Avatar */
 .pd__avatar-wrap {
+  position: relative;
   width: 90px;
   height: 90px;
   border-radius: 50%;
@@ -188,11 +380,77 @@ onMounted(init)
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   flex-shrink: 0;
 }
 
-.pd__avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.pd__avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+.pd__avatar-loading {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pd__avatar-edit-btn,
+.pd__avatar-remove-btn {
+  position: absolute;
+  bottom: -2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--nq-cream);
+  background: var(--nq-brown);
+  color: #edc78e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.pd__avatar-edit-btn { right: -2px; }
+.pd__avatar-remove-btn { left: -2px; background: var(--nq-red); }
+.pd__avatar-edit-btn:disabled,
+.pd__avatar-remove-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.pd__avatar-input { display: none; }
+
+/* Selects (pays, date de naissance) */
+.pd__select {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--nq-font);
+  font-size: 0.8rem;
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.3);
+  background: var(--nq-beige);
+  color: var(--nq-brown-dark);
+  min-height: 32px;
+}
+
+/* Réseaux sociaux */
+.pd__social-form { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.pd__social-field { display: flex; align-items: center; gap: 8px; }
+.pd__social-input { flex: 1; border-radius: 8px; font-size: 0.85rem; }
+
+.pd__social-list { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.pd__social-link {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--nq-beige);
+  color: var(--nq-brown-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+}
+
+.pd__social-link:hover { background: rgba(var(--nq-brown-rgb), 0.2); }
 
 .pd__name { font-size: 1.4rem; font-weight: bold; color: var(--nq-brown-dark); text-align: center; margin: 0; }
 .pd__username { font-size: 0.9rem; color: var(--nq-brown); margin: -0.5rem 0 0; }

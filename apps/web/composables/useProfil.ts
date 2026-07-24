@@ -1,7 +1,42 @@
+import type { User, FavoritePlatform, SocialLinks } from '@nextquest/shared'
+
 type Visibility = 'private' | 'friends_only' | 'public'
 
 export const VISIBILITY_OPTIONS: Visibility[] = ['private', 'friends_only', 'public']
 export const BIO_MAX = 500
+
+export const FAVORITE_PLATFORMS: FavoritePlatform[] = ['pc', 'playstation', 'xbox', 'nintendo', 'mobile']
+
+export const FAVORITE_PLATFORM_ICONS: Record<FavoritePlatform, string> = {
+  pc: 'mdi-microsoft-windows',
+  playstation: 'mdi-sony-playstation',
+  xbox: 'mdi-microsoft-xbox',
+  nintendo: 'mdi-nintendo-switch',
+  mobile: 'mdi-cellphone',
+}
+
+// Pays proposés au profil (whitelist courte, pas de dépendance ISO-3166 complète
+// pour une simple liste déroulante). Codes conformes à la validation Zod cote API.
+export const COUNTRIES = [
+  'FR', 'BE', 'CH', 'CA', 'LU', 'GB', 'DE', 'ES', 'IT', 'US',
+] as const
+
+export const SOCIAL_LINK_KEYS = ['twitch', 'youtube', 'discord', 'twitter', 'instagram'] as const
+export type SocialLinkKey = (typeof SOCIAL_LINK_KEYS)[number]
+
+// mdi-discord n'existe plus dans @mdi/font depuis la 7.x (retrait de marque upstream) :
+// le rendu Discord passe par un SVG dédié, voir components/profil/SocialLinkIcon.vue
+export const SOCIAL_LINK_ICONS: Record<SocialLinkKey, string> = {
+  twitch: 'mdi-twitch',
+  youtube: 'mdi-youtube',
+  discord: '',
+  twitter: 'mdi-twitter',
+  instagram: 'mdi-instagram',
+}
+
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024
+
+type SocialLinksForm = Record<(typeof SOCIAL_LINK_KEYS)[number], string>
 
 export function useProfil() {
   const { t, locale } = useI18n()
@@ -20,6 +55,30 @@ export function useProfil() {
   const isEditingVisibility = ref(false)
   const isSavingVisibility = ref(false)
   const visibilityError = ref<string | null>(null)
+
+  const isUploadingAvatar = ref(false)
+  const avatarError = ref<string | null>(null)
+
+  const isEditingCountry = ref(false)
+  const countryInput = ref('')
+  const isSavingCountry = ref(false)
+  const countryError = ref<string | null>(null)
+
+  const isEditingBirthdate = ref(false)
+  const birthdateInput = ref('')
+  const isSavingBirthdate = ref(false)
+  const birthdateError = ref<string | null>(null)
+
+  const isEditingFavoritePlatform = ref(false)
+  const isSavingFavoritePlatform = ref(false)
+  const favoritePlatformError = ref<string | null>(null)
+
+  const isEditingSocialLinks = ref(false)
+  const socialLinksInput = reactive<SocialLinksForm>({
+    twitch: '', youtube: '', discord: '', twitter: '', instagram: '',
+  })
+  const isSavingSocialLinks = ref(false)
+  const socialLinksError = ref<string | null>(null)
 
   // ── Computed ─────────────────────────────────────────────
   const avatarSrc = computed(() => {
@@ -43,6 +102,13 @@ export function useProfil() {
     if (v === 'private') return 'profil.visibility.private'
     if (v === 'friends_only') return 'profil.visibility.friends_only'
     return 'profil.visibility.public'
+  })
+
+  const socialLinksList = computed(() => {
+    const links = user.value?.socialLinks ?? {}
+    return SOCIAL_LINK_KEYS
+      .map((key) => ({ key, url: links[key] }))
+      .filter((entry): entry is { key: typeof entry.key; url: string } => !!entry.url)
   })
 
   // ── Bio ───────────────────────────────────────────────────
@@ -98,6 +164,159 @@ export function useProfil() {
     }
   }
 
+  // ── Avatar ────────────────────────────────────────────────
+  async function uploadAvatar(file: File) {
+    avatarError.value = null
+    if (!file.type.startsWith('image/')) {
+      avatarError.value = t('profil.avatar.invalidType')
+      return
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      avatarError.value = t('profil.avatar.tooLarge')
+      return
+    }
+    isUploadingAvatar.value = true
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const updated = await authFetch<User>(`${apiBase}/api/users/me/avatar`, {
+        method: 'POST',
+        body: formData,
+      })
+      store.setAuth(updated, store.accessToken!)
+    } catch {
+      avatarError.value = t('profil.avatar.uploadError')
+    } finally {
+      isUploadingAvatar.value = false
+    }
+  }
+
+  async function removeAvatar() {
+    isUploadingAvatar.value = true
+    avatarError.value = null
+    try {
+      await authFetch(`${apiBase}/api/users/me/avatar`, { method: 'DELETE' })
+      if (user.value) {
+        store.setAuth({ ...user.value, avatarUrl: null }, store.accessToken!)
+      }
+    } catch {
+      avatarError.value = t('profil.avatar.deleteError')
+    } finally {
+      isUploadingAvatar.value = false
+    }
+  }
+
+  // ── Pays ──────────────────────────────────────────────────
+  function startEditCountry() {
+    countryInput.value = user.value?.country ?? ''
+    countryError.value = null
+    isEditingCountry.value = true
+  }
+
+  function cancelEditCountry() {
+    isEditingCountry.value = false
+    countryError.value = null
+  }
+
+  async function saveCountry() {
+    isSavingCountry.value = true
+    countryError.value = null
+    try {
+      const updated = await authFetch<User>(`${apiBase}/api/users/me`, {
+        method: 'PATCH',
+        body: { country: countryInput.value || null },
+      })
+      store.setAuth(updated, store.accessToken!)
+      isEditingCountry.value = false
+    } catch {
+      countryError.value = t('profil.countrySaveError')
+    } finally {
+      isSavingCountry.value = false
+    }
+  }
+
+  // ── Date de naissance ─────────────────────────────────────
+  function startEditBirthdate() {
+    birthdateInput.value = user.value?.birthdate ?? ''
+    birthdateError.value = null
+    isEditingBirthdate.value = true
+  }
+
+  function cancelEditBirthdate() {
+    isEditingBirthdate.value = false
+    birthdateError.value = null
+  }
+
+  async function saveBirthdate() {
+    isSavingBirthdate.value = true
+    birthdateError.value = null
+    try {
+      const updated = await authFetch<User>(`${apiBase}/api/users/me`, {
+        method: 'PATCH',
+        body: { birthdate: birthdateInput.value || null },
+      })
+      store.setAuth(updated, store.accessToken!)
+      isEditingBirthdate.value = false
+    } catch {
+      birthdateError.value = t('profil.birthdateSaveError')
+    } finally {
+      isSavingBirthdate.value = false
+    }
+  }
+
+  // ── Plateforme favorite ───────────────────────────────────
+  async function saveFavoritePlatform(v: FavoritePlatform | null) {
+    if (v === (user.value?.favoritePlatform ?? null)) { isEditingFavoritePlatform.value = false; return }
+    isSavingFavoritePlatform.value = true
+    favoritePlatformError.value = null
+    try {
+      const updated = await authFetch<User>(`${apiBase}/api/users/me`, {
+        method: 'PATCH',
+        body: { favoritePlatform: v },
+      })
+      store.setAuth(updated, store.accessToken!)
+      isEditingFavoritePlatform.value = false
+    } catch {
+      favoritePlatformError.value = t('profil.favoritePlatformSaveError')
+    } finally {
+      isSavingFavoritePlatform.value = false
+    }
+  }
+
+  // ── Liens sociaux ─────────────────────────────────────────
+  function startEditSocialLinks() {
+    const current = user.value?.socialLinks ?? {}
+    for (const key of SOCIAL_LINK_KEYS) socialLinksInput[key] = current[key] ?? ''
+    socialLinksError.value = null
+    isEditingSocialLinks.value = true
+  }
+
+  function cancelEditSocialLinks() {
+    isEditingSocialLinks.value = false
+    socialLinksError.value = null
+  }
+
+  async function saveSocialLinks() {
+    isSavingSocialLinks.value = true
+    socialLinksError.value = null
+    const entries = SOCIAL_LINK_KEYS
+      .map((key) => [key, socialLinksInput[key].trim()] as const)
+      .filter(([, value]) => value.length > 0)
+    const payload: SocialLinks | null = entries.length > 0 ? Object.fromEntries(entries) : null
+    try {
+      const updated = await authFetch<User>(`${apiBase}/api/users/me`, {
+        method: 'PATCH',
+        body: { socialLinks: payload },
+      })
+      store.setAuth(updated, store.accessToken!)
+      isEditingSocialLinks.value = false
+    } catch {
+      socialLinksError.value = t('profil.socialLinksSaveError')
+    } finally {
+      isSavingSocialLinks.value = false
+    }
+  }
+
   // ── Déconnexion ───────────────────────────────────────────
   async function handleLogout() {
     isLoggingOut.value = true
@@ -115,11 +334,21 @@ export function useProfil() {
     isLoggingOut,
     isEditingBio, bioInput, isSavingBio, bioError,
     isEditingVisibility, isSavingVisibility, visibilityError,
+    isUploadingAvatar, avatarError,
+    isEditingCountry, countryInput, isSavingCountry, countryError,
+    isEditingBirthdate, birthdateInput, isSavingBirthdate, birthdateError,
+    isEditingFavoritePlatform, isSavingFavoritePlatform, favoritePlatformError,
+    isEditingSocialLinks, socialLinksInput, isSavingSocialLinks, socialLinksError,
     // Computed
-    avatarSrc, displayName, memberSince, visibilityKey,
+    avatarSrc, displayName, memberSince, visibilityKey, socialLinksList,
     // Actions
     startEditBio, cancelEditBio, saveBio,
     saveVisibility,
+    uploadAvatar, removeAvatar,
+    startEditCountry, cancelEditCountry, saveCountry,
+    startEditBirthdate, cancelEditBirthdate, saveBirthdate,
+    saveFavoritePlatform,
+    startEditSocialLinks, cancelEditSocialLinks, saveSocialLinks,
     handleLogout,
     init,
   }

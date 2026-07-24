@@ -6,6 +6,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { ref } from 'vue'
 import ProfilDesktop from '~/components/profil/ProfilDesktop.vue'
 import { useAuthStore } from '~/stores/auth'
+import type { FavoritePlatform, SocialLinks } from '@nextquest/shared'
 
 // ──────────────────────────────────────────────────────────
 // Fixtures
@@ -18,6 +19,10 @@ const fakeUser = {
   avatarUrl: null as string | null,
   locale: 'fr' as const,
   bio: null as string | null,
+  country: null as string | null,
+  birthdate: null as string | null,
+  favoritePlatform: null as FavoritePlatform | null,
+  socialLinks: null as SocialLinks | null,
   visibility: 'public' as const,
   emailVerified: false,
   onboardingCompleted: false,
@@ -56,6 +61,7 @@ mockNuxtImport('useAuthFetch', () => () => ({
 const stubs = {
   NuxtLink: { template: '<a :href="to" v-bind="$attrs"><slot /></a>', props: ['to'] },
   VIcon: { template: '<span v-bind="$attrs"><slot /></span>' },
+  VProgressCircular: { template: '<span v-bind="$attrs"><slot /></span>' },
   ClientOnly: { template: '<slot />' },
   UiPageHeader: { template: '<div><slot /></div>' },
   UiBackButton: { template: '<button v-bind="$attrs"><slot /></button>', props: ['to'] },
@@ -250,5 +256,165 @@ describe('ProfilDesktop', () => {
     await wrapper.find('.pd__logout').trigger('click')
     await flushPromises()
     expect(logoutMock).toHaveBeenCalledOnce()
+  })
+
+  // ── Avatar : upload / suppression ──────────────────────
+  describe('avatar', () => {
+    it("n'affiche pas le bouton de suppression si avatarUrl est null", () => {
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      expect(wrapper.find('.pd__avatar-remove-btn').exists()).toBe(false)
+    })
+
+    it('affiche le bouton de suppression si avatarUrl est renseignée', () => {
+      mockUser.value = { ...fakeUser, avatarUrl: 'https://cdn.example.com/a.png' }
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      expect(wrapper.find('.pd__avatar-remove-btn').exists()).toBe(true)
+    })
+
+    it('envoie un POST multipart quand un fichier est sélectionné', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, avatarUrl: 'https://cdn.example.com/new.png' })
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      const file = new File([new Uint8Array(10)], 'avatar.png', { type: 'image/png' })
+      const input = wrapper.find('.pd__avatar-input').element as HTMLInputElement
+      Object.defineProperty(input, 'files', { value: [file] })
+      await wrapper.find('.pd__avatar-input').trigger('change')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me/avatar',
+        expect.objectContaining({ method: 'POST', body: expect.any(FormData) }),
+      )
+    })
+
+    it('appelle DELETE au clic sur le bouton de suppression', async () => {
+      mockUser.value = { ...fakeUser, avatarUrl: 'https://cdn.example.com/a.png' }
+      authFetchMock.mockResolvedValue(undefined)
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.find('.pd__avatar-remove-btn').trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me/avatar',
+        expect.objectContaining({ method: 'DELETE' }),
+      )
+    })
+
+    it("affiche une erreur si l'upload échoue", async () => {
+      authFetchMock.mockRejectedValue(new Error('network'))
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      const file = new File([new Uint8Array(10)], 'avatar.png', { type: 'image/png' })
+      const input = wrapper.find('.pd__avatar-input').element as HTMLInputElement
+      Object.defineProperty(input, 'files', { value: [file] })
+      await wrapper.find('.pd__avatar-input').trigger('change')
+      await flushPromises()
+
+      expect(wrapper.find('.pd__error').exists()).toBe(true)
+    })
+  })
+
+  // ── Pays ────────────────────────────────────────────────
+  describe('pays', () => {
+    it('ouvre le select au clic sur édition', async () => {
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      expect(wrapper.find('.pd__info-row--visibility select').exists()).toBe(false)
+      await wrapper.findAll('.pd__info-row--visibility .pd__edit-btn')[1].trigger('click')
+      expect(wrapper.find('.pd__info-row--visibility select').exists()).toBe(true)
+    })
+
+    it('appelle PATCH avec le pays sélectionné', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, country: 'BE' })
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.findAll('.pd__info-row--visibility .pd__edit-btn')[1].trigger('click')
+      await wrapper.find('.pd__info-row--visibility select').setValue('BE')
+      await wrapper.find('.pd__info-row--visibility .pd__action-btn--save').trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me',
+        expect.objectContaining({ method: 'PATCH', body: { country: 'BE' } }),
+      )
+    })
+  })
+
+  // ── Date de naissance ───────────────────────────────────
+  describe('date de naissance', () => {
+    it('ouvre le champ date au clic sur édition', async () => {
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.findAll('.pd__info-row--visibility .pd__edit-btn')[2].trigger('click')
+      expect(wrapper.find('input[type="date"]').exists()).toBe(true)
+    })
+
+    it('appelle PATCH avec la date saisie', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, birthdate: '1990-01-01' })
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.findAll('.pd__info-row--visibility .pd__edit-btn')[2].trigger('click')
+      await wrapper.find('input[type="date"]').setValue('1990-01-01')
+      await wrapper.find('.pd__info-row--visibility .pd__action-btn--save').trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me',
+        expect.objectContaining({ method: 'PATCH', body: { birthdate: '1990-01-01' } }),
+      )
+    })
+  })
+
+  // ── Plateforme favorite ─────────────────────────────────
+  describe('plateforme favorite', () => {
+    it('ouvre le picker au clic sur édition', async () => {
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.findAll('.pd__info-row--visibility .pd__edit-btn')[3].trigger('click')
+      expect(wrapper.findAll('.pd__info-row--visibility .pd__visibility-opt').length).toBeGreaterThan(0)
+    })
+
+    it('appelle PATCH avec la plateforme choisie', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, favoritePlatform: 'pc' })
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      await wrapper.findAll('.pd__info-row--visibility .pd__edit-btn')[3].trigger('click')
+      await wrapper.findAll('.pd__info-row--visibility .pd__visibility-opt')[0].trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me',
+        expect.objectContaining({ method: 'PATCH', body: { favoritePlatform: 'pc' } }),
+      )
+    })
+  })
+
+  // ── Réseaux sociaux ─────────────────────────────────────
+  describe('réseaux sociaux', () => {
+    it("affiche l'état vide quand aucun lien n'est renseigné", () => {
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      expect(wrapper.find('.pd__social-list').exists()).toBe(false)
+    })
+
+    it('affiche les liens quand ils sont renseignés', () => {
+      mockUser.value = { ...fakeUser, socialLinks: { twitch: 'https://twitch.tv/lo' } }
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      expect(wrapper.find('.pd__social-list').exists()).toBe(true)
+      expect(wrapper.find('.pd__social-link').attributes('href')).toBe('https://twitch.tv/lo')
+    })
+
+    it('ouvre le formulaire au clic sur édition', async () => {
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      const socialSection = wrapper.findAll('.pd__section')[1]
+      await socialSection.find('.pd__section-header .pd__edit-btn').trigger('click')
+      expect(wrapper.find('.pd__social-form').exists()).toBe(true)
+    })
+
+    it('appelle PATCH avec les liens saisis', async () => {
+      authFetchMock.mockResolvedValue({ ...fakeUser, socialLinks: { twitch: 'https://twitch.tv/lo' } })
+      const wrapper = mount(ProfilDesktop, { global: { stubs } })
+      const socialSection = wrapper.findAll('.pd__section')[1]
+      await socialSection.find('.pd__section-header .pd__edit-btn').trigger('click')
+      await wrapper.find('.pd__social-field input').setValue('https://twitch.tv/lo')
+      await socialSection.find('.pd__action-btn--save').trigger('click')
+      await flushPromises()
+
+      expect(authFetchMock).toHaveBeenCalledWith(
+        'http://localhost:3000/api/users/me',
+        expect.objectContaining({ method: 'PATCH', body: { socialLinks: { twitch: 'https://twitch.tv/lo' } } }),
+      )
+    })
   })
 })

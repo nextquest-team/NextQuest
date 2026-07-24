@@ -1742,3 +1742,52 @@ GitHub a signalé 6 alertes Dependabot sur la branche par défaut (1 critique, 3
 | `pnpm typecheck` (container, 5 packages) | ✅ 0 erreur |
 | `pnpm --filter @nextquest/web test` | ✅ 285/285 |
 | `pnpm test` (api) | ⚠️ échec pré-existant, sans rapport : BDD injoignable depuis le container (nécessite `pnpm docker:up`) |
+
+## 2026-07-24 — Session 29 : Intégration frontend PR #116 (avatar, profil enrichi) + correctifs post-merge
+
+### Résumé exécutif
+
+La PR #116 (backend : upload/suppression d'avatar via S3/MinIO, champs de profil étendus — pays, date de naissance, plateforme favorite, liens sociaux) a été squash-mergée sur `develop`. Intégré côté frontend sur `feat/profil-page` : nouveaux champs en édition inline sur `/profil` (desktop + mobile), suivant le pattern déjà en place pour bio/visibilité. Tests unitaires dédiés pour `useProfil` (upload/suppression avatar, validation type/taille, pays, date de naissance, plateforme favorite, liens sociaux). Deux bugs découverts en vérification visuelle et corrigés : icône Discord absente (`mdi-discord` retiré de `@mdi/font` depuis la 7.x) et upload d'avatar impossible en local (conteneur API tournant sans les variables `S3_*`, restart sans recreate après ajout au compose).
+
+### Ce qui a été fait
+
+#### Resynchronisation avec `develop`
+- `feat/profil-page` avait déjà mergé les commits bruts de la branche PR #116 (merge commit), alors que `develop` contient désormais la même PR sous forme squash — deux historiques incompatibles pour le même contenu.
+- Résolu par `git stash push -u` (travail frontend en cours) → `git reset --hard origin/develop` → `git stash pop` : application propre sans conflit (13 fichiers concernés), plutôt qu'un `git merge` qui aurait généré des conflits en cascade sur du contenu dupliqué.
+
+#### `useProfil.ts` — nouvelles actions
+- `uploadAvatar` / `removeAvatar` : validation type MIME + taille (5 Mo max) côté client avant l'appel `POST/DELETE /api/users/me/avatar` (multipart `FormData`)
+- `saveCountry` / `saveBirthdate` / `saveFavoritePlatform` / `saveSocialLinks` : même pattern édition inline que `saveBio` (état `isEditing*` / `isSaving*` / `*Error`)
+- `saveSocialLinks` filtre les champs vides et envoie `null` si tous vides (évite de stocker `{twitch: "", ...}` en base)
+
+#### `ProfilDesktop.vue` / `ProfilMobile.vue`
+- Lignes d'info pays/date de naissance/plateforme favorite (`pd__info-row--visibility`, réutilisation du pattern visibilité)
+- Section réseaux sociaux avec formulaire d'édition (5 champs URL) et liste de liens cliquables
+- Overlay de chargement `v-progress-circular` sur l'avatar pendant l'upload
+
+#### `SocialLinkIcon.vue` (nouveau composant)
+- `mdi-discord` n'existe plus dans `@mdi/font@7.4.47` (glyphe de marque retiré en amont) — confirmé par `grep -io discord` sur le CSS installé, zéro résultat, alors que twitch/youtube/twitter/instagram sont bien présents
+- Plutôt qu'une icône générique de substitution, composant dédié rendant le vrai SVG Discord pour cette plateforme, et `v-icon` (MDI) pour les autres — cohérent avec le pattern déjà utilisé pour Google/Microsoft/Apple dans `SocialButton.vue`
+
+#### Tests
+- `tests/composables/useProfil.test.ts` (nouveau, ~300 lignes) : couverture complète des nouvelles actions, y compris upload multipart simulé (`Object.defineProperty(input, 'files', ...)`)
+- `tests/pages/profil.test.ts` et `tests/components/profil/ProfilMobile.test.ts` : nouveaux blocs `describe` par champ, ajout du stub `VProgressCircular` manquant (crash Vuetify sans lui)
+- Fixtures utilisateur mises à jour dans `useAuth.test.ts`, `auth.test.ts` (store), `middleware/auth.test.ts`, `OnboardingOverlay.test.ts` pour inclure les nouveaux champs requis par le type `User` étendu
+
+#### Environnement Docker local
+- Conteneur `api` tournait avec les anciennes variables d'environnement (`docker restart` ne relit pas `docker-compose.yml`, contrairement à `docker compose up -d` qui recrée le conteneur si la config a changé) → warning `Stockage objet non configure (S3_*) : upload d'avatar desactive` au démarrage malgré les vars présentes dans le fichier compose
+- `docker compose up -d api` : recreate propre, variables `S3_*` chargées, bucket `nextquest-avatars` déjà présent dans MinIO
+- Migration Drizzle déjà appliquée (colonnes `country`/`birthdate`/`favorite_platform`/`social_links` présentes en base), confirmé via `\d users`
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm --filter @nextquest/web test` | ✅ 356/356 |
+| `pnpm --filter @nextquest/web typecheck` | ✅ 0 erreur |
+| `pnpm --filter @nextquest/web lint` | ✅ 0 erreur (26 warnings pré-existants inchangés) |
+| Playwright — capture desktop/mobile état vide | ✅ nouveaux champs affichés correctement (Not set / None / no links) |
+| Playwright — ouverture formulaire réseaux sociaux | ✅ icône Discord (SVG) rendue correctement à côté des icônes MDI |
+| `curl` direct API avec compte de test réel (hors mock e2e) — `POST /api/users/me/avatar` | ✅ avatar uploadé vers MinIO, URL retournée |
+| `curl` direct API — `PATCH /api/users/me` (socialLinks) | ✅ enregistré en base |
+| Compte de test + captures temporaires | supprimés après vérification |

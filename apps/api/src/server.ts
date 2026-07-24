@@ -13,6 +13,7 @@ import { authRoutes } from "./modules/auth/auth.routes.js";
 import { oauthRoutes } from "./modules/auth/oauth/oauth.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
 import { avatarRoutes } from "./modules/users/avatar.routes.js";
+import { accountDeletionRoutes } from "./modules/users/account-deletion.routes.js";
 import { isStorageConfigured, ensureBucket } from "./lib/storage.js";
 import { steamRoutes } from "./modules/platforms/steam/steam.routes.js";
 import { collectionRoutes } from "./modules/collection/collection.routes.js";
@@ -55,6 +56,7 @@ async function start() {
   await app.register(authRoutes, { prefix: "/api" });
   await app.register(usersRoutes, { prefix: "/api" });
   await app.register(avatarRoutes, { prefix: "/api" });
+  await app.register(accountDeletionRoutes, { prefix: "/api" });
   await app.register(steamRoutes, { prefix: "/api" });
   await app.register(collectionRoutes, { prefix: "/api" });
   await app.register(recommendationsRoutes, { prefix: "/api" });

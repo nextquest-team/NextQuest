@@ -50,3 +50,16 @@ export const authTokensSchema = z
       ),
   })
   .describe("Session authentifiee : profil et tokens");
+
+// Suppression de compte : mot de passe requis pour les comptes locaux
+// (verifie dans le handler, pas ici : les comptes OAuth n'en ont pas).
+export const deleteAccountSchema = z
+  .object({ password: z.string().min(1).optional() })
+  .nullish();
+
+export const deletionResultSchema = z
+  .object({
+    deletedAt: z.string().describe("Date du soft delete (ISO 8601)"),
+    purgeAfter: z.string().describe("Date de purge definitive (ISO 8601) — restauration possible avant"),
+  })
+  .describe("Compte place en grace de suppression");

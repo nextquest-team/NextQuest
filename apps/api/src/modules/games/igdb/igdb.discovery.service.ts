@@ -178,7 +178,9 @@ export async function getUpcomingGames(
   clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
   deps: DiscoveryDeps = defaultDiscoveryDeps(),
 ): Promise<UpcomingGameDTO[]> {
-  const key = `igdb:upcoming:${opts.sort}:${opts.limit}:${opts.offset}`;
+  // v2 : la semantique du feed a change (jeux TBD inclus) -- versionner la cle
+  // invalide d'un coup les entrees v1 au deploiement, sans flush manuel.
+  const key = `igdb:upcoming:v2:${opts.sort}:${opts.limit}:${opts.offset}`;
   const cached = await deps.cache.get(key);
   if (cached) return JSON.parse(cached) as UpcomingGameDTO[];
 
@@ -320,7 +322,8 @@ export async function searchIgdbGames(
 ): Promise<IgdbSearchResult[]> {
   // Le scope fait partie de la cle : un pool filtre "a venir" ne doit jamais
   // etre servi a l'autocomplete standard, et inversement.
-  const key = `igdb:search:${scope ?? "all"}:${query}:${limit}`;
+  // v2 : meme raison que le feed upcoming (scope upcoming inclut les TBD).
+  const key = `igdb:search:v2:${scope ?? "all"}:${query}:${limit}`;
   const cached = await deps.cache.get(key);
 
   let pool: IgdbSearchResultBase[];

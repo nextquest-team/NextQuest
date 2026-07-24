@@ -256,13 +256,13 @@ describe("searchIgdbGames", () => {
     // Union dedupliquee des platformIds de tous les resultats : une seule requete DB.
     expect(findPlatformsByIgdbIdsMock).toHaveBeenCalledWith([6, 48]);
     // La cle de cache integre le scope ("all" par defaut) : voir describe dedie plus bas.
-    expect(cache.set).toHaveBeenCalledWith("igdb:search:all:halo:12", expect.any(String), "EX", 3600);
+    expect(cache.set).toHaveBeenCalledWith("igdb:search:v2:all:halo:12", expect.any(String), "EX", 3600);
     // Le cache ne stocke pas alreadyInCollection (specifique a l'utilisateur) ni
     // les plateformes mappees (recalculees a chaque lecture, nos plateformes
     // pouvant evoluer independamment du TTL de la recherche). Il stocke en
     // revanche gameType/totalRatingCount/hypes : le filtrage/classement se fait
     // apres lecture du cache, pas avant.
-    const cached = JSON.parse(cache.store.get("igdb:search:all:halo:12") as string);
+    const cached = JSON.parse(cache.store.get("igdb:search:v2:all:halo:12") as string);
     expect(cached[0].alreadyInCollection).toBeUndefined();
     expect(cached[0].platforms).toBeUndefined();
     expect(cached[0].platformIds).toEqual([6, 48]);
@@ -272,7 +272,7 @@ describe("searchIgdbGames", () => {
   it("cache hit: renvoie le cache sans appeler IGDB, mais remappe les plateformes depuis la BDD", async () => {
     const cache = fakeCache();
     cache.store.set(
-      "igdb:search:all:zelda:12",
+      "igdb:search:v2:all:zelda:12",
       JSON.stringify([
         { igdbId: 9, name: "Cached", coverUrl: null, releaseYear: null, platformIds: [6] },
       ]),
@@ -393,14 +393,14 @@ describe("searchIgdbGames - scope upcoming", () => {
 
     const expectedEpoch = Math.floor(FIXED_NOW.getTime() / 1000);
     expect(searchGamesByNameMock).toHaveBeenCalledWith("halo", 50, "TOKEN", "CID", expectedEpoch);
-    expect(cache.set).toHaveBeenCalledWith("igdb:search:upcoming:halo:12", expect.any(String), "EX", 3600);
+    expect(cache.set).toHaveBeenCalledWith("igdb:search:v2:upcoming:halo:12", expect.any(String), "EX", 3600);
   });
 
   it("scope=upcoming et scope absent ne partagent jamais le meme pool en cache", async () => {
     const cache = fakeCache();
     // Le cache contient deja un pool "all" pour la meme query/limit : un
     // cache hit sur scope=upcoming ne doit jamais le reutiliser.
-    cache.store.set("igdb:search:all:halo:12", JSON.stringify(searchSample));
+    cache.store.set("igdb:search:v2:all:halo:12", JSON.stringify(searchSample));
     const searchGamesByNameMock = vi.fn(async () => searchSample);
     const deps = {
       getToken: vi.fn(async () => "TOKEN"),

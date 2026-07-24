@@ -9,7 +9,16 @@ const { t } = useI18n()
 
 const releaseLabel = computed(() => {
   if (props.game.releaseDate) {
-    return new Date(props.game.releaseDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    const date = new Date(props.game.releaseDate)
+    // Date floue (IGDB pointe la fin de la periode) : n'afficher que la
+    // granularite connue plutot qu'un jour/mois fabrique (ex. "31 decembre 2027").
+    if (props.game.releaseDatePrecision === 'year' || props.game.releaseDatePrecision === 'quarter') {
+      return String(date.getUTCFullYear())
+    }
+    if (props.game.releaseDatePrecision === 'month') {
+      return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+    }
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
   }
   if (props.game.releaseYear) return String(props.game.releaseYear)
   return t('timeline.releaseUnknown')

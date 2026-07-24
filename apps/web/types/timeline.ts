@@ -7,6 +7,9 @@ export interface TimelineGameDTO {
   igdbId: number
   title: string
   releaseDate: string | null
+  // Absent pour les resultats de recherche (GET /api/games/igdb/search
+  // ?scope=upcoming), qui n'exposent pas la precision de date.
+  releaseDatePrecision?: 'day' | 'month' | 'quarter' | 'year' | 'tbd' | null
   // Present uniquement pour les resultats de recherche (GET /api/games/igdb/search
   // ?scope=upcoming) : ce DTO n'expose pas de date exacte, seulement l'annee.
   releaseYear?: number | null

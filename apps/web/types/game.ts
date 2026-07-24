@@ -106,6 +106,7 @@ export interface CollectionItemDTO {
   completedAt: string | null
   addedAt: string | null
   game: CollectionGameMeta
+  platform: Platform | null
   genres: GenreRef[]
   tags: TagRef[]
 }
@@ -167,6 +168,7 @@ export interface UserGame {
   coverUrl: string | null
   status: GameStatus
   playtimeMinutes: number | null
+  platform: Platform | null
 }
 
 export function toUserGame(item: CollectionItemDTO): UserGame {
@@ -177,5 +179,6 @@ export function toUserGame(item: CollectionItemDTO): UserGame {
     coverUrl: item.game.coverUrl,
     status: item.status,
     playtimeMinutes: item.playtimeMinutes,
+    platform: item.platform,
   }
 }

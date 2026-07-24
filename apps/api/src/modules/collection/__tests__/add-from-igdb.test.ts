@@ -342,6 +342,7 @@ describe("POST /api/collection/from-igdb", () => {
         igdbId: null,
         isEnriched: false,
       },
+      platform: null,
       genres: [],
       tags: [],
     };

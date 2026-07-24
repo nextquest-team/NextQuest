@@ -2,6 +2,7 @@ import type { userGames } from "@nextquest/db";
 import type { InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
 import { GAME_STATUSES, type GameStatus } from "./collection.schemas.js";
+import { platformRefSchema } from "../referentials/platforms.schemas.js";
 
 type UserGameRow = InferSelectModel<typeof userGames>;
 
@@ -136,6 +137,9 @@ export const collectionItemSchema = z
       .nullable()
       .describe("Date d'ajout a la collection (ISO 8601)"),
     game: collectionGameMetaSchema,
+    platform: platformRefSchema
+      .nullable()
+      .describe("Plateforme de possession du jeu (null si non renseignee)"),
     genres: z.array(genreRefSchema).describe("Genres du jeu"),
     tags: z.array(tagRefSchema).describe("Tags (themes IGDB) du jeu"),
   })
@@ -189,6 +193,10 @@ export type CollectionRow = {
   publisher: string | null;
   igdbRating: number | null;
   igdbId: number | null;
+  platformId: string | null;
+  platformName: string | null;
+  platformCode: string | null;
+  platformIconUrl: string | null;
   description?: string | null;
 };
 
@@ -220,6 +228,14 @@ export function toCollectionItemDTO(
       igdbId: row.igdbId,
       isEnriched: row.igdbId !== null,
     },
+    platform: row.platformId && row.platformName && row.platformCode
+      ? {
+          id: row.platformId,
+          name: row.platformName,
+          code: row.platformCode,
+          iconUrl: row.platformIconUrl,
+        }
+      : null,
     genres,
     tags,
   };

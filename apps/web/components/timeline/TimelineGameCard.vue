@@ -16,9 +16,9 @@ const releaseLabel = computed(() => {
       return String(date.getUTCFullYear())
     }
     if (props.game.releaseDatePrecision === 'month') {
-      return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+      return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', timeZone: 'UTC' })
     }
-    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
   }
   if (props.game.releaseYear) return String(props.game.releaseYear)
   return t('timeline.releaseUnknown')

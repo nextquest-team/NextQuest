@@ -19,6 +19,17 @@ if (process.env.DATABASE_URL) {
   }
 }
 
+// Meme isolation que la BDD pour le stockage objet : les tests d'integration
+// ecrivent dans un bucket dedie "<bucket>-test" (cree automatiquement par
+// ensureBucket), jamais dans le bucket de dev partage.
+if (process.env.S3_BUCKET && !process.env.S3_BUCKET.endsWith("-test")) {
+  const devBucket = process.env.S3_BUCKET;
+  process.env.S3_BUCKET = `${devBucket}-test`;
+  if (process.env.S3_PUBLIC_URL) {
+    process.env.S3_PUBLIC_URL = process.env.S3_PUBLIC_URL.replace(devBucket, process.env.S3_BUCKET);
+  }
+}
+
 export default defineConfig({
   test: {
     globals: false,

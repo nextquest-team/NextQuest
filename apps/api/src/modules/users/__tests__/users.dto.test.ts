@@ -21,6 +21,10 @@ describe("toUserDTO", () => {
     deletedAt: null,
     createdAt: new Date("2026-04-01T10:00:00Z"),
     updatedAt: null,
+    country: null,
+    birthdate: null,
+    favoritePlatform: null,
+    socialLinks: null,
   };
 
   it("inclut les champs publics attendus", () => {
@@ -32,6 +36,10 @@ describe("toUserDTO", () => {
       displayName: "Jean-Bap",
       avatarUrl: "https://example.com/avatar.png",
       bio: "Joueur PC depuis 1998",
+      country: null,
+      birthdate: null,
+      favoritePlatform: null,
+      socialLinks: null,
       locale: "fr",
       visibility: "public",
       emailVerified: true,
@@ -66,5 +74,33 @@ describe("toUserDTO", () => {
     const dto = toUserDTO(baseUser);
     expect(typeof dto.createdAt).toBe("string");
     expect(dto.createdAt).toBe("2026-04-01T10:00:00.000Z");
+  });
+
+  it("expose les champs profil etendus", () => {
+    const dto = toUserDTO({
+      ...baseUser,
+      country: "FR",
+      birthdate: "1990-05-12",
+      favoritePlatform: "pc",
+      socialLinks: { twitch: "https://twitch.tv/jb" },
+    });
+    expect(dto.country).toBe("FR");
+    expect(dto.birthdate).toBe("1990-05-12");
+    expect(dto.favoritePlatform).toBe("pc");
+    expect(dto.socialLinks).toEqual({ twitch: "https://twitch.tv/jb" });
+  });
+
+  it("renvoie null pour les champs etendus absents", () => {
+    const dto = toUserDTO({
+      ...baseUser,
+      country: null,
+      birthdate: null,
+      favoritePlatform: null,
+      socialLinks: null,
+    });
+    expect(dto.country).toBeNull();
+    expect(dto.birthdate).toBeNull();
+    expect(dto.favoritePlatform).toBeNull();
+    expect(dto.socialLinks).toBeNull();
   });
 });

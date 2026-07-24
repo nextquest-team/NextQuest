@@ -215,6 +215,10 @@ Table users {
   display_name varchar(50)
   avatar_url varchar(2048)
   bio varchar(500)
+  country varchar(2) [note: 'Code pays ISO 3166-1 alpha-2, valide par Zod cote API. Nullable : optionnel.']
+  birthdate date [note: 'Date de naissance YYYY-MM-DD. Donnee personnelle, purgee par la cascade users. Nullable.']
+  favorite_platform varchar(20) [note: 'Plateforme mise en avant (pc/playstation/xbox/nintendo/mobile). Enum applicative Zod, varchar en BDD.']
+  social_links jsonb [note: 'Liens sociaux whitelistes {twitch,youtube,discord,twitter,instagram}, URLs https validees par Zod. Jamais de cle arbitraire.']
   locale varchar(5) [default: 'fr']
   visibility visibility_enum [default: 'public', note: 'Remplace is_public pour coherence avec games/activities et support friends_only']
   role user_role_enum [default: 'user']
@@ -223,7 +227,7 @@ Table users {
   onboarding_completed boolean [default: false, not null, note: 'Flag pilote par le tour guide front Vue. Mis a true via POST /api/users/me/onboarding/complete une fois le tour termine. Tous les nouveaux users sont a false. Le back ne connait pas les etapes UX du tour, juste cet etat binaire.']
   failed_login_attempts int [default: 0, note: 'CHECK (>= 0). Reset a 0 apres login reussi']
   locked_until timestamptz [note: 'Verrouillage apres 5 tentatives echouees']
-  deleted_at timestamptz [note: 'Soft delete RGPD. Anonymiser : email, username, display_name, bio, avatar_url']
+  deleted_at timestamptz [note: 'Soft delete RGPD. Anonymiser : email, username, display_name, bio, avatar_url, country, birthdate, favorite_platform, social_links']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz
 }
@@ -837,3 +841,9 @@ Table reports {
 //
 // RECHERCHE
 //   - games.title                  : index GIN pg_trgm pour recherche floue
+//
+// STOCKAGE OBJET (avatars) : les fichiers uploades vivent dans un bucket
+// S3-compatible (MinIO en dev), HORS du perimetre des cascades Postgres.
+// Le hard delete RGPD d'un user DOIT appeler purgeUserStorage(userId)
+// (apps/api/src/lib/storage.ts) AVANT le DELETE FROM users. C'est la seule
+// exception a la regle "un DELETE users suffit, la BDD purge tout".

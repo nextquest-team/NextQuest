@@ -180,6 +180,77 @@ describe("PATCH /api/users/me", () => {
 
     expect(res.statusCode).toBe(400);
   });
+
+  it("met a jour et persiste les champs profil etendus", async () => {
+    const app = await buildApp();
+    const user = await createTestUser();
+    const token = getToken(app, user.id);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        country: "FR",
+        birthdate: "1990-05-12",
+        favoritePlatform: "pc",
+        socialLinks: { twitch: "https://twitch.tv/jb" },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.country).toBe("FR");
+    expect(body.birthdate).toBe("1990-05-12");
+    expect(body.favoritePlatform).toBe("pc");
+    expect(body.socialLinks).toEqual({ twitch: "https://twitch.tv/jb" });
+
+    // Persistance reelle, pas juste l'echo du handler
+    const again = await app.inject({
+      method: "GET",
+      url: "/api/users/me",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const persisted = again.json();
+    expect(persisted.country).toBe("FR");
+    expect(persisted.birthdate).toBe("1990-05-12");
+    expect(persisted.favoritePlatform).toBe("pc");
+    expect(persisted.socialLinks).toEqual({ twitch: "https://twitch.tv/jb" });
+  });
+
+  it("efface un champ etendu avec null", async () => {
+    const app = await buildApp();
+    const user = await createTestUser();
+    const token = getToken(app, user.id);
+    await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { country: "BE" },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { country: null },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().country).toBeNull();
+  });
+
+  it("rejette une cle de lien social hors whitelist", async () => {
+    const app = await buildApp();
+    const user = await createTestUser();
+    const token = getToken(app, user.id);
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { socialLinks: { myspace: "https://myspace.com/jb" } },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });
 
 describe("POST /api/users/me/onboarding/complete", () => {

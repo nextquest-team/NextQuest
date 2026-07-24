@@ -6,6 +6,8 @@ import {
   boolean,
   integer,
   timestamp,
+  date,
+  jsonb,
   unique,
   index,
 } from "drizzle-orm/pg-core";
@@ -16,6 +18,12 @@ import {
 } from "./enums.js";
 import { services } from "./services.js";
 
+// Liens sociaux du profil : whitelist de plateformes, URLs https validees
+// par Zod cote API avant toute ecriture. Jamais de cle arbitraire en base.
+export type SocialLinks = Partial<
+  Record<"twitch" | "youtube" | "discord" | "twitter" | "instagram", string>
+>;
+
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
@@ -24,6 +32,15 @@ export const users = pgTable("users", {
   displayName: varchar("display_name", { length: 50 }),
   avatarUrl: varchar("avatar_url", { length: 2048 }),
   bio: varchar("bio", { length: 500 }),
+  // --- Profil etendu (tous nullables : rien n'est requis a l'inscription) ---
+  // Code pays ISO 3166-1 alpha-2 (ex: FR, BE). Valide par Zod cote API.
+  country: varchar("country", { length: 2 }),
+  // YYYY-MM-DD en mode string : pas de fuseau a gerer, le DTO renvoie tel quel.
+  birthdate: date("birthdate", { mode: "string" }),
+  // Plateforme mise en avant sur le profil. Enum applicative (Zod), varchar en
+  // BDD pour eviter une migration de type pg si la liste evolue.
+  favoritePlatform: varchar("favorite_platform", { length: 20 }),
+  socialLinks: jsonb("social_links").$type<SocialLinks>(),
   locale: varchar("locale", { length: 5 }).notNull().default("fr"),
   visibility: visibilityEnum("visibility").notNull().default("public"),
   role: userRoleEnum("role").notNull().default("user"),

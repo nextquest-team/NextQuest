@@ -12,6 +12,8 @@ import { healthRoutes } from "./modules/health/health.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { oauthRoutes } from "./modules/auth/oauth/oauth.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
+import { avatarRoutes } from "./modules/users/avatar.routes.js";
+import { isStorageConfigured, ensureBucket } from "./lib/storage.js";
 import { steamRoutes } from "./modules/platforms/steam/steam.routes.js";
 import { collectionRoutes } from "./modules/collection/collection.routes.js";
 import { recommendationsRoutes } from "./modules/recommendations/recommendations.routes.js";
@@ -52,6 +54,7 @@ async function start() {
   await app.register(healthRoutes, { prefix: "/api" });
   await app.register(authRoutes, { prefix: "/api" });
   await app.register(usersRoutes, { prefix: "/api" });
+  await app.register(avatarRoutes, { prefix: "/api" });
   await app.register(steamRoutes, { prefix: "/api" });
   await app.register(collectionRoutes, { prefix: "/api" });
   await app.register(recommendationsRoutes, { prefix: "/api" });
@@ -63,6 +66,15 @@ async function start() {
   await app.register(oauthRoutes, { prefix: "/api/auth" });
 
   const port = Number(process.env.PORT) || 3000;
+
+  // Stockage objet : best effort au boot. L'API doit demarrer meme si MinIO
+  // est down (les routes avatar repondent 503 en attendant), et ensureBucket
+  // se re-tente au premier upload.
+  if (isStorageConfigured()) {
+    ensureBucket().catch((err) => app.log.warn({ err }, "bucket avatars indisponible au boot"));
+  } else {
+    app.log.warn("Stockage objet non configure (S3_*) : upload d'avatar desactive");
+  }
 
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`API running on http://localhost:${port}`);

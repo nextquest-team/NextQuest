@@ -111,8 +111,7 @@ export function useTimeline() {
       if (seq !== searchSeq) return // une recherche plus recente a pris le relais
       searchResults.value = res.items.map(toTimelineGame)
     } catch (err) {
-      if ((err as { name?: string })?.name === 'AbortError') return
-      if (seq !== searchSeq) return
+      if (seq !== searchSeq) return // requete perimee (abort ou plus recente), ignoree
       searchResults.value = []
     } finally {
       if (seq === searchSeq) searchLoading.value = false
@@ -126,6 +125,7 @@ export function useTimeline() {
     if (searchInFlight) {
       searchInFlight.abort()
       searchInFlight = null
+      searchSeq++ // peremption immediate de la requete abortee, avant meme son catch/finally
     }
     if (query.length < SEARCH_MIN_QUERY) {
       searchResults.value = []

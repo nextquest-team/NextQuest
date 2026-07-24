@@ -14,7 +14,7 @@ const { t } = useI18n()
 const {
   drawerOpen, searchQuery, activeFilterCount,
   upcomingLoading, upcomingError, hasMore, fetchUpcoming, loadMoreUpcoming,
-  searchActive, searchLoading, searchError,
+  searchActive, searchLoading, searchError, retrySearch,
   filteredUpcoming, filteredFollowed,
   isFollowed, toggleFollow,
 } = inject<ReturnType<typeof useTimeline>>('timeline')!
@@ -70,8 +70,8 @@ const {
         </div>
         <div v-else-if="searchActive ? searchError : upcomingError" class="tl__empty">
           <v-icon size="48" color="error">mdi-alert-circle-outline</v-icon>
-          <p class="tl__empty-title">{{ t('timeline.loadError') }}</p>
-          <button v-if="!searchActive" class="tl__btn" @click="fetchUpcoming()">{{ t('timeline.retry') }}</button>
+          <p class="tl__empty-title">{{ t(searchActive ? 'timeline.searchError' : 'timeline.loadError') }}</p>
+          <button class="tl__btn" @click="searchActive ? retrySearch() : fetchUpcoming()">{{ t('timeline.retry') }}</button>
         </div>
         <div v-else-if="filteredUpcoming.length === 0" class="tl__empty">
           <v-icon size="48" color="primary-light">mdi-crystal-ball</v-icon>

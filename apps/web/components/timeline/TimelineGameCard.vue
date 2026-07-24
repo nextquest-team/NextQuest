@@ -12,7 +12,11 @@ const releaseLabel = computed(() => {
     const date = new Date(props.game.releaseDate)
     // Date floue (IGDB pointe la fin de la periode) : n'afficher que la
     // granularite connue plutot qu'un jour/mois fabrique (ex. "31 decembre 2027").
-    if (props.game.releaseDatePrecision === 'year' || props.game.releaseDatePrecision === 'quarter') {
+    if (props.game.releaseDatePrecision === 'quarter') {
+      const quarter = Math.floor(date.getUTCMonth() / 3) + 1
+      return t('timeline.quarterLabel', { quarter, year: date.getUTCFullYear() })
+    }
+    if (props.game.releaseDatePrecision === 'year') {
       return String(date.getUTCFullYear())
     }
     if (props.game.releaseDatePrecision === 'month') {

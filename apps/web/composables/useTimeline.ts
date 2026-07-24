@@ -122,6 +122,14 @@ export function useTimeline() {
     }
   }
 
+  function retrySearch() {
+    const query = searchQuery.value.trim()
+    if (query.length < SEARCH_MIN_QUERY) return
+    searchError.value = false
+    searchLoading.value = true
+    runUpcomingSearch(query)
+  }
+
   watch(searchQuery, (q) => {
     const query = q.trim()
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
@@ -186,7 +194,7 @@ export function useTimeline() {
     // Onglet upcoming
     upcomingLoading, upcomingError, hasMore, fetchUpcoming, loadMoreUpcoming,
     // Recherche live (onglet upcoming uniquement)
-    searchActive, searchLoading, searchError,
+    searchActive, searchLoading, searchError, retrySearch,
     // Listes filtrees
     filteredUpcoming, filteredFollowed,
     // Suivi (stub local)

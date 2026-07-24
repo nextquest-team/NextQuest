@@ -17,6 +17,10 @@ const { t } = useI18n()
 
 const isMain = computed(() => props.bucket === 'discovery')
 
+// Jeu custom (sans correspondance IGDB) : goToGame ne fait rien, le role/tabindex
+// ne doivent donc pas rendre la carte focusable comme un lien mort au clavier.
+const isLinkable = computed(() => props.reco?.game.igdbId != null)
+
 const catalogPreview = useState<CatalogPreview | null>('catalog-preview', () => null)
 
 function goToGame() {
@@ -83,7 +87,14 @@ function ratingStars(rating: number | null): string {
     <div class="nq-hero-col">
       <!-- 1. Titre + tags + meta + raison -->
       <div class="nq-hero-top">
-        <span role="link" tabindex="0" class="nq-card-title nq-card-title--hero nq-card-title--link" @click="goToGame()" @keydown.enter="goToGame()">{{ reco.game.title }}</span>
+        <span
+          :role="isLinkable ? 'link' : undefined"
+          :tabindex="isLinkable ? 0 : undefined"
+          class="nq-card-title nq-card-title--hero"
+          :class="{ 'nq-card-title--link': isLinkable }"
+          @click="goToGame()"
+          @keydown.enter="goToGame()"
+        >{{ reco.game.title }}</span>
 
         <div class="nq-hero-details nq-felt-panel">
           <div v-if="reco.game.genres.length" class="nq-tags">
@@ -109,7 +120,13 @@ function ratingStars(rating: number | null): string {
       </div>
 
       <!-- 2. Image — prend l'espace restant, cliquable vers la fiche -->
-      <span role="link" tabindex="0" class="nq-hero-img" @click="goToGame()" @keydown.enter="goToGame()">
+      <span
+        :role="isLinkable ? 'link' : undefined"
+        :tabindex="isLinkable ? 0 : undefined"
+        class="nq-hero-img"
+        @click="goToGame()"
+        @keydown.enter="goToGame()"
+      >
         <img v-if="reco.game.coverUrl" :src="reco.game.coverUrl" :alt="reco.game.title" />
         <div v-else class="nq-card-cover-ph">
           <v-icon size="40" color="primary-light">mdi-gamepad-variant</v-icon>
@@ -137,7 +154,13 @@ function ratingStars(rating: number | null): string {
     </div>
 
     <div class="nq-card-body">
-      <span role="link" tabindex="0" class="nq-card-cover nq-card-cover--sm" @click="goToGame()" @keydown.enter="goToGame()">
+      <span
+        :role="isLinkable ? 'link' : undefined"
+        :tabindex="isLinkable ? 0 : undefined"
+        class="nq-card-cover nq-card-cover--sm"
+        @click="goToGame()"
+        @keydown.enter="goToGame()"
+      >
         <img v-if="reco.game.coverUrl" :src="reco.game.coverUrl" :alt="reco.game.title" />
         <div v-else class="nq-card-cover-ph">
           <v-icon size="22" color="primary-light">mdi-gamepad-variant</v-icon>
@@ -145,7 +168,14 @@ function ratingStars(rating: number | null): string {
       </span>
 
       <div class="nq-card-info nq-card-info--sm">
-        <span role="link" tabindex="0" class="nq-card-title nq-card-title--link" @click="goToGame()" @keydown.enter="goToGame()">{{ reco.game.title }}</span>
+        <span
+          :role="isLinkable ? 'link' : undefined"
+          :tabindex="isLinkable ? 0 : undefined"
+          class="nq-card-title"
+          :class="{ 'nq-card-title--link': isLinkable }"
+          @click="goToGame()"
+          @keydown.enter="goToGame()"
+        >{{ reco.game.title }}</span>
 
         <div class="nq-card-details nq-felt-panel">
           <div v-if="bucket !== 'upcoming' && reco.game.genres.length" class="nq-tags">

@@ -245,6 +245,7 @@
     "filterApply": "Appliquer",
     "filterGenres": "Genres",
     "filterGenresEmpty": "Aucun genre disponible pour l'instant.",
+    "filterGenresDisabledSearch": "Indisponibles pendant une recherche.",
     "sortLabel": "Tri",
     "sortHype": "Popularité",
     "sortDate": "Date de sortie",

@@ -80,6 +80,7 @@ export function useTimeline() {
   const SEARCH_DEBOUNCE_MS = 300
   const searchActive = computed(() => searchQuery.value.trim().length >= SEARCH_MIN_QUERY)
   const searchLoading = ref(false)
+  const searchError = ref(false)
   const searchResults = ref<TimelineGameDTO[]>([])
 
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -110,9 +111,11 @@ export function useTimeline() {
       )
       if (seq !== searchSeq) return // une recherche plus recente a pris le relais
       searchResults.value = res.items.map(toTimelineGame)
-    } catch (err) {
+      searchError.value = false
+    } catch {
       if (seq !== searchSeq) return // requete perimee (abort ou plus recente), ignoree
       searchResults.value = []
+      searchError.value = true
     } finally {
       if (seq === searchSeq) searchLoading.value = false
       if (searchInFlight === controller) searchInFlight = null
@@ -130,10 +133,17 @@ export function useTimeline() {
     if (query.length < SEARCH_MIN_QUERY) {
       searchResults.value = []
       searchLoading.value = false
+      searchError.value = false
       return
     }
+    searchError.value = false
     searchLoading.value = true
     searchDebounceTimer = setTimeout(() => runUpcomingSearch(query), SEARCH_DEBOUNCE_MS)
+  })
+
+  onScopeDispose(() => {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+    searchInFlight?.abort()
   })
 
   // ── Filtrage client (genres, + recherche texte pour l'onglet suivi) ──
@@ -176,7 +186,7 @@ export function useTimeline() {
     // Onglet upcoming
     upcomingLoading, upcomingError, hasMore, fetchUpcoming, loadMoreUpcoming,
     // Recherche live (onglet upcoming uniquement)
-    searchActive, searchLoading,
+    searchActive, searchLoading, searchError,
     // Listes filtrees
     filteredUpcoming, filteredFollowed,
     // Suivi (stub local)

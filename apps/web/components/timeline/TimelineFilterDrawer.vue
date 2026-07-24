@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TimelineTab } from '~/types/timeline'
 
-defineProps<{
+const props = defineProps<{
   activeTab: TimelineTab
 }>()
 
@@ -10,8 +10,12 @@ const { t } = useI18n()
 const {
   drawerOpen, availableGenres, selectedGenres, activeFilterCount,
   toggleGenre, resetFilters, applyFilters,
-  sort, setSort,
+  sort, setSort, searchActive,
 } = inject<ReturnType<typeof useTimeline>>('timeline')!
+
+// Les resultats de recherche (GET /api/games/igdb/search) n'exposent pas les
+// genres : un genre coche pendant une recherche filtrerait sans effet visible.
+const genresDisabled = computed(() => props.activeTab === 'upcoming' && searchActive.value)
 </script>
 
 <template>
@@ -51,13 +55,20 @@ const {
 
       <div class="tl-drawer__section">
         <p class="tl-drawer__section-title">{{ t('timeline.filterGenres') }}</p>
-        <div v-if="availableGenres.length" class="tl-drawer__checks">
+        <p v-if="genresDisabled" class="tl-drawer__soon-hint">{{ t('timeline.filterGenresDisabledSearch') }}</p>
+        <div v-if="availableGenres.length" class="tl-drawer__checks" :class="{ 'tl-drawer__checks--disabled': genresDisabled }">
           <label v-for="g in availableGenres" :key="g.slug" class="tl-drawer__check-item">
-            <input type="checkbox" class="tl-drawer__checkbox" :checked="selectedGenres.includes(g.slug)" @change="toggleGenre(g.slug)" />
+            <input
+              type="checkbox"
+              class="tl-drawer__checkbox"
+              :checked="selectedGenres.includes(g.slug)"
+              :disabled="genresDisabled"
+              @change="toggleGenre(g.slug)"
+            />
             <span>{{ g.name }}</span>
           </label>
         </div>
-        <p v-else class="tl-drawer__soon-hint">{{ t('timeline.filterGenresEmpty') }}</p>
+        <p v-else-if="!genresDisabled" class="tl-drawer__soon-hint">{{ t('timeline.filterGenresEmpty') }}</p>
       </div>
 
       <div class="tl-drawer__footer">
@@ -128,6 +139,9 @@ const {
 .tl-drawer__soon-hint { font-size: 0.78rem; color: rgba(var(--nq-brown-dark-rgb), 0.45); margin: 0; }
 
 .tl-drawer__checks { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.tl-drawer__checks--disabled { opacity: 0.5; }
+.tl-drawer__checks--disabled .tl-drawer__check-item { cursor: not-allowed; }
+.tl-drawer__checks--disabled .tl-drawer__checkbox { cursor: not-allowed; }
 
 .tl-drawer__seg { display: flex; gap: 6px; }
 .tl-drawer__seg-btn {

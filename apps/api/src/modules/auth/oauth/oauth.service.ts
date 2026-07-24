@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { db, users, authProviders } from "@nextquest/db";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, isNull } from "drizzle-orm";
 import type { OAuthUserProfile } from "./providers/types.js";
+import {
+  findPendingDeletionById,
+  findPendingDeletionByEmail,
+} from "../../users/account-deletion.service.js";
 
 interface OAuthResult {
   user: {
@@ -14,6 +18,16 @@ interface OAuthResult {
   };
   isNewUser: boolean;
 }
+
+// Resultat discriminant : un compte en grace de suppression ne doit jamais
+// aboutir a une session (ni reconnexion silencieuse, ni creation en doublon).
+// Le callback OAuth teste la presence de "pendingDeletion" pour rediriger
+// vers le flux de restauration au lieu de connecter l'utilisateur.
+interface OAuthPendingDeletionResult {
+  pendingDeletion: { userId: string; deletedAt: Date };
+}
+
+export type OAuthFindOrCreateResult = OAuthResult | OAuthPendingDeletionResult;
 
 // Generates a unique username from email or displayName
 function generateUsername(email: string, displayName: string | null): string {
@@ -41,7 +55,7 @@ const USER_SELECT = {
 
 export async function findOrCreateUserFromOAuth(
   profile: OAuthUserProfile & { provider: string },
-): Promise<OAuthResult> {
+): Promise<OAuthFindOrCreateResult> {
   // 1. Is provider already linked?
   const [existingProvider] = await db
     .select({ userId: authProviders.userId })
@@ -55,19 +69,34 @@ export async function findOrCreateUserFromOAuth(
     .limit(1);
 
   if (existingProvider) {
+    // Le compte lie peut etre en grace de suppression (soft delete puis
+    // tentative de reconnexion) : pas de session, on signale pour rediriger
+    // vers la restauration.
+    const pending = await findPendingDeletionById(existingProvider.userId);
+    if (pending) {
+      return { pendingDeletion: { userId: pending.id, deletedAt: pending.deletedAt! } };
+    }
+
+    // Un compte soft-deleted n'obtient JAMAIS de session, meme via un lien
+    // provider encore present (grace expiree, purge pas encore passee) --
+    // symetrie avec verifyCredentials qui repond 401. On laisse alors le flux
+    // retomber sur le chemin email : collision 23505 -> oauth_failed, et
+    // apres la purge le meme callback recreera un compte neuf.
     const [user] = await db
       .select(USER_SELECT)
       .from(users)
-      .where(eq(users.id, existingProvider.userId))
+      .where(and(eq(users.id, existingProvider.userId), isNull(users.deletedAt)))
       .limit(1);
-    return { user: user!, isNewUser: false };
+    if (user) {
+      return { user, isNewUser: false };
+    }
   }
 
-  // 2. Does email already exist?
+  // 2. Does an active (non soft-deleted) account already exist with this email?
   const [existingUser] = await db
     .select(USER_SELECT)
     .from(users)
-    .where(eq(users.email, profile.email))
+    .where(and(eq(users.email, profile.email), isNull(users.deletedAt)))
     .limit(1);
 
   if (existingUser) {
@@ -79,6 +108,18 @@ export async function findOrCreateUserFromOAuth(
       avatarUrl: profile.avatarUrl,
     });
     return { user: existingUser, isNewUser: false };
+  }
+
+  // 2bis. Pas de compte actif, mais l'email peut appartenir a un compte en
+  // grace SANS provider lie (ex: inscription email/password puis suppression,
+  // puis tentative OAuth avec le meme email). Sans ce check, l'etape 3
+  // tenterait un INSERT qui entre en collision (23505) avec la ligne
+  // soft-deleted -- on le detecte avant pour rediriger vers la restauration.
+  const pendingByEmail = await findPendingDeletionByEmail(profile.email);
+  if (pendingByEmail) {
+    return {
+      pendingDeletion: { userId: pendingByEmail.id, deletedAt: pendingByEmail.deletedAt! },
+    };
   }
 
   // 3. Create a new user

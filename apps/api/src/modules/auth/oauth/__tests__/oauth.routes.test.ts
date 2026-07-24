@@ -1,5 +1,13 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { db, users, authProviders, sessions } from "@nextquest/db";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+// On mocke le reseau du provider Google ; la BDD et les services restent reels
+// (integration), meme pattern que steam.routes.test.ts.
+vi.mock("../providers/google.js", () => ({
+  googleProvider: { exchangeCode: vi.fn(), getUserProfile: vi.fn() },
+}));
+
+import { db, users, authProviders, sessions, gdprRequests } from "@nextquest/db";
+import { eq } from "drizzle-orm";
 import Fastify from "fastify";
 import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../../plugins/jwt.js";
@@ -8,6 +16,11 @@ import { registerRateLimit } from "../../../../plugins/rate-limit.js";
 import { registerErrorHandler } from "../../../../lib/error-handler.js";
 import { registerSwagger } from "../../../../plugins/swagger.js";
 import { oauthRoutes } from "../oauth.routes.js";
+import { googleProvider } from "../providers/google.js";
+import { softDeleteAccount } from "../../../users/account-deletion.service.js";
+
+const mockedExchangeCode = vi.mocked(googleProvider.exchangeCode);
+const mockedGetUserProfile = vi.mocked(googleProvider.getUserProfile);
 
 async function buildApp() {
   const app = Fastify();
@@ -24,6 +37,8 @@ async function buildApp() {
 }
 
 async function cleanup() {
+  vi.clearAllMocks();
+  await db.delete(gdprRequests);
   await db.delete(sessions);
   await db.delete(authProviders);
   await db.delete(users);
@@ -126,6 +141,98 @@ describe("GET /api/auth/oauth/:provider/callback", () => {
       url: "/api/auth/oauth/twitter/callback?code=test&state=test",
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  it("redirige avec un restore_token quand le compte (provider lie) est en grace de suppression", async () => {
+    mockedExchangeCode.mockResolvedValueOnce("fake-access-token");
+    mockedGetUserProfile.mockResolvedValueOnce({
+      providerId: "google-grace-1",
+      email: "grace-linked@example.com",
+      displayName: "Grace Linked",
+      avatarUrl: null,
+    });
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "grace-linked@example.com",
+        username: "gracelinked",
+        passwordHash: "argon2id$dummy",
+      })
+      .returning();
+    await db.insert(authProviders).values({
+      userId: user.id,
+      provider: "google",
+      providerId: "google-grace-1",
+      email: "grace-linked@example.com",
+    });
+    await softDeleteAccount(user.id);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/auth/oauth/google/callback?code=test-code&state=correct-state",
+      cookies: { oauth_state: "correct-state" },
+    });
+
+    expect(res.statusCode).toBe(302);
+    const location = res.headers.location as string;
+    expect(location).toContain("error=account_pending_deletion");
+    expect(location).toContain("restore_token=");
+
+    const restoreToken = new URL(location).searchParams.get("restore_token")!;
+    const claims = app.jwt.verify<{ sub: string; purpose: string }>(restoreToken);
+    expect(claims.sub).toBe(user.id);
+    expect(claims.purpose).toBe("account-restore");
+
+    // Aucune session n'a du etre creee sur ce chemin.
+    const openSessions = await db.select().from(sessions).where(eq(sessions.userId, user.id));
+    expect(openSessions).toHaveLength(0);
+  });
+
+  it("redirige avec un restore_token quand l'email correspond a un compte en grace SANS provider lie (pas de 23505)", async () => {
+    mockedExchangeCode.mockResolvedValueOnce("fake-access-token");
+    mockedGetUserProfile.mockResolvedValueOnce({
+      providerId: "google-grace-2",
+      email: "grace-email-only@example.com",
+      displayName: "Grace Email Only",
+      avatarUrl: null,
+    });
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: "grace-email-only@example.com",
+        username: "graceemailonly",
+        passwordHash: "argon2id$dummy",
+      })
+      .returning();
+    await softDeleteAccount(user.id);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/auth/oauth/google/callback?code=test-code&state=correct-state",
+      cookies: { oauth_state: "correct-state" },
+    });
+
+    expect(res.statusCode).toBe(302);
+    const location = res.headers.location as string;
+    expect(location).toContain("error=account_pending_deletion");
+    expect(location).toContain("restore_token=");
+
+    const restoreToken = new URL(location).searchParams.get("restore_token")!;
+    const claims = app.jwt.verify<{ sub: string; purpose: string }>(restoreToken);
+    expect(claims.sub).toBe(user.id);
+
+    // Pas de nouveau provider lie, pas de doublon de compte cree (pas de 23505).
+    const linked = await db.select().from(authProviders).where(eq(authProviders.userId, user.id));
+    expect(linked).toHaveLength(0);
+    const matchingUsers = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, "grace-email-only@example.com"));
+    expect(matchingUsers).toHaveLength(1);
   });
 });
 

@@ -16,6 +16,7 @@ import {
 import { createSession } from "../auth.service.js";
 import type { OAuthProvider } from "./providers/types.js";
 import { oauthAuthorizationUrlSchema, oauthBadRequestSchema } from "./oauth.schemas.js";
+import { RESTORE_TOKEN_PURPOSE } from "../auth.schemas.js";
 import { errorResponses, noContentSchema } from "../../../lib/openapi.js";
 
 const OAUTH_REDIRECT_URL = process.env.OAUTH_REDIRECT_URL ?? "http://localhost:3001";
@@ -94,7 +95,7 @@ export async function oauthRoutes(app: FastifyInstance) {
       operationId: "oauthCallback",
       summary: "Callback OAuth (appele par le provider)",
       description:
-        "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token (302). En cas d'erreur, redirige (302) vers le front avec ?error=oauth_denied|missing_params|invalid_state|oauth_failed. Pas de schema de reponse : cette route ne renvoie jamais de JSON.",
+        "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token (302). En cas d'erreur, redirige (302) vers le front avec ?error=oauth_denied|missing_params|invalid_state|account_pending_deletion|oauth_failed. Le cas account_pending_deletion fournit aussi &restore_token=<jwt> (15 min) pour le flux de restauration. Pas de schema de reponse : cette route ne renvoie jamais de JSON.",
       params: providerParamSchema,
     },
   }, async (request, reply) => {
@@ -134,6 +135,18 @@ export async function oauthRoutes(app: FastifyInstance) {
         provider,
         ...profile,
       });
+
+      // Compte en grace de suppression (lie a ce provider ou au meme email) :
+      // pas de session, on redirige vers la restauration avec un token dedie.
+      if ("pendingDeletion" in result) {
+        const restoreToken = app.jwt.sign(
+          { sub: result.pendingDeletion.userId, purpose: RESTORE_TOKEN_PURPOSE },
+          { expiresIn: "15m" },
+        );
+        return reply.redirect(
+          `${OAUTH_REDIRECT_URL}?error=account_pending_deletion&restore_token=${restoreToken}`,
+        );
+      }
 
       // Creer session NextQuest
       const refreshToken = await createSession(

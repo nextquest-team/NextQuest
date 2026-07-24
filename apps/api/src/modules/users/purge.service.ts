@@ -9,7 +9,7 @@ export type PurgeSummary = { purged: number; skipped: number };
 // Hard delete RGPD des comptes dont la grace est ecoulee. Ordre impose :
 // le bucket d'abord (la cascade Postgres ne l'atteint pas), la trace gdpr
 // ensuite (le DELETE la passerait en user_id null avant qu'on la retrouve),
-// le DELETE FROM users en dernier (cascades BDD = promesse du CLAUDE.md).
+// le DELETE FROM users en dernier (les cascades BDD font le reste, c'est la promesse RGPD du schema).
 export async function purgeExpiredAccounts(log?: FastifyBaseLogger): Promise<PurgeSummary> {
   const cutoff = new Date(Date.now() - accountPurgeGraceDays() * 24 * 60 * 60 * 1000);
   const expired = await db

@@ -52,7 +52,7 @@ describe("purgeExpiredAccounts", () => {
   });
 
   it("ne touche pas aux comptes encore en grace ni aux comptes actifs", async () => {
-    const active = await createTestUser();
+    await createTestUser(); // compte actif temoin, jamais purge
     const inGrace = await createTestUser();
     await softDeleteAccount(inGrace.id);
 

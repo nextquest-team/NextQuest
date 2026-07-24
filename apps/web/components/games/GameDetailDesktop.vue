@@ -11,6 +11,8 @@ const {
 } = useGameDetail()
 
 onMounted(load)
+
+const lightboxIndex = ref<number | null>(null)
 </script>
 
 <template>
@@ -74,12 +76,12 @@ onMounted(load)
       <template v-else>
         <section v-if="igdb?.summary || game.description" class="gdd__section">
           <h2 class="gdd__section-title">{{ t('gameDetail.summary') }}</h2>
-          <p class="gdd__summary">{{ igdb?.summary ?? game.description }}</p>
+          <p class="gdd__summary nq-felt-panel">{{ igdb?.summary ?? game.description }}</p>
         </section>
 
         <section v-if="igdb?.storyline && igdb.storyline !== igdb.summary" class="gdd__section">
           <h2 class="gdd__section-title">{{ t('gameDetail.storyline') }}</h2>
-          <p class="gdd__summary">{{ igdb.storyline }}</p>
+          <p class="gdd__summary nq-felt-panel">{{ igdb.storyline }}</p>
         </section>
 
         <section v-if="igdb?.screenshots.length" class="gdd__section">
@@ -91,12 +93,18 @@ onMounted(load)
               :src="url"
               :alt="`${game.game.title} screenshot ${i + 1}`"
               class="gdd__screenshot"
+              role="button"
+              tabindex="0"
+              :aria-label="t('gameDetail.screenshotOpen')"
+              @click="lightboxIndex = i"
+              @keydown.enter="lightboxIndex = i"
+              @keydown.space.prevent="lightboxIndex = i"
             />
           </div>
         </section>
 
         <section class="gdd__section">
-          <dl class="gdd__meta">
+          <dl class="gdd__meta nq-felt-panel">
             <template v-if="game.game.releaseDate">
               <dt class="gdd__dt">{{ t('gameDetail.releaseDate') }}</dt>
               <dd class="gdd__dd">{{ formatReleaseDate(game.game.releaseDate) }}</dd>
@@ -151,22 +159,37 @@ onMounted(load)
           <h2 class="gdd__section-title">{{ t('gameDetail.similarGames') }}</h2>
           <div class="gdd__similar">
             <template v-if="igdb?.similarGames.length">
-              <div v-for="sim in igdb.similarGames" :key="sim.igdbId" class="gdd__similar-item">
+              <NuxtLink
+                v-for="sim in igdb.similarGames"
+                :key="sim.igdbId"
+                :to="`/games/catalog/${sim.igdbId}`"
+                class="gdd__similar-item"
+              >
                 <div class="gdd__similar-cover">
                   <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
                   <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
                 </div>
-                <span class="gdd__similar-title">{{ sim.title }}</span>
-              </div>
+                <div class="gdd__similar-title nq-felt-panel">
+                  <span class="gdd__similar-title-text">{{ sim.title }}</span>
+                </div>
+              </NuxtLink>
             </template>
             <template v-else>
-              <div v-for="sim in game.similarGames" :key="sim.id" class="gdd__similar-item">
+              <component
+                :is="sim.igdbId ? 'NuxtLink' : 'div'"
+                v-for="sim in game.similarGames"
+                :key="sim.id"
+                :to="sim.igdbId ? `/games/catalog/${sim.igdbId}` : undefined"
+                class="gdd__similar-item"
+              >
                 <div class="gdd__similar-cover">
                   <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
                   <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
                 </div>
-                <span class="gdd__similar-title">{{ sim.title }}</span>
-              </div>
+                <div class="gdd__similar-title nq-felt-panel">
+                  <span class="gdd__similar-title-text">{{ sim.title }}</span>
+                </div>
+              </component>
             </template>
           </div>
         </section>
@@ -198,6 +221,14 @@ onMounted(load)
         </div>
       </Transition>
     </template>
+
+    <UiScreenshotModal
+      v-if="igdb"
+      :screenshots="igdb.screenshots"
+      :index="lightboxIndex"
+      :alt="game?.game.title ?? ''"
+      @update:index="lightboxIndex = $event"
+    />
   </div>
 </template>
 
@@ -224,8 +255,8 @@ onMounted(load)
   padding: 3rem 1rem;
 }
 
-.gdd__nf-title { font-size: 1.1rem; font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
-.gdd__nf-hint  { font-size: 0.9rem; color: rgba(var(--nq-brown-dark-rgb), 0.65); margin: 0; }
+.gdd__nf-title { font-size: clamp(1.15rem, 2.6vw, 1.3rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0; }
+.gdd__nf-hint  { font-size: clamp(0.95rem, 2.2vw, 1.08rem); color: rgba(var(--nq-brown-dark-rgb), 0.65); margin: 0; }
 
 .gdd__hero { display: flex; gap: 1.25rem; align-items: flex-start; margin-bottom: 1.75rem; }
 
@@ -249,8 +280,8 @@ onMounted(load)
 
 .gdd__title { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; line-height: 1.25; }
 
-.gdd__label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(var(--nq-brown-dark-rgb), 0.75); margin: 0 0 6px; }
-.gdd__value { font-size: 0.9rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; }
+.gdd__label { font-size: clamp(0.76rem, 1.7vw, 0.9rem); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(var(--nq-brown-dark-rgb), 0.75); margin: 0 0 6px; }
+.gdd__value { font-size: clamp(0.95rem, 2.2vw, 1.08rem); color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; }
 
 .gdd__statuses { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
 
@@ -262,7 +293,7 @@ onMounted(load)
   border-radius: 999px;
   border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
   background: transparent;
-  color: rgba(var(--nq-brown-dark-rgb), 0.6);
+  color: rgba(var(--nq-brown-dark-rgb), 0.72);
   font-family: var(--nq-font);
   font-size: 0.75rem;
   cursor: pointer;
@@ -282,7 +313,7 @@ onMounted(load)
   border: 1px solid rgba(var(--nq-gold-rgb), 0.3);
   border-radius: 10px;
   padding: 12px 16px;
-  font-size: 0.85rem;
+  font-size: clamp(0.9rem, 2.1vw, 1.02rem);
   color: rgba(var(--nq-brown-dark-rgb), 0.7);
   margin-bottom: 1.5rem;
 }
@@ -290,7 +321,7 @@ onMounted(load)
 .gdd__section { margin-bottom: 1.75rem; }
 
 .gdd__section-title {
-  font-size: 0.8rem;
+  font-size: clamp(0.85rem, 2vw, 0.98rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -300,37 +331,56 @@ onMounted(load)
   border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
 }
 
-.gdd__summary { font-size: 0.9rem; line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
+.gdd__summary { font-size: clamp(0.95rem, 2.2vw, 1.08rem); line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
 
 .gdd__meta { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
 
-.gdd__dt { font-size: 0.75rem; font-weight: 700; color: rgba(var(--nq-brown-dark-rgb), 0.75); white-space: nowrap; align-self: start; padding-top: 2px; }
-.gdd__dd { font-size: 0.875rem; color: var(--nq-brown-dark, #3A1A0A); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.gdd__dt { font-size: clamp(0.8rem, 1.8vw, 0.92rem); font-weight: 700; color: rgba(var(--nq-brown-dark-rgb), 0.75); white-space: nowrap; align-self: start; padding-top: 2px; }
+.gdd__dd { font-size: clamp(0.92rem, 2.1vw, 1.05rem); color: var(--nq-brown-dark, #3A1A0A); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 
-.gdd__chip { display: inline-block; background: rgba(var(--nq-brown-rgb), 0.08); color: var(--nq-brown, #5C3317); border-radius: 999px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; }
-.gdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.6); }
+.gdd__chip { display: inline-block; background: rgba(var(--nq-brown-rgb), 0.08); color: var(--nq-brown, #5C3317); border-radius: 999px; padding: 2px 10px; font-size: clamp(0.82rem, 1.9vw, 0.95rem); font-weight: 600; }
+.gdd__chip--tag      { background: rgba(var(--nq-brown-rgb), 0.04); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.72); }
 .gdd__chip--platform { background: rgba(26, 47, 72, 0.07); color: var(--nq-navy); font-weight: 500; }
 
 .gdd__screenshots { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
 .gdd__screenshots::-webkit-scrollbar { display: none; }
 
-.gdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(var(--nq-brown-rgb), 0.08); }
+.gdd__screenshot { flex-shrink: 0; width: 220px; height: 124px; border-radius: 8px; object-fit: cover; background: rgba(var(--nq-brown-rgb), 0.08); cursor: pointer; }
+.gdd__screenshot:hover { filter: brightness(0.92); }
 
-.gdd__similar { display: flex; gap: 12px; flex-wrap: wrap; }
+.gdd__similar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; }
 
-.gdd__similar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 80px; }
+.gdd__similar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 80px; text-decoration: none; }
 
-.gdd__similar-cover { width: 80px; height: 106px; border-radius: 8px; background: rgba(var(--nq-brown-rgb), 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.gdd__similar-cover { width: 80px; height: 106px; flex-shrink: 0; border-radius: 8px; background: rgba(var(--nq-brown-rgb), 0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .gdd__similar-cover img { width: 100%; height: 100%; object-fit: cover; }
 
-.gdd__similar-title { font-size: 0.7rem; color: rgba(var(--nq-brown-dark-rgb), 0.7); text-align: center; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.gdd__similar-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background-size: auto, 90px 90px;
+  padding: 4px 6px;
+}
+.gdd__similar-title-text {
+  font-size: clamp(0.75rem, 1.7vw, 0.88rem);
+  color: rgba(var(--nq-brown-dark-rgb), 0.7);
+  text-align: center;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
-.gdd__rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 0.95rem; color: var(--nq-brown-dark); }
-.gdd__rating-max { font-size: 0.75rem; font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.65); }
+.gdd__rating { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: clamp(1rem, 2.3vw, 1.12rem); color: var(--nq-brown-dark); }
+.gdd__rating-max { font-size: clamp(0.8rem, 1.9vw, 0.92rem); font-weight: 400; color: rgba(var(--nq-brown-dark-rgb), 0.65); }
 
 .gdd__danger { margin-top: auto; padding-top: 2rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
 
-.gdd__remove-error { font-size: 0.82rem; color: var(--nq-red); margin: 0; }
+.gdd__remove-error { font-size: clamp(0.87rem, 2vw, 1rem); color: var(--nq-red); margin: 0; }
 
 .gdd__remove-btn {
   display: inline-flex;
@@ -362,7 +412,7 @@ onMounted(load)
 }
 
 .gdd__confirm-box { background: var(--nq-cream, #F8F4EA); border-radius: 14px; padding: 1.5rem; max-width: 340px; width: 100%; box-shadow: 0 8px 32px rgba(var(--nq-brown-dark-rgb), 0.2); }
-.gdd__confirm-text { font-size: 0.95rem; color: var(--nq-brown-dark); margin: 0 0 1.25rem; text-align: center; }
+.gdd__confirm-text { font-size: clamp(1rem, 2.3vw, 1.12rem); color: var(--nq-brown-dark); margin: 0 0 1.25rem; text-align: center; }
 .gdd__confirm-actions { display: flex; gap: 0.75rem; justify-content: center; }
 
 .gdd__confirm-btn { flex: 1; padding: 9px 16px; border-radius: 8px; font-family: var(--nq-font); font-size: 0.85rem; font-weight: 600; border: none; cursor: pointer; transition: background 0.15s; }

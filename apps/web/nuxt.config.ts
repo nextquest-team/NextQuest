@@ -29,6 +29,13 @@ export default defineNuxtConfig({
 
   modules: ['@pinia/nuxt', 'vuetify-nuxt-module', '@nuxtjs/i18n'],
 
+  routeRules: {
+    // Le suivi (followedGames) dépend du localStorage client, désactiver le
+    // SSR évite un flash de contenu vide et l'écrasement du state par le
+    // payload Pinia serveur (le definePageMeta ssr:false n'a pas d'effet ici).
+    '/timeline': { ssr: false },
+  },
+
   i18n: {
     locales: [
       { code: 'fr', file: 'fr.json' },

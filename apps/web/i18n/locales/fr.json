@@ -163,6 +163,11 @@
     "similarGames": "Jeux similaires",
     "storyline": "Histoire",
     "screenshots": "Captures d'écran",
+    "screenshotOpen": "Agrandir la capture d'écran",
+    "screenshotClose": "Fermer",
+    "screenshotPrev": "Capture précédente",
+    "screenshotNext": "Capture suivante",
+    "screenshotCounter": "{current} / {total}",
     "gameModes": "Modes de jeu",
     "comingSoon": "Aucune donnée pour ce jeu."
   },
@@ -230,6 +235,36 @@
     "wheel": {
       "alt": "Next Quest"
     }
+  },
+  "timeline": {
+    "title": "Sorties de jeux",
+    "subtitle": "Ce que le destin te réserve",
+    "tabs": {
+      "upcoming": "Prophéties à venir",
+      "followed": "Quêtes acceptées"
+    },
+    "searchPlaceholder": "Rechercher un jeu…",
+    "filterBtn": "Filtres",
+    "filterReset": "Réinitialiser",
+    "filterClose": "Fermer les filtres",
+    "filterApply": "Appliquer",
+    "filterGenres": "Genres",
+    "filterGenresEmpty": "Aucun genre disponible pour l'instant.",
+    "filterGenresDisabledSearch": "Indisponibles pendant une recherche.",
+    "sortLabel": "Tri",
+    "sortHype": "Popularité",
+    "sortDate": "Date de sortie",
+    "loadMore": "Voir plus",
+    "loadError": "Impossible de charger les jeux à venir",
+    "searchError": "La recherche a échoué",
+    "retry": "Réessayer",
+    "quarterLabel": "T{quarter} {year}",
+    "upcomingEmpty": "Aucun jeu à venir pour ces critères",
+    "followedEmpty": "Aucune quête annoncée pour l'instant",
+    "followedEmptyHint": "Suis un jeu depuis l'onglet « Prophéties à venir » pour le retrouver ici.",
+    "follow": "Suivre ce jeu",
+    "unfollow": "Ne plus suivre ce jeu",
+    "releaseUnknown": "Date inconnue"
   },
   "common": {
     "loading": "Chargement en cours"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { RecommendationDTO, FeedbackAction, RecoGame } from '~/types/recommendations'
+import type { RecommendationDTO, FeedbackAction } from '~/types/recommendations'
+import type { CatalogPreview } from '~/types/game'
 
 const props = defineProps<{
   reco: RecommendationDTO | null
@@ -16,12 +17,25 @@ const { t } = useI18n()
 
 const isMain = computed(() => props.bucket === 'discovery')
 
-const catalogPreview = useState<RecoGame | null>('catalog-preview', () => null)
+// Jeu custom (sans correspondance IGDB) : goToGame ne fait rien, le role/tabindex
+// ne doivent donc pas rendre la carte focusable comme un lien mort au clavier.
+const isLinkable = computed(() => props.reco?.game.igdbId != null)
+
+const catalogPreview = useState<CatalogPreview | null>('catalog-preview', () => null)
 
 function goToGame() {
   if (!props.reco) return
-  catalogPreview.value = props.reco.game
-  navigateTo(`/games/catalog/${props.reco.game.id}`)
+  const g = props.reco.game
+  if (g.igdbId == null) return
+  catalogPreview.value = {
+    igdbId: g.igdbId,
+    title: g.title,
+    coverUrl: g.coverUrl,
+    releaseDate: g.releaseDate,
+    releaseStatus: g.releaseStatus === 'upcoming' ? 'upcoming' : 'released',
+    rating: g.igdbRating,
+  }
+  navigateTo(`/games/catalog/${g.igdbId}`)
 }
 
 const badgeConfig = computed(() => ({
@@ -73,31 +87,46 @@ function ratingStars(rating: number | null): string {
     <div class="nq-hero-col">
       <!-- 1. Titre + tags + meta + raison -->
       <div class="nq-hero-top">
-        <span role="link" tabindex="0" class="nq-card-title nq-card-title--hero nq-card-title--link" @click="goToGame()" @keydown.enter="goToGame()">{{ reco.game.title }}</span>
+        <span
+          :role="isLinkable ? 'link' : undefined"
+          :tabindex="isLinkable ? 0 : undefined"
+          class="nq-card-title nq-card-title--hero"
+          :class="{ 'nq-card-title--link': isLinkable }"
+          @click="goToGame()"
+          @keydown.enter="goToGame()"
+        >{{ reco.game.title }}</span>
 
-        <div v-if="reco.game.genres.length" class="nq-tags">
-          <span v-for="g in reco.game.genres.slice(0, 3)" :key="g.id" class="nq-tag">{{ g.name }}</span>
+        <div class="nq-hero-details nq-felt-panel">
+          <div v-if="reco.game.genres.length" class="nq-tags">
+            <span v-for="g in reco.game.genres.slice(0, 3)" :key="g.id" class="nq-tag">{{ g.name }}</span>
+          </div>
+
+          <div class="nq-card-meta">
+            <span v-if="reco.game.igdbRating" class="nq-rating">
+              {{ ratingStars(reco.game.igdbRating) }}
+              <span class="nq-rating__num">{{ (reco.game.igdbRating / 10).toFixed(1) }}/10</span>
+            </span>
+            <span v-if="reco.game.releaseDate" class="nq-date">
+              <v-icon size="12">mdi-calendar</v-icon>
+              {{ formatDate(reco.game.releaseDate) }}
+            </span>
+          </div>
+
+          <p class="nq-card-reason">
+            <v-icon size="12" color="primary-light">mdi-lightning-bolt</v-icon>
+            {{ reco.reason.text }}
+          </p>
         </div>
-
-        <div class="nq-card-meta">
-          <span v-if="reco.game.igdbRating" class="nq-rating">
-            {{ ratingStars(reco.game.igdbRating) }}
-            <span class="nq-rating__num">{{ (reco.game.igdbRating / 10).toFixed(1) }}/10</span>
-          </span>
-          <span v-if="reco.game.releaseDate" class="nq-date">
-            <v-icon size="12">mdi-calendar</v-icon>
-            {{ formatDate(reco.game.releaseDate) }}
-          </span>
-        </div>
-
-        <p class="nq-card-reason">
-          <v-icon size="12" color="primary-light">mdi-lightning-bolt</v-icon>
-          {{ reco.reason.text }}
-        </p>
       </div>
 
       <!-- 2. Image — prend l'espace restant, cliquable vers la fiche -->
-      <span role="link" tabindex="0" class="nq-hero-img" @click="goToGame()" @keydown.enter="goToGame()">
+      <span
+        :role="isLinkable ? 'link' : undefined"
+        :tabindex="isLinkable ? 0 : undefined"
+        class="nq-hero-img"
+        @click="goToGame()"
+        @keydown.enter="goToGame()"
+      >
         <img v-if="reco.game.coverUrl" :src="reco.game.coverUrl" :alt="reco.game.title" />
         <div v-else class="nq-card-cover-ph">
           <v-icon size="40" color="primary-light">mdi-gamepad-variant</v-icon>
@@ -125,7 +154,13 @@ function ratingStars(rating: number | null): string {
     </div>
 
     <div class="nq-card-body">
-      <span role="link" tabindex="0" class="nq-card-cover nq-card-cover--sm" @click="goToGame()" @keydown.enter="goToGame()">
+      <span
+        :role="isLinkable ? 'link' : undefined"
+        :tabindex="isLinkable ? 0 : undefined"
+        class="nq-card-cover nq-card-cover--sm"
+        @click="goToGame()"
+        @keydown.enter="goToGame()"
+      >
         <img v-if="reco.game.coverUrl" :src="reco.game.coverUrl" :alt="reco.game.title" />
         <div v-else class="nq-card-cover-ph">
           <v-icon size="22" color="primary-light">mdi-gamepad-variant</v-icon>
@@ -133,18 +168,27 @@ function ratingStars(rating: number | null): string {
       </span>
 
       <div class="nq-card-info nq-card-info--sm">
-        <span role="link" tabindex="0" class="nq-card-title nq-card-title--link" @click="goToGame()" @keydown.enter="goToGame()">{{ reco.game.title }}</span>
+        <span
+          :role="isLinkable ? 'link' : undefined"
+          :tabindex="isLinkable ? 0 : undefined"
+          class="nq-card-title"
+          :class="{ 'nq-card-title--link': isLinkable }"
+          @click="goToGame()"
+          @keydown.enter="goToGame()"
+        >{{ reco.game.title }}</span>
 
-        <div v-if="bucket !== 'upcoming' && reco.game.genres.length" class="nq-tags">
-          <span v-for="g in reco.game.genres.slice(0, 2)" :key="g.id" class="nq-tag">{{ g.name }}</span>
+        <div class="nq-card-details nq-felt-panel">
+          <div v-if="bucket !== 'upcoming' && reco.game.genres.length" class="nq-tags">
+            <span v-for="g in reco.game.genres.slice(0, 2)" :key="g.id" class="nq-tag">{{ g.name }}</span>
+          </div>
+
+          <p v-if="bucket === 'upcoming' && reco.game.releaseDate" class="nq-date">
+            <v-icon size="12">mdi-calendar</v-icon>
+            {{ t('nextQuest.release') }} : {{ formatDate(reco.game.releaseDate) }}
+          </p>
+
+          <p class="nq-card-reason nq-card-reason--sm">{{ reco.reason.text }}</p>
         </div>
-
-        <p v-if="bucket === 'upcoming' && reco.game.releaseDate" class="nq-date">
-          <v-icon size="12">mdi-calendar</v-icon>
-          {{ t('nextQuest.release') }} : {{ formatDate(reco.game.releaseDate) }}
-        </p>
-
-        <p class="nq-card-reason nq-card-reason--sm">{{ reco.reason.text }}</p>
 
         <div class="nq-card-actions">
           <button class="nq-quest-cta nq-quest-cta--sm" :disabled="feedbackPending" @click="emit('feedback', reco, ctaConfig.action)">
@@ -213,14 +257,17 @@ function ratingStars(rating: number | null): string {
 
 .nq-card-cover {
   flex-shrink: 0;
-  width: 90px;
-  height: 120px;
+  align-self: flex-start;
+  width: auto;
+  max-width: 140px;
+  max-height: 100%;
+  aspect-ratio: 3 / 4;
   border-radius: 4px;
   overflow: hidden;
   background: rgba(var(--nq-brown-rgb), 0.06);
 }
 
-.nq-card-cover--sm { width: 80px; height: 108px; }
+.nq-card-cover--sm { max-width: 110px; }
 
 .nq-card-cover img {
   width: 100%;
@@ -278,12 +325,6 @@ function ratingStars(rating: number | null): string {
 
 /* ── Desktop compact (cards secondaires) ── */
 @media (min-width: 960px) {
-  .nq-card-body      { padding: 0.4rem 0.55rem; gap: 0.5rem; }
-  .nq-card-cover     { width: 72px;  height: 96px; }
-  .nq-card-cover--sm { width: 54px;  height: 72px; }
-  .nq-card-title     { font-size: 0.95rem; }
-  .nq-card-reason    { font-size: 0.76rem; }
-  .nq-card-reason--sm { font-size: 0.72rem; }
   .nq-card-info      { gap: 3px; }
   .nq-quest-cta      { padding: 5px 9px; font-size: 0.78rem; gap: 4px; }
   .nq-quest-cta--sm  { padding: 4px 7px; font-size: 0.72rem; }
@@ -314,8 +355,6 @@ function ratingStars(rating: number | null): string {
 
 @media (min-width: 960px) {
   .nq-card-body      { padding: 0.45rem 0.6rem; gap: 0.6rem; }
-  .nq-card-cover     { width: 100px; height: 134px; }
-  .nq-card-cover--sm { width: 78px; height: 104px; }
   .nq-card-title     { font-size: 1.05rem; }
   .nq-card-reason    { font-size: 0.82rem; }
   .nq-card-reason--sm { font-size: 0.76rem; }
@@ -358,11 +397,12 @@ function ratingStars(rating: number | null): string {
 .nq-hero-col .nq-tags       { justify-content: center; }
 .nq-hero-col .nq-card-meta  { justify-content: center; }
 
-/* Image fixe, format respecté (contain), avec padding visuel */
+/* Image : absorbe l'espace vertical restant de la colonne hero, garde ses
+   proportions via aspect-ratio (object-fit: contain grandit proprement). */
 .nq-hero-img {
-  flex-shrink: 0;
-  width: 130px;
-  height: 173px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   border-radius: 5px;
   overflow: hidden;
   background: rgba(var(--nq-brown-rgb), 0.06);
@@ -392,7 +432,6 @@ function ratingStars(rating: number | null): string {
 
 @media (min-width: 960px) {
   .nq-hero-col  { padding: 0.5rem 0.65rem; gap: 0.4rem; }
-  .nq-hero-img  { width: 145px; height: 193px; }
 
   .nq-card-title--hero { font-size: 1rem; }
 
@@ -537,5 +576,26 @@ function ratingStars(rating: number | null): string {
   font-size: 0.75rem;
   color: rgba(var(--nq-black-rgb), 0.6);
   margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   PANNEAU FEUTRINE — sous le titre (tags / meta / raison)
+═══════════════════════════════════════════════════════ */
+.nq-hero-details.nq-felt-panel,
+.nq-card-details.nq-felt-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  background-size: auto, 140px 140px;
+  width: 100%;
+}
+
+.nq-card-details.nq-felt-panel {
+  gap: 0.3rem;
+  padding: 0.4rem 0.55rem;
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
 }
 </style>

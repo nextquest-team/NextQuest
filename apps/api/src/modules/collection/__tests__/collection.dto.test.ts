@@ -82,7 +82,7 @@ describe("toCollectionDetailDTO", () => {
       { ...baseRow, description: "desc" },
       [],
       [],
-      [{ id: "g2", title: "Ori", coverUrl: null }],
+      [{ id: "g2", title: "Ori", coverUrl: null, igdbId: 99 }],
     );
     expect(dto.description).toBe("desc");
     expect(dto.similarGames[0].title).toBe("Ori");

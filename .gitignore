@@ -72,9 +72,6 @@ docs/specs/
 *.local.md
 .local/
 
-# Claude Code (assistant IA)
-.claude/
-CLAUDE.md
 
 # Docker compose override local par dev/poste (URLs Tailscale, etc.)
 # Chaque dev a sa propre config sans toucher au compose committe

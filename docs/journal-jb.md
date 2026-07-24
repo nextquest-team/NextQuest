@@ -244,6 +244,14 @@
 
 **Validation E2E réelle** -- API branchée sur la vraie BDD + vrai IGDB (compte jetable créé puis supprimé) : les 23 genres seedés matchent IGDB live, follow/unfollow (idempotent), 404 sur un igdbId inexistant, refresh manuel (62 jeux vérifiés/mis à jour), recommandations avec `igdbId` sur toutes les cartes. Suppression du compte jetable vérifiée : la cascade RGPD purge bien `user_followed_games` avec le reste. 495 tests API verts.
 
+---
+
+## 23 juillet 2026
+
+**Jeux annoncés sans date visibles dans la Timeline (#114)** -- Découvert en testant la #107 : les requêtes IGDB filtraient `first_release_date > now`, or null ne matche jamais une comparaison IGDB — The Witcher 4 et ses 400+ hypes (et TES VI, 492 !) étaient invisibles du feed et de la recherche upcoming. Fix : branche `= null` avec garde-fou `hypes >= 1` sur le feed trié par hype (le tri par date reste chronologique pur), recherche élargie sans garde (le nom filtre déjà), précision forcée à `tbd` par construction. E2E réel : TES VI 2e du feed, TW4 dans feed + recherche, follow d'un jeu TBD propre (stocké date null / precision tbd).
+
+---
+
 ## 24 juillet 2026
 
 **Upload d'avatar + profil étendu** -- Stockage objet S3-compatible : MinIO rejoint le docker-compose (portable S3/R2 en prod par simple config, SDK AWS officiel). Upload multipart validé par magic bytes puis re-encodé systématiquement via sharp (WebP 512x512, clé fixe par user) : les pixels servis ne sortent jamais du fichier d'origine.

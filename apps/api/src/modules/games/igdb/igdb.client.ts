@@ -453,8 +453,15 @@ export async function searchGamesByName(
 
   // Filtre optionnel "a venir uniquement" (scope=upcoming) : injecte dans le
   // where de chacun des deux pools, sans toucher aux corps quand il est absent
-  // (non-regression stricte de l'autocomplete existant).
-  const upcomingCond = upcomingAfterEpoch != null ? ` where first_release_date > ${upcomingAfterEpoch};` : "";
+  // (non-regression stricte de l'autocomplete existant). Branche `= null`
+  // incluse pour laisser passer les jeux annonces sans date (TBD) -- pas de
+  // garde hypes ici contrairement a fetchUpcoming : la recherche par nom
+  // filtre deja fortement (nom + mots), et le service reclasse par popularite
+  // derriere (cf. igdb.discovery.service.ts).
+  const upcomingCond =
+    upcomingAfterEpoch != null
+      ? ` where (first_release_date > ${upcomingAfterEpoch} | first_release_date = null);`
+      : "";
   const poolABody = `search "${escape(name)}"; fields ${SEARCH_FIELDS};${upcomingCond} limit ${limit};`;
   const poolA = (await igdbPost("games", poolABody, token, clientId, fetchImpl)) as RawSearchGame[];
 
@@ -466,7 +473,10 @@ export async function searchGamesByName(
   let poolB: RawSearchGame[] = [];
   if (words.length > 0) {
     const conds = words.map((w) => `name ~ *"${escape(w)}"*`).join(" & ");
-    const dateCond = upcomingAfterEpoch != null ? ` & first_release_date > ${upcomingAfterEpoch}` : "";
+    const dateCond =
+      upcomingAfterEpoch != null
+        ? ` & (first_release_date > ${upcomingAfterEpoch} | first_release_date = null)`
+        : "";
     const poolBBody =
       `fields ${SEARCH_FIELDS}; ` +
       `where ${conds} & game_type = (0,4,8,9,10,11) & version_parent = null${dateCond}; ` +
@@ -530,9 +540,15 @@ interface RawUpcomingGame {
   platforms?: RawPlatform[];
 }
 
-// Liste des jeux a venir (first_release_date > now). Tri par hype (anticipation,
-// defaut) ou par date (timeline chronologique). Pagination limit/offset. Le proxy
-// applicatif (igdb.discovery.service) cache la reponse en Redis.
+// Seuil de hype minimal pour qu'une fiche sans date (TBD, ex. The Witcher 4)
+// entre dans le feed "a venir" trie par hype. Une fiche sans date ET sans
+// aucune anticipation n'a rien a faire dans ce feed -- le seuil evite de
+// noyer la fin du feed sous des fiches fantomes.
+const UPCOMING_TBD_MIN_HYPES = 1;
+
+// Liste des jeux a venir. Tri par hype (anticipation, defaut) ou par date
+// (timeline chronologique). Pagination limit/offset. Le proxy applicatif
+// (igdb.discovery.service) cache la reponse en Redis.
 export async function fetchUpcoming(
   opts: UpcomingQuery,
   nowEpochSeconds: number,
@@ -541,16 +557,34 @@ export async function fetchUpcoming(
   fetchImpl: JsonFetchLike = fetch as unknown as JsonFetchLike,
 ): Promise<IgdbUpcomingGame[]> {
   const sort = opts.sort === "date" ? "first_release_date asc" : "hypes desc";
+  // Tri par date : un jeu sans date n'a pas de place sur un axe chronologique
+  // pagine, on garde donc le filtre strict (pas de branche null).
+  // Tri par hype (defaut) : les jeux annonces sans date entrent dans le feed
+  // des qu'ils depassent le seuil de hype et se classent naturellement avec
+  // les jeux dates (IGDB Query Language : une comparaison sur champ null ne
+  // matche jamais, d'ou la branche `= null` explicite).
+  const where =
+    opts.sort === "date"
+      ? `first_release_date > ${nowEpochSeconds}`
+      : `(first_release_date > ${nowEpochSeconds} | (first_release_date = null & hypes >= ${UPCOMING_TBD_MIN_HYPES}))`;
   const body =
     `fields ${UPCOMING_FIELDS}; ` +
-    `where first_release_date > ${nowEpochSeconds}; ` +
+    `where ${where}; ` +
     `sort ${sort}; limit ${opts.limit}; offset ${opts.offset};`;
   const rows = (await igdbPost("games", body, token, clientId, fetchImpl)) as RawUpcomingGame[];
   return rows.map((r) => ({
     igdbId: r.id,
     name: r.name,
     releaseDate: unixToDate(r.first_release_date),
-    releaseDatePrecision: mapReleasePrecision(r.release_dates, r.first_release_date),
+    // Dans un feed upcoming, une fiche sans first_release_date est TBD par
+    // construction -- meme si release_dates contient des entrees non datees
+    // avec un date_format (bruit IGDB constate en reel : precision "day" sans
+    // aucune date). mapReleasePrecision reste generique (aussi utilisee pour
+    // les jeux sortis, ou null ne veut pas dire TBD) donc on tranche ici.
+    releaseDatePrecision:
+      r.first_release_date == null
+        ? "tbd"
+        : mapReleasePrecision(r.release_dates, r.first_release_date),
     coverImageId: r.cover?.image_id ?? null,
     hypes: r.hypes ?? null,
     genres: mapTaxa(r.genres),

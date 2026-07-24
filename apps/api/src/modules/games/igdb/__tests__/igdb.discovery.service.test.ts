@@ -80,7 +80,7 @@ describe("getUpcomingGames", () => {
       "CID",
     );
     expect(cache.set).toHaveBeenCalledWith(
-      "igdb:upcoming:hype:20:0",
+      "igdb:upcoming:v2:hype:20:0",
       expect.any(String),
       "EX",
       3600,
@@ -90,7 +90,7 @@ describe("getUpcomingGames", () => {
   it("cache hit: renvoie le cache sans appeler IGDB", async () => {
     const cache = fakeCache();
     cache.store.set(
-      "igdb:upcoming:date:10:5",
+      "igdb:upcoming:v2:date:10:5",
       JSON.stringify([{ igdbId: 9, title: "Cached" }]),
     );
     const fetchUpcoming = vi.fn();

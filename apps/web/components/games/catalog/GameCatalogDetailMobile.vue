@@ -3,7 +3,7 @@ import type { TimelineGameDTO } from '~/types/timeline'
 
 const { t } = useI18n()
 
-const { game, loading } = useGameCatalogDetail()
+const { game, loading, previewOnly } = useGameCatalogDetail()
 const followedStore = useFollowedGamesStore()
 
 const lightboxIndex = ref<number | null>(null)
@@ -103,102 +103,123 @@ function ratingStars(rating: number | null): string {
           </p>
         </div>
 
-        <!-- Synopsis -->
-        <section v-if="game.summary" class="cdm__section">
-          <h2 class="cdm__section-title">{{ t('gameDetail.summary') }}</h2>
-          <p class="cdm__summary nq-felt-panel">{{ game.summary }}</p>
-        </section>
+        <!-- Le fetch complet est encore en vol : seuls titre/jaquette (preview) sont
+             fiables, le reste attend derriere des skeletons plutot que d'afficher
+             des champs isoles qui feraient sauter la mise en page a l'arrivee. -->
+        <template v-if="previewOnly">
+          <section class="cdm__section">
+            <div class="cdm__skeleton cdm__skeleton--title" />
+            <div class="cdm__skeleton cdm__skeleton--text nq-felt-panel" />
+          </section>
+          <section class="cdm__section">
+            <div class="cdm__skeleton cdm__skeleton--title" />
+            <div class="cdm__skeletons-row">
+              <div v-for="i in 3" :key="i" class="cdm__skeleton cdm__skeleton--screenshot" />
+            </div>
+          </section>
+          <section class="cdm__section">
+            <div class="cdm__skeleton cdm__skeleton--meta nq-felt-panel" />
+          </section>
+        </template>
 
-        <!-- Storyline -->
-        <section v-if="game.storyline && game.storyline !== game.summary" class="cdm__section">
-          <h2 class="cdm__section-title">{{ t('gameDetail.storyline') }}</h2>
-          <p class="cdm__summary nq-felt-panel">{{ game.storyline }}</p>
-        </section>
+        <template v-else>
+          <!-- Synopsis -->
+          <section v-if="game.summary" class="cdm__section">
+            <h2 class="cdm__section-title">{{ t('gameDetail.summary') }}</h2>
+            <p class="cdm__summary nq-felt-panel">{{ game.summary }}</p>
+          </section>
 
-        <!-- Screenshots -->
-        <section v-if="game.screenshots.length" class="cdm__section">
-          <h2 class="cdm__section-title">{{ t('gameDetail.screenshots') }}</h2>
-          <div class="cdm__screenshots">
-            <img
-              v-for="(url, i) in game.screenshots.slice(0, 6)"
-              :key="i"
-              :src="url"
-              :alt="`${game.title} screenshot ${i + 1}`"
-              class="cdm__screenshot"
-              role="button"
-              tabindex="0"
-              :aria-label="t('gameDetail.screenshotOpen')"
-              @click="lightboxIndex = i"
-              @keydown.enter="lightboxIndex = i"
-              @keydown.space.prevent="lightboxIndex = i"
-            />
-          </div>
-        </section>
+          <!-- Storyline -->
+          <section v-if="game.storyline && game.storyline !== game.summary" class="cdm__section">
+            <h2 class="cdm__section-title">{{ t('gameDetail.storyline') }}</h2>
+            <p class="cdm__summary nq-felt-panel">{{ game.storyline }}</p>
+          </section>
 
-        <!-- Infos meta -->
-        <section v-if="hasMeta" class="cdm__section">
-          <dl class="cdm__meta nq-felt-panel">
-            <template v-if="game.releaseDate">
-              <dt class="cdm__dt">{{ t('gameDetail.releaseDate') }}</dt>
-              <dd class="cdm__dd">{{ formatDate(game.releaseDate) }}</dd>
-            </template>
-            <template v-if="game.developer">
-              <dt class="cdm__dt">{{ t('gameDetail.developer') }}</dt>
-              <dd class="cdm__dd">{{ game.developer }}</dd>
-            </template>
-            <template v-if="game.publisher && game.publisher !== game.developer">
-              <dt class="cdm__dt">{{ t('gameDetail.publisher') }}</dt>
-              <dd class="cdm__dd">{{ game.publisher }}</dd>
-            </template>
-            <template v-if="game.genres.length">
-              <dt class="cdm__dt">{{ t('gameDetail.genres') }}</dt>
-              <dd class="cdm__dd">
-                <span v-for="g in game.genres" :key="g.igdbId" class="cdm__chip">{{ g.name }}</span>
-              </dd>
-            </template>
-            <template v-if="game.themes.length">
-              <dt class="cdm__dt">{{ t('gameDetail.tags') }}</dt>
-              <dd class="cdm__dd">
-                <span v-for="th in game.themes" :key="th.igdbId" class="cdm__chip cdm__chip--tag">{{ th.name }}</span>
-              </dd>
-            </template>
-            <template v-if="game.platforms.length">
-              <dt class="cdm__dt">{{ t('gameDetail.platforms') }}</dt>
-              <dd class="cdm__dd">
-                <span v-for="p in game.platforms" :key="p.igdbId" class="cdm__chip cdm__chip--platform">
-                  {{ p.abbreviation ?? p.name }}
-                </span>
-              </dd>
-            </template>
-            <template v-if="game.gameModes.length">
-              <dt class="cdm__dt">{{ t('gameDetail.gameModes') }}</dt>
-              <dd class="cdm__dd">
-                <span v-for="m in game.gameModes" :key="m.igdbId" class="cdm__chip cdm__chip--tag">{{ m.name }}</span>
-              </dd>
-            </template>
-          </dl>
-        </section>
+          <!-- Screenshots -->
+          <section v-if="game.screenshots.length" class="cdm__section">
+            <h2 class="cdm__section-title">{{ t('gameDetail.screenshots') }}</h2>
+            <div class="cdm__screenshots">
+              <img
+                v-for="(url, i) in game.screenshots.slice(0, 6)"
+                :key="i"
+                :src="url"
+                :alt="`${game.title} screenshot ${i + 1}`"
+                class="cdm__screenshot"
+                role="button"
+                tabindex="0"
+                :aria-label="t('gameDetail.screenshotOpen')"
+                @click="lightboxIndex = i"
+                @keydown.enter="lightboxIndex = i"
+                @keydown.space.prevent="lightboxIndex = i"
+              />
+            </div>
+          </section>
 
-        <!-- Jeux similaires -->
-        <section v-if="game.similarGames.length" class="cdm__section">
-          <h2 class="cdm__section-title">{{ t('gameDetail.similarGames') }}</h2>
-          <div class="cdm__similar">
-            <NuxtLink
-              v-for="sim in game.similarGames"
-              :key="sim.igdbId"
-              :to="`/games/catalog/${sim.igdbId}`"
-              class="cdm__similar-item"
-            >
-              <div class="cdm__similar-cover">
-                <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
-                <v-icon v-else size="20" color="primary-light">mdi-gamepad-variant</v-icon>
-              </div>
-              <div class="cdm__similar-title nq-felt-panel">
-                <span class="cdm__similar-title-text">{{ sim.title }}</span>
-              </div>
-            </NuxtLink>
-          </div>
-        </section>
+          <!-- Infos meta -->
+          <section v-if="hasMeta" class="cdm__section">
+            <dl class="cdm__meta nq-felt-panel">
+              <template v-if="game.releaseDate">
+                <dt class="cdm__dt">{{ t('gameDetail.releaseDate') }}</dt>
+                <dd class="cdm__dd">{{ formatDate(game.releaseDate) }}</dd>
+              </template>
+              <template v-if="game.developer">
+                <dt class="cdm__dt">{{ t('gameDetail.developer') }}</dt>
+                <dd class="cdm__dd">{{ game.developer }}</dd>
+              </template>
+              <template v-if="game.publisher && game.publisher !== game.developer">
+                <dt class="cdm__dt">{{ t('gameDetail.publisher') }}</dt>
+                <dd class="cdm__dd">{{ game.publisher }}</dd>
+              </template>
+              <template v-if="game.genres.length">
+                <dt class="cdm__dt">{{ t('gameDetail.genres') }}</dt>
+                <dd class="cdm__dd">
+                  <span v-for="g in game.genres" :key="g.igdbId" class="cdm__chip">{{ g.name }}</span>
+                </dd>
+              </template>
+              <template v-if="game.themes.length">
+                <dt class="cdm__dt">{{ t('gameDetail.tags') }}</dt>
+                <dd class="cdm__dd">
+                  <span v-for="th in game.themes" :key="th.igdbId" class="cdm__chip cdm__chip--tag">{{ th.name }}</span>
+                </dd>
+              </template>
+              <template v-if="game.platforms.length">
+                <dt class="cdm__dt">{{ t('gameDetail.platforms') }}</dt>
+                <dd class="cdm__dd">
+                  <span v-for="p in game.platforms" :key="p.igdbId" class="cdm__chip cdm__chip--platform">
+                    {{ p.abbreviation ?? p.name }}
+                  </span>
+                </dd>
+              </template>
+              <template v-if="game.gameModes.length">
+                <dt class="cdm__dt">{{ t('gameDetail.gameModes') }}</dt>
+                <dd class="cdm__dd">
+                  <span v-for="m in game.gameModes" :key="m.igdbId" class="cdm__chip cdm__chip--tag">{{ m.name }}</span>
+                </dd>
+              </template>
+            </dl>
+          </section>
+
+          <!-- Jeux similaires -->
+          <section v-if="game.similarGames.length" class="cdm__section">
+            <h2 class="cdm__section-title">{{ t('gameDetail.similarGames') }}</h2>
+            <div class="cdm__similar">
+              <NuxtLink
+                v-for="sim in game.similarGames"
+                :key="sim.igdbId"
+                :to="`/games/catalog/${sim.igdbId}`"
+                class="cdm__similar-item"
+              >
+                <div class="cdm__similar-cover">
+                  <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
+                  <v-icon v-else size="20" color="primary-light">mdi-gamepad-variant</v-icon>
+                </div>
+                <div class="cdm__similar-title nq-felt-panel">
+                  <span class="cdm__similar-title-text">{{ sim.title }}</span>
+                </div>
+              </NuxtLink>
+            </div>
+          </section>
+        </template>
       </template>
 
     </div>
@@ -392,4 +413,29 @@ function ratingStars(rating: number | null): string {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+@keyframes cdm-shimmer {
+  0% { opacity: 0.55; }
+  50% { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+
+.cdm__skeleton {
+  background: rgba(var(--nq-brown-rgb), 0.1);
+  border-radius: 8px;
+  animation: cdm-shimmer 1.4s ease-in-out infinite;
+}
+
+.cdm__skeleton--title { width: 120px; height: 1rem; margin-bottom: 0.5rem; }
+.cdm__skeleton--text { height: 80px; }
+.cdm__skeleton--meta { height: 110px; }
+.cdm__skeletons-row {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+  margin-left: -1rem;
+  margin-right: -1rem;
+  padding-left: 1rem;
+}
+.cdm__skeleton--screenshot { flex-shrink: 0; width: 200px; height: 113px; }
 </style>

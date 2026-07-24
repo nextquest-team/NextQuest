@@ -3,7 +3,7 @@ import type { TimelineGameDTO } from '~/types/timeline'
 
 const { t } = useI18n()
 
-const { game, loading } = useGameCatalogDetail()
+const { game, loading, previewOnly } = useGameCatalogDetail()
 const followedStore = useFollowedGamesStore()
 
 const lightboxIndex = ref<number | null>(null)
@@ -96,97 +96,118 @@ function ratingStars(rating: number | null): string {
         </div>
       </div>
 
-      <section v-if="game.summary" class="cdd__section">
-        <h2 class="cdd__section-title">{{ t('gameDetail.summary') }}</h2>
-        <p class="cdd__summary nq-felt-panel">{{ game.summary }}</p>
-      </section>
+      <!-- Le fetch complet est encore en vol : seuls titre/jaquette (preview) sont
+           fiables, le reste attend derriere des skeletons plutot que d'afficher
+           des champs isoles qui feraient sauter la mise en page a l'arrivee. -->
+      <template v-if="previewOnly">
+        <section class="cdd__section">
+          <div class="cdd__skeleton cdd__skeleton--title" />
+          <div class="cdd__skeleton cdd__skeleton--text nq-felt-panel" />
+        </section>
+        <section class="cdd__section">
+          <div class="cdd__skeleton cdd__skeleton--title" />
+          <div class="cdd__skeletons-row">
+            <div v-for="i in 3" :key="i" class="cdd__skeleton cdd__skeleton--screenshot" />
+          </div>
+        </section>
+        <section class="cdd__section">
+          <div class="cdd__skeleton cdd__skeleton--meta nq-felt-panel" />
+        </section>
+      </template>
 
-      <section v-if="game.storyline && game.storyline !== game.summary" class="cdd__section">
-        <h2 class="cdd__section-title">{{ t('gameDetail.storyline') }}</h2>
-        <p class="cdd__summary nq-felt-panel">{{ game.storyline }}</p>
-      </section>
+      <template v-else>
+        <section v-if="game.summary" class="cdd__section">
+          <h2 class="cdd__section-title">{{ t('gameDetail.summary') }}</h2>
+          <p class="cdd__summary nq-felt-panel">{{ game.summary }}</p>
+        </section>
 
-      <section v-if="game.screenshots.length" class="cdd__section">
-        <h2 class="cdd__section-title">{{ t('gameDetail.screenshots') }}</h2>
-        <div class="cdd__screenshots">
-          <img
-            v-for="(url, i) in game.screenshots.slice(0, 6)"
-            :key="i"
-            :src="url"
-            :alt="`${game.title} screenshot ${i + 1}`"
-            class="cdd__screenshot"
-            role="button"
-            tabindex="0"
-            :aria-label="t('gameDetail.screenshotOpen')"
-            @click="lightboxIndex = i"
-            @keydown.enter="lightboxIndex = i"
-            @keydown.space.prevent="lightboxIndex = i"
-          />
-        </div>
-      </section>
+        <section v-if="game.storyline && game.storyline !== game.summary" class="cdd__section">
+          <h2 class="cdd__section-title">{{ t('gameDetail.storyline') }}</h2>
+          <p class="cdd__summary nq-felt-panel">{{ game.storyline }}</p>
+        </section>
 
-      <section v-if="hasMeta" class="cdd__section">
-        <dl class="cdd__meta nq-felt-panel">
-          <template v-if="game.releaseDate">
-            <dt class="cdd__dt">{{ t('gameDetail.releaseDate') }}</dt>
-            <dd class="cdd__dd">{{ formatDate(game.releaseDate) }}</dd>
-          </template>
-          <template v-if="game.developer">
-            <dt class="cdd__dt">{{ t('gameDetail.developer') }}</dt>
-            <dd class="cdd__dd">{{ game.developer }}</dd>
-          </template>
-          <template v-if="game.publisher && game.publisher !== game.developer">
-            <dt class="cdd__dt">{{ t('gameDetail.publisher') }}</dt>
-            <dd class="cdd__dd">{{ game.publisher }}</dd>
-          </template>
-          <template v-if="game.genres.length">
-            <dt class="cdd__dt">{{ t('gameDetail.genres') }}</dt>
-            <dd class="cdd__dd">
-              <span v-for="g in game.genres" :key="g.igdbId" class="cdd__chip">{{ g.name }}</span>
-            </dd>
-          </template>
-          <template v-if="game.themes.length">
-            <dt class="cdd__dt">{{ t('gameDetail.tags') }}</dt>
-            <dd class="cdd__dd">
-              <span v-for="th in game.themes" :key="th.igdbId" class="cdd__chip cdd__chip--tag">{{ th.name }}</span>
-            </dd>
-          </template>
-          <template v-if="game.platforms.length">
-            <dt class="cdd__dt">{{ t('gameDetail.platforms') }}</dt>
-            <dd class="cdd__dd">
-              <span v-for="p in game.platforms" :key="p.igdbId" class="cdd__chip cdd__chip--platform">
-                {{ p.abbreviation ?? p.name }}
-              </span>
-            </dd>
-          </template>
-          <template v-if="game.gameModes.length">
-            <dt class="cdd__dt">{{ t('gameDetail.gameModes') }}</dt>
-            <dd class="cdd__dd">
-              <span v-for="m in game.gameModes" :key="m.igdbId" class="cdd__chip cdd__chip--tag">{{ m.name }}</span>
-            </dd>
-          </template>
-        </dl>
-      </section>
+        <section v-if="game.screenshots.length" class="cdd__section">
+          <h2 class="cdd__section-title">{{ t('gameDetail.screenshots') }}</h2>
+          <div class="cdd__screenshots">
+            <img
+              v-for="(url, i) in game.screenshots.slice(0, 6)"
+              :key="i"
+              :src="url"
+              :alt="`${game.title} screenshot ${i + 1}`"
+              class="cdd__screenshot"
+              role="button"
+              tabindex="0"
+              :aria-label="t('gameDetail.screenshotOpen')"
+              @click="lightboxIndex = i"
+              @keydown.enter="lightboxIndex = i"
+              @keydown.space.prevent="lightboxIndex = i"
+            />
+          </div>
+        </section>
 
-      <section v-if="game.similarGames.length" class="cdd__section">
-        <h2 class="cdd__section-title">{{ t('gameDetail.similarGames') }}</h2>
-        <div class="cdd__similar">
-          <NuxtLink
-            v-for="sim in game.similarGames"
-            :key="sim.igdbId"
-            :to="`/games/catalog/${sim.igdbId}`"
-            class="cdd__similar-item"
-          >
-            <div class="cdd__similar-cover">
-              <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
-              <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
-            </div>
-            <div class="cdd__similar-title nq-felt-panel">
-              <span class="cdd__similar-title-text">{{ sim.title }}</span>
-            </div>
-          </NuxtLink>
-        </div>
-      </section>
+        <section v-if="hasMeta" class="cdd__section">
+          <dl class="cdd__meta nq-felt-panel">
+            <template v-if="game.releaseDate">
+              <dt class="cdd__dt">{{ t('gameDetail.releaseDate') }}</dt>
+              <dd class="cdd__dd">{{ formatDate(game.releaseDate) }}</dd>
+            </template>
+            <template v-if="game.developer">
+              <dt class="cdd__dt">{{ t('gameDetail.developer') }}</dt>
+              <dd class="cdd__dd">{{ game.developer }}</dd>
+            </template>
+            <template v-if="game.publisher && game.publisher !== game.developer">
+              <dt class="cdd__dt">{{ t('gameDetail.publisher') }}</dt>
+              <dd class="cdd__dd">{{ game.publisher }}</dd>
+            </template>
+            <template v-if="game.genres.length">
+              <dt class="cdd__dt">{{ t('gameDetail.genres') }}</dt>
+              <dd class="cdd__dd">
+                <span v-for="g in game.genres" :key="g.igdbId" class="cdd__chip">{{ g.name }}</span>
+              </dd>
+            </template>
+            <template v-if="game.themes.length">
+              <dt class="cdd__dt">{{ t('gameDetail.tags') }}</dt>
+              <dd class="cdd__dd">
+                <span v-for="th in game.themes" :key="th.igdbId" class="cdd__chip cdd__chip--tag">{{ th.name }}</span>
+              </dd>
+            </template>
+            <template v-if="game.platforms.length">
+              <dt class="cdd__dt">{{ t('gameDetail.platforms') }}</dt>
+              <dd class="cdd__dd">
+                <span v-for="p in game.platforms" :key="p.igdbId" class="cdd__chip cdd__chip--platform">
+                  {{ p.abbreviation ?? p.name }}
+                </span>
+              </dd>
+            </template>
+            <template v-if="game.gameModes.length">
+              <dt class="cdd__dt">{{ t('gameDetail.gameModes') }}</dt>
+              <dd class="cdd__dd">
+                <span v-for="m in game.gameModes" :key="m.igdbId" class="cdd__chip cdd__chip--tag">{{ m.name }}</span>
+              </dd>
+            </template>
+          </dl>
+        </section>
+
+        <section v-if="game.similarGames.length" class="cdd__section">
+          <h2 class="cdd__section-title">{{ t('gameDetail.similarGames') }}</h2>
+          <div class="cdd__similar">
+            <NuxtLink
+              v-for="sim in game.similarGames"
+              :key="sim.igdbId"
+              :to="`/games/catalog/${sim.igdbId}`"
+              class="cdd__similar-item"
+            >
+              <div class="cdd__similar-cover">
+                <img v-if="sim.coverUrl" :src="sim.coverUrl" :alt="sim.title" />
+                <v-icon v-else size="24" color="primary-light">mdi-gamepad-variant</v-icon>
+              </div>
+              <div class="cdd__similar-title nq-felt-panel">
+                <span class="cdd__similar-title-text">{{ sim.title }}</span>
+              </div>
+            </NuxtLink>
+          </div>
+        </section>
+      </template>
     </template>
 
     <UiScreenshotModal
@@ -363,4 +384,22 @@ function ratingStars(rating: number | null): string {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+@keyframes cdd-shimmer {
+  0% { opacity: 0.55; }
+  50% { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+
+.cdd__skeleton {
+  background: rgba(var(--nq-brown-rgb), 0.1);
+  border-radius: 8px;
+  animation: cdd-shimmer 1.4s ease-in-out infinite;
+}
+
+.cdd__skeleton--title { width: 140px; height: 1.1rem; margin-bottom: 0.6rem; }
+.cdd__skeleton--text { height: 90px; }
+.cdd__skeleton--meta { height: 120px; }
+.cdd__skeletons-row { display: flex; gap: 8px; }
+.cdd__skeleton--screenshot { flex-shrink: 0; width: 220px; height: 124px; }
 </style>

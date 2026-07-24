@@ -17,7 +17,7 @@ const {
   isEditingBirthdate, birthdateInput, isSavingBirthdate, birthdateError,
   isEditingFavoritePlatform, isSavingFavoritePlatform, favoritePlatformError,
   isEditingSocialLinks, socialLinksInput, isSavingSocialLinks, socialLinksError,
-  avatarSrc, displayName, memberSince, visibilityKey, socialLinksList,
+  avatarSrc, avatarInitial, displayName, memberSince, visibilityKey, socialLinksList,
   startEditBio, cancelEditBio, saveBio,
   saveVisibility,
   uploadAvatar, removeAvatar,
@@ -58,16 +58,21 @@ onMounted(init)
     <!-- ── Zone scrollable ── -->
     <div class="pm__body">
       <ClientOnly>
-        <div class="pm__card">
+        <div class="pm__book">
+
+          <!-- Page profil -->
+          <div class="pm__section--profil">
 
           <!-- Avatar -->
           <div class="pm__avatar-wrap">
             <img
+              v-if="avatarSrc"
               :src="avatarSrc"
               :alt="displayName"
               class="pm__avatar-img"
               @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
             />
+            <span v-else class="pm__avatar-initial">{{ avatarInitial }}</span>
             <div v-if="isUploadingAvatar" class="pm__avatar-loading">
               <v-progress-circular indeterminate size="22" width="2" color="#edc78e" />
             </div>
@@ -283,8 +288,12 @@ onMounted(init)
             <p v-else class="pm__bio">{{ user?.bio ?? t('profil.noBio') }}</p>
           </div>
 
-          <!-- Réseaux sociaux -->
-          <div class="pm__section">
+          </div>
+
+          <hr class="pm__page-divider" />
+
+          <!-- Page réseaux sociaux -->
+          <div class="pm__section pm__section--social">
             <div class="pm__section-header">
               <p class="pm__section-label">{{ t('profil.socialLinks.label') }}</p>
               <button v-if="!isEditingSocialLinks" class="pm__edit-btn" :aria-label="t('profil.socialLinks.edit')" @click="startEditSocialLinks">
@@ -334,13 +343,13 @@ onMounted(init)
             <p v-else class="pm__bio">{{ t('profil.socialLinks.none') }}</p>
           </div>
 
-          <!-- Déconnexion -->
-          <button class="pm__logout" :disabled="isLoggingOut" @click="handleLogout">
-            <v-icon size="18">mdi-logout</v-icon>
-            {{ t('auth.logout') }}
-          </button>
-
         </div>
+
+        <!-- Déconnexion -->
+        <button class="pm__logout" :disabled="isLoggingOut" @click="handleLogout">
+          <v-icon size="18">mdi-logout</v-icon>
+          {{ t('auth.logout') }}
+        </button>
       </ClientOnly>
     </div>
   </div>
@@ -379,18 +388,34 @@ onMounted(init)
   align-items: center;
 }
 
-/* ── Card ── */
-.pm__card {
+/* ── Page carnet (fond) ── */
+.pm__book {
   width: 100%;
-  max-width: 480px;
-  background: var(--nq-cream);
-  border-radius: 14px;
-  padding: 1.5rem 1.25rem;
+  max-width: 440px;
+  background-image: url('/images/backgrounds/carnet-page-unique.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  padding: 2.5rem 2rem 2rem;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pm__section--profil,
+.pm__section--social {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.85rem;
-  box-shadow: 0 2px 12px rgba(var(--nq-brown-dark-rgb), 0.10);
+}
+
+.pm__page-divider {
+  width: 70%;
+  border: none;
+  border-top: 1px dashed rgba(var(--nq-brown-rgb), 0.35);
+  margin: 1.5rem 0;
 }
 
 /* Avatar */
@@ -408,6 +433,14 @@ onMounted(init)
 }
 
 .pm__avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+.pm__avatar-initial {
+  font-family: var(--nq-font);
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #edc78e;
+  user-select: none;
+}
 
 .pm__avatar-loading {
   position: absolute;
@@ -584,8 +617,9 @@ onMounted(init)
 
 /* Déconnexion */
 .pm__logout {
-  margin-top: 0.25rem;
+  margin-top: 1.25rem;
   width: 100%;
+  max-width: 440px;
   display: flex;
   align-items: center;
   justify-content: center;

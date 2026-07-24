@@ -81,13 +81,12 @@ export function useProfil() {
   const socialLinksError = ref<string | null>(null)
 
   // ── Computed ─────────────────────────────────────────────
-  const avatarSrc = computed(() => {
-    if (user.value?.avatarUrl) return user.value.avatarUrl
-    const seed = encodeURIComponent(user.value?.username ?? 'user')
-    return `https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}&backgroundColor=5C3317&backgroundType=solid`
-  })
+  const avatarSrc = computed(() => user.value?.avatarUrl ?? null)
 
   const displayName = computed(() => user.value?.displayName ?? user.value?.username ?? '')
+
+  // Avatar de repli : première lettre du prénom/pseudo, tant qu'aucune image n'est définie
+  const avatarInitial = computed(() => (displayName.value || '?').trim().charAt(0).toUpperCase() || '?')
 
   const memberSince = computed(() => {
     if (!user.value?.createdAt) return ''
@@ -195,10 +194,8 @@ export function useProfil() {
     isUploadingAvatar.value = true
     avatarError.value = null
     try {
-      await authFetch(`${apiBase}/api/users/me/avatar`, { method: 'DELETE' })
-      if (user.value) {
-        store.setAuth({ ...user.value, avatarUrl: null }, store.accessToken!)
-      }
+      const updated = await authFetch<User>(`${apiBase}/api/users/me/avatar`, { method: 'DELETE' })
+      store.setAuth(updated, store.accessToken!)
     } catch {
       avatarError.value = t('profil.avatar.deleteError')
     } finally {
@@ -340,7 +337,7 @@ export function useProfil() {
     isEditingFavoritePlatform, isSavingFavoritePlatform, favoritePlatformError,
     isEditingSocialLinks, socialLinksInput, isSavingSocialLinks, socialLinksError,
     // Computed
-    avatarSrc, displayName, memberSince, visibilityKey, socialLinksList,
+    avatarSrc, avatarInitial, displayName, memberSince, visibilityKey, socialLinksList,
     // Actions
     startEditBio, cancelEditBio, saveBio,
     saveVisibility,

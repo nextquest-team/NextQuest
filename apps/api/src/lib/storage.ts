@@ -122,6 +122,13 @@ function avatarKey(userId: string): string {
   return `avatars/${userId}.webp`;
 }
 
+// Cle distincte de avatarKey() : l'avatar genere (initiale du nom) ne doit pas
+// etre efface quand l'utilisateur supprime son avatar uploade (deleteAvatar
+// vise uniquement avatarKey), sinon impossible d'y retomber apres coup.
+function defaultAvatarKey(userId: string): string {
+  return `avatars/${userId}-default.webp`;
+}
+
 // Ecrase la cle fixe du user (zero orphelin) et renvoie l'URL publique avec
 // cache-buster ?v= : la cle ne change pas, seul le parametre invalide le
 // cache navigateur.
@@ -163,14 +170,54 @@ export async function deleteAvatar(userId: string): Promise<void> {
   }
 }
 
+// Meme convention que putAvatar (cle fixe par user, cache-buster ?v=), mais
+// sur la cle dediee a l'avatar genere -- voir defaultAvatarKey().
+export async function putDefaultAvatar(userId: string, body: Buffer): Promise<string> {
+  const env = storageEnv();
+  if (!env) {
+    throw new StorageError("Stockage objet non configure (variables S3_* manquantes)");
+  }
+  await ensureBucket();
+  try {
+    await getClient().send(
+      new PutObjectCommand({
+        Bucket: env.bucket,
+        Key: defaultAvatarKey(userId),
+        Body: body,
+        ContentType: "image/webp",
+        CacheControl: "public, max-age=31536000, immutable",
+      }),
+    );
+  } catch (err) {
+    throw new StorageError("Ecriture de l'avatar par defaut impossible", err);
+  }
+  return `${env.publicUrl}/${defaultAvatarKey(userId)}?v=${Date.now()}`;
+}
+
+export async function deleteDefaultAvatar(userId: string): Promise<void> {
+  const env = storageEnv();
+  if (!env) {
+    throw new StorageError("Stockage objet non configure (variables S3_* manquantes)");
+  }
+  await ensureBucket();
+  try {
+    await getClient().send(
+      new DeleteObjectCommand({ Bucket: env.bucket, Key: defaultAvatarKey(userId) }),
+    );
+  } catch (err) {
+    throw new StorageError("Suppression de l'avatar par defaut impossible", err);
+  }
+}
+
 // Purge RGPD : supprime TOUS les objets du user. La cascade Postgres ne
 // couvre pas le bucket -- le futur hard delete de compte (DELETE /users/me)
 // DOIT appeler cette fonction AVANT le DELETE FROM users. Voir la note
 // d'architecture dans docs/database/schema.dbml.
 export async function purgeUserStorage(userId: string): Promise<void> {
-  // Aujourd'hui un user ne possede que son avatar ; etendre ici si d'autres
-  // objets apparaissent (banniere, etc.).
+  // Un user peut posseder son avatar uploade ET l'avatar genere par defaut ;
+  // etendre ici si d'autres objets apparaissent (banniere, etc.).
   await deleteAvatar(userId);
+  await deleteDefaultAvatar(userId);
 }
 
 // Reservee aux tests : reinitialise les singletons du module.

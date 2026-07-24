@@ -90,10 +90,10 @@ describe('ProfilMobile', () => {
     expect(wrapper.find('.pm__username').text()).toBe('@lo')
   })
 
-  it("génère un avatar DiceBear quand avatarUrl est null", () => {
+  it("affiche l'initiale du nom quand avatarUrl est null", () => {
     const wrapper = mount(ProfilMobile, { global: { stubs } })
-    const src = wrapper.find('.pm__avatar-img').attributes('src')
-    expect(src).toContain('dicebear.com')
+    expect(wrapper.find('.pm__avatar-img').exists()).toBe(false)
+    expect(wrapper.find('.pm__avatar-initial').text()).toBe('L')
   })
 
   it('utilise avatarUrl quand elle est renseignée', () => {

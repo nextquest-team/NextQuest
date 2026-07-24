@@ -102,11 +102,10 @@ describe('ProfilDesktop', () => {
   })
 
   // ── Avatar ─────────────────────────────────────────────
-  it('génère un avatar DiceBear quand avatarUrl est null', () => {
+  it("affiche l'initiale du nom quand avatarUrl est null", () => {
     const wrapper = mount(ProfilDesktop, { global: { stubs } })
-    const src = wrapper.find('.pd__avatar-img').attributes('src')
-    expect(src).toContain('dicebear.com')
-    expect(src).toContain('lo')
+    expect(wrapper.find('.pd__avatar-img').exists()).toBe(false)
+    expect(wrapper.find('.pd__avatar-initial').text()).toBe('L')
   })
 
   it('utilise avatarUrl quand elle est renseignée', () => {

@@ -15,10 +15,13 @@ vi.mock("../../../lib/storage.js", async (importOriginal) => {
     ...actual,
     putAvatar: vi.fn(async (userId: string) => `http://s3.local/avatars/${userId}.webp?v=42`),
     deleteAvatar: vi.fn(async () => undefined),
+    putDefaultAvatar: vi.fn(
+      async (userId: string) => `http://s3.local/avatars/${userId}-default.webp?v=42`,
+    ),
   };
 });
 
-import { putAvatar, deleteAvatar, StorageError } from "../../../lib/storage.js";
+import { putAvatar, deleteAvatar, putDefaultAvatar, StorageError } from "../../../lib/storage.js";
 import { avatarRoutes } from "../avatar.routes.js";
 
 async function buildApp() {
@@ -240,7 +243,7 @@ describe("POST /api/users/me/avatar — rate limit dedie", () => {
 });
 
 describe("DELETE /api/users/me/avatar", () => {
-  it("204 : supprime l'objet et remet avatar_url a null, idempotent", async () => {
+  it("200 : supprime l'objet et retombe sur un avatar genere, idempotent", async () => {
     const app = await buildApp();
     const user = await createTestUser();
     const token = getToken(app, user.id);
@@ -250,17 +253,19 @@ describe("DELETE /api/users/me/avatar", () => {
       url: "/api/users/me/avatar",
       headers: { authorization: `Bearer ${token}` },
     });
-    expect(res.statusCode).toBe(204);
+    expect(res.statusCode).toBe(200);
     expect(deleteAvatar).toHaveBeenCalledWith(user.id);
+    expect(putDefaultAvatar).toHaveBeenCalledWith(user.id, expect.any(Buffer));
+    expect(res.json().avatarUrl).toBe(`http://s3.local/avatars/${user.id}-default.webp?v=42`);
     const [row] = await db.select().from(users).where(eq(users.id, user.id));
-    expect(row.avatarUrl).toBeNull();
+    expect(row.avatarUrl).toBe(`http://s3.local/avatars/${user.id}-default.webp?v=42`);
 
     const again = await app.inject({
       method: "DELETE",
       url: "/api/users/me/avatar",
       headers: { authorization: `Bearer ${token}` },
     });
-    expect(again.statusCode).toBe(204);
+    expect(again.statusCode).toBe(200);
   });
 
   it("401 sans token", async () => {

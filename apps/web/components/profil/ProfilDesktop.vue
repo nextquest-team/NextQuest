@@ -17,7 +17,7 @@ const {
   isEditingBirthdate, birthdateInput, isSavingBirthdate, birthdateError,
   isEditingFavoritePlatform, isSavingFavoritePlatform, favoritePlatformError,
   isEditingSocialLinks, socialLinksInput, isSavingSocialLinks, socialLinksError,
-  avatarSrc, displayName, memberSince, visibilityKey, socialLinksList,
+  avatarSrc, avatarInitial, displayName, memberSince, visibilityKey, socialLinksList,
   startEditBio, cancelEditBio, saveBio,
   saveVisibility,
   uploadAvatar, removeAvatar,
@@ -52,16 +52,20 @@ onMounted(init)
     </UiPageHeader>
 
     <ClientOnly>
-      <div class="pd__card">
+      <div class="pd__book">
+        <!-- Page gauche : profil -->
+        <div class="pd__page pd__page--left">
 
         <!-- Avatar -->
         <div class="pd__avatar-wrap">
           <img
+            v-if="avatarSrc"
             :src="avatarSrc"
             :alt="displayName"
             class="pd__avatar-img"
             @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
           />
+          <span v-else class="pd__avatar-initial">{{ avatarInitial }}</span>
           <div v-if="isUploadingAvatar" class="pd__avatar-loading">
             <v-progress-circular indeterminate size="24" width="2" color="#edc78e" />
           </div>
@@ -277,64 +281,68 @@ onMounted(init)
           <p v-else class="pd__bio">{{ user?.bio ?? t('profil.noBio') }}</p>
         </div>
 
-        <!-- Réseaux sociaux -->
-        <div class="pd__section">
-          <div class="pd__section-header">
-            <p class="pd__section-label">{{ t('profil.socialLinks.label') }}</p>
-            <button v-if="!isEditingSocialLinks" class="pd__edit-btn" :aria-label="t('profil.socialLinks.edit')" @click="startEditSocialLinks">
-              <v-icon size="16">mdi-pencil-outline</v-icon>
-            </button>
-          </div>
-
-          <template v-if="isEditingSocialLinks">
-            <div class="pd__social-form">
-              <div v-for="key in SOCIAL_LINK_KEYS" :key="key" class="pd__social-field">
-                <ProfilSocialLinkIcon :platform="key" :size="18" class="pd__info-icon" />
-                <input
-                  v-model="socialLinksInput[key]"
-                  type="url"
-                  class="pd__select pd__social-input"
-                  :placeholder="t('profil.socialLinks.placeholder')"
-                  :disabled="isSavingSocialLinks"
-                />
-              </div>
-            </div>
-            <div class="pd__bio-footer">
-              <div class="pd__bio-actions">
-                <button class="pd__action-btn pd__action-btn--cancel" @click="cancelEditSocialLinks">
-                  {{ t('profil.cancel') }}
-                </button>
-                <button class="pd__action-btn pd__action-btn--save" :disabled="isSavingSocialLinks" @click="saveSocialLinks">
-                  {{ isSavingSocialLinks ? '…' : t('profil.save') }}
-                </button>
-              </div>
-            </div>
-            <p v-if="socialLinksError" class="pd__error">{{ socialLinksError }}</p>
-          </template>
-
-          <div v-else-if="socialLinksList.length > 0" class="pd__social-list">
-            <a
-              v-for="entry in socialLinksList"
-              :key="entry.key"
-              :href="entry.url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="pd__social-link"
-              :aria-label="entry.key"
-            >
-              <ProfilSocialLinkIcon :platform="entry.key" :size="20" />
-            </a>
-          </div>
-          <p v-else class="pd__bio">{{ t('profil.socialLinks.none') }}</p>
         </div>
 
-        <!-- Déconnexion -->
-        <button class="pd__logout" :disabled="isLoggingOut" @click="handleLogout">
-          <v-icon size="18">mdi-logout</v-icon>
-          {{ t('auth.logout') }}
-        </button>
+        <!-- Page droite : réseaux sociaux -->
+        <div class="pd__page pd__page--right">
+          <div class="pd__section">
+            <div class="pd__section-header">
+              <p class="pd__section-label">{{ t('profil.socialLinks.label') }}</p>
+              <button v-if="!isEditingSocialLinks" class="pd__edit-btn" :aria-label="t('profil.socialLinks.edit')" @click="startEditSocialLinks">
+                <v-icon size="16">mdi-pencil-outline</v-icon>
+              </button>
+            </div>
+
+            <template v-if="isEditingSocialLinks">
+              <div class="pd__social-form">
+                <div v-for="key in SOCIAL_LINK_KEYS" :key="key" class="pd__social-field">
+                  <ProfilSocialLinkIcon :platform="key" :size="18" class="pd__info-icon" />
+                  <input
+                    v-model="socialLinksInput[key]"
+                    type="url"
+                    class="pd__select pd__social-input"
+                    :placeholder="t('profil.socialLinks.placeholder')"
+                    :disabled="isSavingSocialLinks"
+                  />
+                </div>
+              </div>
+              <div class="pd__bio-footer">
+                <div class="pd__bio-actions">
+                  <button class="pd__action-btn pd__action-btn--cancel" @click="cancelEditSocialLinks">
+                    {{ t('profil.cancel') }}
+                  </button>
+                  <button class="pd__action-btn pd__action-btn--save" :disabled="isSavingSocialLinks" @click="saveSocialLinks">
+                    {{ isSavingSocialLinks ? '…' : t('profil.save') }}
+                  </button>
+                </div>
+              </div>
+              <p v-if="socialLinksError" class="pd__error">{{ socialLinksError }}</p>
+            </template>
+
+            <div v-else-if="socialLinksList.length > 0" class="pd__social-list">
+              <a
+                v-for="entry in socialLinksList"
+                :key="entry.key"
+                :href="entry.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="pd__social-link"
+                :aria-label="entry.key"
+              >
+                <ProfilSocialLinkIcon :platform="entry.key" :size="20" />
+              </a>
+            </div>
+            <p v-else class="pd__bio">{{ t('profil.socialLinks.none') }}</p>
+          </div>
+        </div>
 
       </div>
+
+      <!-- Déconnexion -->
+      <button class="pd__logout" :disabled="isLoggingOut" @click="handleLogout">
+        <v-icon size="18">mdi-logout</v-icon>
+        {{ t('auth.logout') }}
+      </button>
     </ClientOnly>
   </div>
 </template>
@@ -347,6 +355,10 @@ onMounted(init)
   align-items: center;
   padding: 1.5rem 2rem 3rem;
   font-family: var(--nq-font);
+  /* Le livre garde toujours sa mise en page à deux pages en desktop (>= 600px,
+     seuil mobileBreakpoint de Vuetify) : plutôt que de l'effondrer en une colonne
+     sous une largeur "confortable", on autorise un défilement horizontal. */
+  overflow-x: auto;
 }
 
 .pd__title {
@@ -357,24 +369,65 @@ onMounted(init)
   margin: 0;
 }
 
-.pd__card {
+/* Carnet ouvert : image de fond au ratio fixe, les deux pages sont positionnées
+   en pourcentage par-dessus (calées sur le contenu réel du visuel nettoyé,
+   1800x991px). Le ratio figé empêche toute recomposition en une colonne. */
+.pd__book {
+  position: relative;
   width: 100%;
-  max-width: 520px;
-  background: var(--nq-cream);
-  border-radius: 16px;
-  padding: 2rem 1.75rem;
+  max-width: 1600px;
+  min-width: 700px;
+  aspect-ratio: 1543 / 832;
+  margin: 0 auto;
+  background-image: url('/images/backgrounds/carnet-double-page.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.pd__page {
+  position: absolute;
+  top: 7%;
+  bottom: 10%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  box-shadow: 0 2px 16px rgba(var(--nq-brown-dark-rgb), 0.10);
+  gap: 0.5rem;
+  overflow-y: auto;
+  padding: 0 0.75rem;
 }
+
+.pd__page--left { left: 12%; width: 34%; }
+.pd__page--right { left: 53%; width: 34%; }
+
+.pd__logout {
+  margin-top: 1.25rem;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--nq-brown);
+  color: var(--nq-cream-light);
+  border: none;
+  border-radius: 8px;
+  font-family: var(--nq-font);
+  font-size: 1rem;
+  cursor: pointer;
+  min-height: 48px;
+  transition: background 0.15s;
+}
+
+.pd__logout:hover:not(:disabled) { background: var(--nq-brown-dark); }
+.pd__logout:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Avatar */
 .pd__avatar-wrap {
   position: relative;
-  width: 90px;
-  height: 90px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: var(--nq-brown);
   display: flex;
@@ -385,6 +438,14 @@ onMounted(init)
 }
 
 .pd__avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+.pd__avatar-initial {
+  font-family: var(--nq-font);
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #edc78e;
+  user-select: none;
+}
 
 .pd__avatar-loading {
   position: absolute;
@@ -400,8 +461,8 @@ onMounted(init)
 .pd__avatar-remove-btn {
   position: absolute;
   bottom: -2px;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 2px solid var(--nq-cream);
   background: var(--nq-brown);
@@ -452,8 +513,8 @@ onMounted(init)
 
 .pd__social-link:hover { background: rgba(var(--nq-brown-rgb), 0.2); }
 
-.pd__name { font-size: 1.4rem; font-weight: bold; color: var(--nq-brown-dark); text-align: center; margin: 0; }
-.pd__username { font-size: 0.9rem; color: var(--nq-brown); margin: -0.5rem 0 0; }
+.pd__name { font-size: 1.15rem; font-weight: bold; color: var(--nq-brown-dark); text-align: center; margin: 0; }
+.pd__username { font-size: 0.8rem; color: var(--nq-brown); margin: -0.3rem 0 0; }
 
 /* Badges */
 .pd__badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -462,20 +523,20 @@ onMounted(init)
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.75rem;
-  padding: 3px 10px;
+  font-size: 0.68rem;
+  padding: 2px 8px;
   border-radius: 999px;
 }
 
 .pd__badge--ok { background: var(--nq-success-bg); color: var(--nq-success-text); }
 .pd__badge--warn { background: var(--nq-warning-bg); color: var(--nq-warning-text); }
 
-.pd__divider { width: 100%; border: none; border-top: 1px solid rgba(var(--nq-brown-rgb), 0.15); margin: 0.25rem 0; }
+.pd__divider { width: 100%; border: none; border-top: 1px solid rgba(var(--nq-brown-rgb), 0.15); margin: 0.1rem 0; }
 
 /* Infos */
-.pd__info-list { list-style: none; padding: 0; margin: 0; width: 100%; display: flex; flex-direction: column; gap: 0.6rem; }
+.pd__info-list { list-style: none; padding: 0; margin: 0; width: 100%; display: flex; flex-direction: column; gap: 0.4rem; }
 
-.pd__info-row { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--nq-brown-dark); }
+.pd__info-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--nq-brown-dark); }
 .pd__info-icon { color: var(--nq-brown); flex-shrink: 0; }
 .pd__info-row--visibility { flex-wrap: wrap; gap: 8px; }
 
@@ -505,7 +566,7 @@ onMounted(init)
 .pd__section { width: 100%; }
 .pd__section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
 .pd__section-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nq-brown); margin: 0; }
-.pd__bio { font-size: 0.9rem; color: var(--nq-brown-dark); line-height: 1.5; margin: 0; font-style: italic; opacity: 0.8; }
+.pd__bio { font-size: 0.8rem; color: var(--nq-brown-dark); line-height: 1.4; margin: 0; font-style: italic; opacity: 0.8; }
 
 .pd__bio-textarea {
   width: 100%;
@@ -544,27 +605,4 @@ onMounted(init)
 .pd__action-btn--save:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .pd__error { font-size: 0.8rem; color: var(--nq-red); margin: 4px 0 0; }
-
-/* Déconnexion */
-.pd__logout {
-  margin-top: 0.5rem;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: var(--nq-brown);
-  color: var(--nq-cream-light);
-  border: none;
-  border-radius: 8px;
-  font-family: var(--nq-font);
-  font-size: 1rem;
-  cursor: pointer;
-  min-height: 48px;
-  transition: background 0.15s;
-}
-
-.pd__logout:hover:not(:disabled) { background: var(--nq-brown-dark); }
-.pd__logout:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

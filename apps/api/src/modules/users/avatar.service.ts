@@ -3,6 +3,7 @@ import { db, users } from "@nextquest/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { toUserDTO, type UserDTO } from "./users.dto.js";
 import { putAvatar, deleteAvatar } from "../../lib/storage.js";
+import { generateDefaultAvatar } from "./default-avatar.service.js";
 
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 const AVATAR_SIZE = 512;
@@ -68,12 +69,38 @@ export async function uploadUserAvatar(userId: string, file: Buffer): Promise<Us
   return toUserDTO(updated);
 }
 
-export async function removeUserAvatar(userId: string): Promise<void> {
+export async function removeUserAvatar(userId: string): Promise<UserDTO> {
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .limit(1);
+  if (!existing) {
+    throw new Error(`User ${userId} introuvable ou soft-deleted`);
+  }
+
   // L'objet d'abord, la BDD ensuite : si la suppression S3 echoue on garde
   // l'URL en base (etat coherent), l'utilisateur peut re-essayer.
   await deleteAvatar(userId);
-  await db
+
+  // Retombe sur l'avatar genere (initiale du nom) plutot que null : coherent
+  // avec le comportement a la creation de compte. Best-effort -- si le
+  // stockage est indisponible, la suppression reste un succes et l'utilisateur
+  // se retrouve simplement sans avatar (repli visuel cote front) en attendant.
+  let avatarUrl: string | null = null;
+  try {
+    avatarUrl = await generateDefaultAvatar(userId, existing.displayName ?? existing.username);
+  } catch {
+    avatarUrl = null;
+  }
+
+  const [updated] = await db
     .update(users)
-    .set({ avatarUrl: null, updatedAt: new Date() })
-    .where(and(eq(users.id, userId), isNull(users.deletedAt)));
+    .set({ avatarUrl, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .returning();
+  if (!updated) {
+    throw new Error(`User ${userId} introuvable ou soft-deleted`);
+  }
+  return toUserDTO(updated);
 }

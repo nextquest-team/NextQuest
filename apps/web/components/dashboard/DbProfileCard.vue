@@ -5,18 +5,24 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
+const { user } = useAuth()
+
+const avatarSrc = computed(() => user.value?.avatarUrl ?? null)
 </script>
 
 <template>
   <!-- Mode horizontal (desktop) -->
   <DashboardDbGreenFrame v-if="horizontal" class="profile-h">
     <div class="profile-h__avatar-wrap">
-      <!-- TODO: remplacer par l'avatar dynamique de l'utilisateur (API) -->
       <img
-        src="/images/dashboard/avatar-profile.png"
-        alt="Avatar"
+        v-if="avatarSrc"
+        :src="avatarSrc"
+        :alt="username"
         class="profile-h__avatar"
       />
+      <div v-else class="profile-h__avatar-loading">
+        <v-progress-circular indeterminate size="26" width="2" color="#edc78e" />
+      </div>
     </div>
     <div class="profile-h__info">
       <span class="profile-h__username">{{ username }}</span>
@@ -26,12 +32,15 @@ const { t } = useI18n()
 
   <!-- Mode portrait (mobile) -->
   <div v-else class="profile-card">
-    <!-- TODO: remplacer par l'avatar dynamique de l'utilisateur (API) -->
-    <img
-      src="/images/dashboard/avatar-profile.png"
-      alt="Avatar"
-      class="profile-card__avatar"
-    />
+    <div class="profile-card__avatar-wrap">
+      <img
+        v-if="avatarSrc"
+        :src="avatarSrc"
+        :alt="username"
+        class="profile-card__avatar"
+      />
+      <v-progress-circular v-else indeterminate size="28" width="2" color="var(--nq-brown-mid)" />
+    </div>
     <div class="profile-card__content">
       <NuxtLink to="/profil" class="profile-card__btn">{{ t('dashboard.profile.button') }}</NuxtLink>
       <span class="profile-card__username">{{ username }}</span>
@@ -68,16 +77,27 @@ const { t } = useI18n()
   z-index: 2;
 }
 
-.profile-card__avatar {
+.profile-card__avatar-wrap {
   position: absolute;
-  bottom: 0;
+  bottom: 10%;
   left: 50%;
   transform: translateX(-50%);
-  width: 85%;
-  height: 55%;
-  object-fit: contain;
-  object-position: top;
+  width: 58%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #e8dfc8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 1;
+}
+
+.profile-card__avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .profile-card__content {
@@ -148,6 +168,14 @@ const { t } = useI18n()
   height: 100%;
   object-fit: cover;
   object-position: top;
+}
+
+.profile-h__avatar-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .profile-h__info {

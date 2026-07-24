@@ -63,10 +63,9 @@ describe('useProfil', () => {
   })
 
   describe('avatarSrc', () => {
-    it('génère une URL DiceBear quand avatarUrl est null', () => {
+    it('est null quand avatarUrl est null (repli sur avatarInitial côté template)', () => {
       const { avatarSrc } = useProfil()
-      expect(avatarSrc.value).toContain('dicebear.com')
-      expect(avatarSrc.value).toContain('lo')
+      expect(avatarSrc.value).toBeNull()
     })
 
     it('utilise avatarUrl quand elle est renseignée', () => {
@@ -113,9 +112,10 @@ describe('useProfil', () => {
   })
 
   describe('removeAvatar', () => {
-    it('appelle DELETE et retire avatarUrl du store en cas de succès', async () => {
+    it('appelle DELETE et met à jour le store avec le profil renvoyé (avatar généré)', async () => {
       mockUser.value = { ...fakeUser, avatarUrl: 'https://cdn.example.com/a.png' }
-      authFetchMock.mockResolvedValue(undefined)
+      const updated = { ...fakeUser, avatarUrl: 'https://cdn.example.com/default.webp' }
+      authFetchMock.mockResolvedValue(updated)
       const { removeAvatar } = useProfil()
       await removeAvatar()
 
@@ -123,7 +123,7 @@ describe('useProfil', () => {
         'http://localhost:3000/api/users/me/avatar',
         expect.objectContaining({ method: 'DELETE' }),
       )
-      expect(useAuthStore().user?.avatarUrl).toBeNull()
+      expect(useAuthStore().user).toEqual(updated)
     })
 
     it('affiche une erreur si la suppression échoue', async () => {

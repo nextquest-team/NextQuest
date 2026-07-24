@@ -1791,3 +1791,44 @@ La PR #116 (backend : upload/suppression d'avatar via S3/MinIO, champs de profil
 | `curl` direct API avec compte de test réel (hors mock e2e) — `POST /api/users/me/avatar` | ✅ avatar uploadé vers MinIO, URL retournée |
 | `curl` direct API — `PATCH /api/users/me` (socialLinks) | ✅ enregistré en base |
 | Compte de test + captures temporaires | supprimés après vérification |
+
+## 2026-07-24 — Session 30 : Book layout mobile, avatar dynamique du dashboard, avatar généré par défaut (backend)
+
+### Résumé exécutif
+
+Trois volets sur `fix/timeline-jeux-tbd` : (1) `ProfilMobile.vue` restructuré en mise en page "carnet" avec fond `carnet-page-unique.png` (contenu profil/social en deux blocs empilés, la largeur mobile ne permettant pas les deux colonnes de la version desktop) ; (2) `DbProfileCard.vue` affiche désormais le vrai avatar de l'utilisateur au lieu de l'image statique `avatar-profile.png`, avec un loader (`v-progress-circular`) tant qu'aucun avatar n'est disponible plutôt qu'un avatar généré côté client, et une forme circulaire pour la variante mobile ; (3) côté API (autorisation explicite de JB pour toucher au backend) : génération d'un avatar par défaut (initiale du nom sur fond de couleur, rendu via `sharp`) à la création de compte, persisté sur une clé S3 séparée (`avatars/{userId}-default.webp`) pour survivre à la suppression de l'avatar uploadé — la suppression d'avatar régénère et réutilise ce défaut au lieu de mettre `avatarUrl` à `null`.
+
+### Ce qui a été fait
+
+#### `ProfilMobile.vue` — mise en page "carnet"
+- `.pm__card` remplacé par `.pm__book` (fond `carnet-page-unique.png`, `background-size: 100% 100%`), sans `aspect-ratio` fixe pour laisser le contenu déterminer la hauteur
+- Contenu scindé en `.pm__section--profil` (avatar, nom, badges, bio) et `.pm__section--social`, séparés par une ligne pointillée (`.pm__page-divider`)
+- Bouton déconnexion sorti du `.pm__book` (action de compte, pas contenu du carnet)
+- Bug de test découvert et corrigé : la classe `pm__section` partagée sur le nouveau wrapper décalait l'index positionnel `findAll('.pm__section')[1]` utilisé par `ProfilMobile.test.ts` — retirée du wrapper profil
+
+#### `DbProfileCard.vue` — avatar dynamique
+- `avatarSrc = computed(() => user.value?.avatarUrl ?? null)` : plus de génération DiceBear par défaut, un loader s'affiche à la place tant qu'il n'y a pas d'URL réelle
+- Variante mobile/portrait : `.profile-card__avatar-wrap` passée d'un bloc rectangulaire à un cercle (`border-radius: 50%`, `aspect-ratio: 1`)
+
+#### Avatar par défaut généré côté API (`apps/api`)
+- `default-avatar.service.ts` (nouveau) : SVG (initiale du nom, regex Unicode `/[\p{L}\p{N}]/u` pour gérer accents/scripts non-latins) rasterisé en WebP via `sharp`, couleurs alignées sur la palette existante (`#5C3317` / `#EDC78E`)
+- `storage.ts` : nouvelle clé dédiée `defaultAvatarKey` (`avatars/{userId}-default.webp`), distincte de la clé de l'avatar uploadé — supprimer l'avatar réel ne doit pas détruire le défaut. `putDefaultAvatar`/`deleteDefaultAvatar` ajoutées, `purgeUserStorage` supprime maintenant les deux objets
+- `createUser` (email/mdp) et `findOrCreateUserFromOAuth` (branche nouvel utilisateur, uniquement si le provider ne fournit pas déjà une vraie photo) génèrent l'avatar par défaut à la création du compte
+- `removeUserAvatar` régénère l'avatar par défaut après suppression de l'avatar uploadé plutôt que de mettre `avatarUrl` à `null` ; la route `DELETE /users/me/avatar` renvoie donc `200 UserDTO` (au lieu de `204`)
+- Toute génération est best-effort (try/catch) : une panne du stockage objet ne doit jamais faire échouer une inscription ou une suppression d'avatar
+
+#### Réconciliation frontend
+- `useProfil.ts` : `removeAvatar()` consomme désormais le corps de la réponse `200` (`store.setAuth(updated, ...)`) au lieu de forcer `avatarUrl: null` localement
+- `avatarInitial` (lettre de repli, calculée côté client) ajouté en parité sur `ProfilMobile.vue` (n'existait jusque-là que sur `ProfilDesktop.vue`)
+- Tests mis à jour en conséquence : mocks `putDefaultAvatar` ajoutés dans `avatar.service.test.ts`/`avatar.routes.test.ts`, assertions `avatarUrl` non-null après suppression, tests DiceBear obsolètes remplacés par des tests d'initiale de repli
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm --filter @nextquest/api test` | ✅ 543/546 (3 skip, MinIO réel indisponible en local) |
+| `npx tsc --noEmit` (api) | ✅ 0 erreur |
+| `pnpm --filter @nextquest/web test` | ✅ 356/356 |
+| `npx vue-tsc --noEmit` (web) | ✅ 0 erreur |
+| Playwright — `ProfilMobile.vue` book layout (390x844, données vides et riches) | ✅ pas de débordement, séparateur pointillé visible |
+| Playwright — `DbProfileCard.vue` desktop/mobile | ✅ loader dans le cadre circulaire, forme mobile circulaire confirmée |

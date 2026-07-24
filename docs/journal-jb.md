@@ -243,3 +243,13 @@
 **Légalité IGDB** -- Vérifié les CGU : usage non-commercial actuel OK sans démarche particulière, mais accord explicite du côté IGDB/Twitch et attribution visible seront requis avant toute mise en ligne commerciale de NextQuest.
 
 **Validation E2E réelle** -- API branchée sur la vraie BDD + vrai IGDB (compte jetable créé puis supprimé) : les 23 genres seedés matchent IGDB live, follow/unfollow (idempotent), 404 sur un igdbId inexistant, refresh manuel (62 jeux vérifiés/mis à jour), recommandations avec `igdbId` sur toutes les cartes. Suppression du compte jetable vérifiée : la cascade RGPD purge bien `user_followed_games` avec le reste. 495 tests API verts.
+
+## 24 juillet 2026
+
+**Upload d'avatar + profil étendu** -- Stockage objet S3-compatible : MinIO rejoint le docker-compose (portable S3/R2 en prod par simple config, SDK AWS officiel). Upload multipart validé par magic bytes puis re-encodé systématiquement via sharp (WebP 512x512, clé fixe par user) : les pixels servis ne sortent jamais du fichier d'origine.
+
+**Profil enrichi** -- `country`, `birthdate`, `favorite_platform`, `social_links` (jsonb whitelisté https) éditables via PATCH /users/me. Loreleï branche ce qu'elle veut côté front (KAN-71), le reste sera nettoyé plus tard.
+
+**RGPD storage** -- La cascade BDD ne couvre pas le bucket : `purgeUserStorage(userId)` livré et testé, le futur hard delete de compte devra l'appeler avant le DELETE FROM users (documenté dans schema.dbml).
+
+**Validation E2E réelle** -- Chaîne complète contre le MinIO du PC : upload JPEG 951 Ko -> WebP 512x512 servi publiquement, PATCH persisté, DELETE 204 puis objet 404. 539 tests API verts.

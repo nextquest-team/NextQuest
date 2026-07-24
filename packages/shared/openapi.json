@@ -743,6 +743,85 @@
                       ],
                       "description": "Biographie"
                     },
+                    "country": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Code pays ISO 3166-1 alpha-2"
+                    },
+                    "birthdate": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Date de naissance (YYYY-MM-DD)"
+                    },
+                    "favoritePlatform": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "pc",
+                            "playstation",
+                            "xbox",
+                            "nintendo",
+                            "mobile"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Plateforme mise en avant sur le profil"
+                    },
+                    "socialLinks": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "twitch": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "youtube": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "discord": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "twitter": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "instagram": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Liens sociaux whitelists"
+                    },
                     "locale": {
                       "type": "string",
                       "description": "Langue preferee (ex: fr, en)"
@@ -776,6 +855,10 @@
                     "displayName",
                     "avatarUrl",
                     "bio",
+                    "country",
+                    "birthdate",
+                    "favoritePlatform",
+                    "socialLinks",
                     "locale",
                     "visibility",
                     "emailVerified",
@@ -903,6 +986,85 @@
                       ],
                       "description": "Biographie"
                     },
+                    "country": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Code pays ISO 3166-1 alpha-2"
+                    },
+                    "birthdate": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Date de naissance (YYYY-MM-DD)"
+                    },
+                    "favoritePlatform": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "pc",
+                            "playstation",
+                            "xbox",
+                            "nintendo",
+                            "mobile"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Plateforme mise en avant sur le profil"
+                    },
+                    "socialLinks": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "twitch": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "youtube": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "discord": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "twitter": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "instagram": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Liens sociaux whitelists"
+                    },
                     "locale": {
                       "type": "string",
                       "description": "Langue preferee (ex: fr, en)"
@@ -936,6 +1098,10 @@
                     "displayName",
                     "avatarUrl",
                     "bio",
+                    "country",
+                    "birthdate",
+                    "favoritePlatform",
+                    "socialLinks",
                     "locale",
                     "visibility",
                     "emailVerified",
@@ -998,7 +1164,7 @@
         "tags": [
           "Users"
         ],
-        "description": "Met a jour displayName, avatarUrl, bio, locale, visibility. Tous optionnels mais au moins un requis. Renvoie le profil mis a jour.",
+        "description": "Met a jour displayName, avatarUrl, bio, locale, visibility, country, birthdate, favoritePlatform, socialLinks. Tous optionnels mais au moins un requis ; null efface les champs du profil etendu. Renvoie le profil mis a jour.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1033,6 +1199,84 @@
                       "private",
                       "friends_only",
                       "public"
+                    ]
+                  },
+                  "country": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "birthdate": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "favoritePlatform": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "pc",
+                          "playstation",
+                          "xbox",
+                          "nintendo",
+                          "mobile"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "socialLinks": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "twitch": {
+                            "type": "string",
+                            "maxLength": 255,
+                            "format": "uri"
+                          },
+                          "youtube": {
+                            "type": "string",
+                            "maxLength": 255,
+                            "format": "uri"
+                          },
+                          "discord": {
+                            "type": "string",
+                            "maxLength": 255,
+                            "format": "uri"
+                          },
+                          "twitter": {
+                            "type": "string",
+                            "maxLength": 255,
+                            "format": "uri"
+                          },
+                          "instagram": {
+                            "type": "string",
+                            "maxLength": 255,
+                            "format": "uri"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   }
                 }
@@ -1102,6 +1346,85 @@
                       ],
                       "description": "Biographie"
                     },
+                    "country": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Code pays ISO 3166-1 alpha-2"
+                    },
+                    "birthdate": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Date de naissance (YYYY-MM-DD)"
+                    },
+                    "favoritePlatform": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "pc",
+                            "playstation",
+                            "xbox",
+                            "nintendo",
+                            "mobile"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Plateforme mise en avant sur le profil"
+                    },
+                    "socialLinks": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "twitch": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "youtube": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "discord": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "twitter": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            },
+                            "instagram": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "format": "uri"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Liens sociaux whitelists"
+                    },
                     "locale": {
                       "type": "string",
                       "description": "Langue preferee (ex: fr, en)"
@@ -1135,6 +1458,10 @@
                     "displayName",
                     "avatarUrl",
                     "bio",
+                    "country",
+                    "birthdate",
+                    "favoritePlatform",
+                    "socialLinks",
                     "locale",
                     "visibility",
                     "emailVerified",

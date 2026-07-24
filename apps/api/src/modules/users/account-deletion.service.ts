@@ -1,3 +1,4 @@
+import { verify } from "argon2";
 import { db, users, sessions, gdprRequests } from "@nextquest/db";
 import { and, eq, gt, isNull, isNotNull, inArray } from "drizzle-orm";
 
@@ -68,11 +69,53 @@ export async function softDeleteAccount(
 // pour proposer la restauration (jamais expose sans mot de passe valide).
 export async function findPendingDeletionByEmail(email: string) {
   const [user] = await db
-    .select({ id: users.id, passwordHash: users.passwordHash, deletedAt: users.deletedAt })
+    .select({
+      id: users.id,
+      passwordHash: users.passwordHash,
+      deletedAt: users.deletedAt,
+      failedLoginAttempts: users.failedLoginAttempts,
+      lockedUntil: users.lockedUntil,
+    })
     .from(users)
     .where(and(eq(users.email, email), isNotNull(users.deletedAt), gt(users.deletedAt, graceCutoff())))
     .limit(1);
   return user ?? null;
+}
+
+// Verifie les credentials d'un compte en grace avec la MEME mecanique
+// anti-brute-force que verifyCredentials : un compte en grace permet la prise
+// de controle via la restauration, il ne doit pas etre moins protege qu'un
+// compte actif (verrou 15 min apres 5 echecs, compteur remis a zero au succes).
+export async function verifyPendingDeletionCredentials(
+  email: string,
+  password: string,
+): Promise<{ id: string; deletedAt: Date } | null> {
+  const pending = await findPendingDeletionByEmail(email);
+  if (!pending?.passwordHash || !pending.deletedAt) return null;
+
+  if (pending.lockedUntil && pending.lockedUntil > new Date()) return null;
+
+  const valid = await verify(pending.passwordHash, password);
+  if (!valid) {
+    const attempts = (pending.failedLoginAttempts ?? 0) + 1;
+    await db
+      .update(users)
+      .set({
+        failedLoginAttempts: attempts,
+        lockedUntil: attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null,
+      })
+      .where(eq(users.id, pending.id));
+    return null;
+  }
+
+  if (pending.failedLoginAttempts && pending.failedLoginAttempts > 0) {
+    await db
+      .update(users)
+      .set({ failedLoginAttempts: 0, lockedUntil: null })
+      .where(eq(users.id, pending.id));
+  }
+
+  return { id: pending.id, deletedAt: pending.deletedAt };
 }
 
 // Variante par id (parcours OAuth : on connait deja le user).

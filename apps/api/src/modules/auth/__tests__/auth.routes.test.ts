@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db, users, authProviders, sessions } from "@nextquest/db";
+import { eq } from "drizzle-orm";
 import Fastify from "fastify";
 import { validatorCompiler, serializerCompiler } from "fastify-type-provider-zod";
 import { registerJwt } from "../../../plugins/jwt.js";
@@ -8,6 +9,7 @@ import { registerRateLimit } from "../../../plugins/rate-limit.js";
 import { registerErrorHandler } from "../../../lib/error-handler.js";
 import { registerSwagger } from "../../../plugins/swagger.js";
 import { authRoutes } from "../auth.routes.js";
+import { softDeleteAccount } from "../../users/account-deletion.service.js";
 
 async function buildApp() {
   const app = Fastify();
@@ -189,5 +191,131 @@ describe("POST /api/auth/login", () => {
     });
 
     expect(res.statusCode).toBe(200);
+  });
+
+  const PASSWORD = "Test1234!";
+
+  it("403 accountPendingDeletion avec restore token si le compte est en grace et le mdp correct", async () => {
+    const app = await buildApp();
+
+    const registerRes = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      payload: {
+        email: "grace@test.com",
+        username: "graceuser",
+        password: PASSWORD,
+      },
+    });
+    const { user } = JSON.parse(registerRes.body);
+    await softDeleteAccount(user.id);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: user.email, password: PASSWORD },
+    });
+
+    expect(res.statusCode).toBe(403);
+    const body = res.json();
+    expect(body.error).toBe("accountPendingDeletion");
+    expect(body.restoreToken).toBeTruthy();
+    const claims = app.jwt.verify<{ sub: string; purpose: string }>(body.restoreToken);
+    expect(claims.sub).toBe(user.id);
+    expect(claims.purpose).toBe("account-restore");
+  });
+
+  it("401 (pas 403) si le compte est en grace mais le mdp est FAUX -- pas d'oracle", async () => {
+    const app = await buildApp();
+
+    const registerRes = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      payload: {
+        email: "grace-wrong@test.com",
+        username: "gracewrong",
+        password: PASSWORD,
+      },
+    });
+    const { user } = JSON.parse(registerRes.body);
+    await softDeleteAccount(user.id);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: user.email, password: "mauvais-mot-de-passe" },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error).not.toBe("accountPendingDeletion");
+  });
+
+  it("401 standard si la grace est expiree", async () => {
+    const app = await buildApp();
+
+    const registerRes = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      payload: {
+        email: "grace-expired@test.com",
+        username: "graceexpired",
+        password: PASSWORD,
+      },
+    });
+    const { user } = JSON.parse(registerRes.body);
+    await softDeleteAccount(user.id);
+
+    // Grace par defaut = 30 jours : J-31 simule une grace deja expiree
+    const expiredDeletedAt = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    await db.update(users).set({ deletedAt: expiredDeletedAt }).where(eq(users.id, user.id));
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: user.email, password: PASSWORD },
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("verrouille un compte en grace apres 5 echecs, comme un compte actif", async () => {
+    const app = await buildApp();
+
+    const registerRes = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      payload: {
+        email: "grace-lock@test.com",
+        username: "gracelock",
+        password: PASSWORD,
+      },
+    });
+    const { user } = JSON.parse(registerRes.body);
+    await softDeleteAccount(user.id);
+
+    // IP distincte par requete : on teste le verrou COMPTE, pas la limite IP
+    for (let i = 0; i < 5; i++) {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/auth/login",
+        remoteAddress: `10.99.0.${i + 1}`,
+        payload: { email: user.email, password: "mauvais-mot-de-passe" },
+      });
+      expect(res.statusCode).toBe(401);
+    }
+
+    const [row] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(row.failedLoginAttempts).toBe(5);
+    expect(row.lockedUntil).not.toBeNull();
+
+    // Compte verrouille : meme le BON mot de passe ne donne plus le 403
+    const locked = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      remoteAddress: "10.99.0.6",
+      payload: { email: user.email, password: PASSWORD },
+    });
+    expect(locked.statusCode).toBe(401);
+    expect(locked.json().error).not.toBe("accountPendingDeletion");
   });
 });

@@ -63,3 +63,18 @@ export const deletionResultSchema = z
     purgeAfter: z.string().describe("Date de purge definitive (ISO 8601) — restauration possible avant"),
   })
   .describe("Compte place en grace de suppression");
+
+// Purpose distinctif du token de restauration, pour eviter qu'un access token
+// classique (ou tout autre JWT de l'app) ne soit accepte sur POST /auth/restore.
+export const RESTORE_TOKEN_PURPOSE = "account-restore";
+
+// Login sur un compte en grace de suppression + mot de passe correct : on le
+// signale et on fournit un token court dedie a la restauration.
+export const pendingDeletionSchema = z
+  .object({
+    error: z.literal("accountPendingDeletion"),
+    deletedAt: z.string().describe("Date du soft delete (ISO 8601)"),
+    purgeAfter: z.string().describe("Fin de la grace (ISO 8601)"),
+    restoreToken: z.string().describe("JWT 15 min a presenter sur POST /auth/restore"),
+  })
+  .describe("Compte en attente de suppression : restauration possible");

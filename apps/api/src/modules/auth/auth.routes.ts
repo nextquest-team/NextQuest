@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { registerSchema, loginSchema, authTokensSchema } from "./auth.schemas.js";
+import {
+  registerSchema,
+  loginSchema,
+  authTokensSchema,
+  pendingDeletionSchema,
+  RESTORE_TOKEN_PURPOSE,
+} from "./auth.schemas.js";
 import { userDTOSchema } from "../users/users.dto.js";
 import { errorResponses, noContentSchema } from "../../lib/openapi.js";
 import {
@@ -12,6 +18,7 @@ import {
   revokeAllSessions,
   getUserById,
 } from "./auth.service.js";
+import { verifyPendingDeletionCredentials, purgeAfterOf } from "../users/account-deletion.service.js";
 
 // Cookie httpOnly + secure + sameSite strict = protection XSS + CSRF
 const REFRESH_COOKIE = "refresh_token";
@@ -98,10 +105,11 @@ export async function authRoutes(app: FastifyInstance) {
       operationId: "login",
       summary: "Connexion email/mot de passe",
       description:
-        "Verifie les credentials, cree une session et renvoie access + refresh token. Apres 5 echecs, le compte est verrouille 15 minutes.",
+        "Verifie les credentials, cree une session et renvoie access + refresh token. Apres 5 echecs, le compte est verrouille 15 minutes. Si le compte est en grace de suppression et le mot de passe correct, renvoie 403 avec un token de restauration.",
       body: loginSchema,
       response: {
         200: authTokensSchema,
+        403: pendingDeletionSchema,
         ...errorResponses(400, 401),
       },
     },
@@ -110,6 +118,23 @@ export async function authRoutes(app: FastifyInstance) {
 
     const user = await verifyCredentials(input.email, input.password);
     if (!user) {
+      // Compte en grace de suppression ? On ne le revele QUE si le mot de
+      // passe est correct (sinon reponse identique a un compte inexistant).
+      // La verification porte la meme mecanique anti-brute-force que les
+      // comptes actifs (compteur + verrou 15 min) -- voir le service.
+      const pending = await verifyPendingDeletionCredentials(input.email, input.password);
+      if (pending) {
+        const restoreToken = app.jwt.sign(
+          { sub: pending.id, purpose: RESTORE_TOKEN_PURPOSE },
+          { expiresIn: "15m" },
+        );
+        return reply.code(403).send({
+          error: "accountPendingDeletion" as const,
+          deletedAt: pending.deletedAt.toISOString(),
+          purgeAfter: purgeAfterOf(pending.deletedAt).toISOString(),
+          restoreToken,
+        });
+      }
       return reply.code(401).send({ error: "Email ou mot de passe incorrect" });
     }
 

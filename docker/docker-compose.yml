@@ -28,6 +28,30 @@ services:
       timeout: 5s
       retries: 5
 
+  # Stockage objet S3-compatible (avatars). Console web d'admin sur :9001.
+  # Tag epingle : les builds communautaires recents ont ampute la console web,
+  # on fige une version pour que toute l'equipe ait la meme.
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: nextquest-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: nextquest
+      MINIO_ROOT_PASSWORD: nextquest1
+    volumes:
+      - minio_data:/data
+    # Pas de depends_on cote api : l'API est fail-soft (elle demarre sans MinIO,
+    # les routes avatar repondent 503 en attendant). Le healthcheck sert a la
+    # visibilite (docker compose ps) et aux outils, pas au sequencement du boot.
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # API Fastify (mode développement avec hot reload via tsx watch)
   api:
     image: node:22-alpine
@@ -52,6 +76,13 @@ services:
       # joignable par le browser, contrairement à API_BASE_URL qui est le DNS Docker interne)
       - OAUTH_CALLBACK_BASE_URL=http://localhost:3000
       - OAUTH_REDIRECT_URL=http://localhost:3001
+      # Stockage objet interne au reseau Docker ; l'URL publique doit rester
+      # joignable par le browser (localhost cote poste dev)
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=nextquest
+      - S3_SECRET_KEY=nextquest1
+      - S3_BUCKET=nextquest-avatars
+      - S3_PUBLIC_URL=http://localhost:9000/nextquest-avatars
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,6 +111,7 @@ services:
 
 volumes:
   pgdata:
+  minio_data:
   api_modules:
   web_modules:
   web_nuxt:

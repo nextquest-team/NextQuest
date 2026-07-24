@@ -1,47 +1,67 @@
-import type { RecoGame } from '~/types/recommendations'
-import type { IgdbGameDetail } from '~/types/game'
+import type { CatalogPreview, IgdbGameDetail } from '~/types/game'
+
+function previewToGame(p: CatalogPreview): IgdbGameDetail {
+  return {
+    igdbId: p.igdbId,
+    title: p.title ?? '',
+    summary: p.summary ?? null,
+    storyline: p.storyline ?? null,
+    releaseDate: p.releaseDate ?? null,
+    releaseStatus: p.releaseStatus ?? 'released',
+    coverUrl: p.coverUrl ?? null,
+    artworkUrl: p.artworkUrl ?? null,
+    screenshots: p.screenshots ?? [],
+    videos: p.videos ?? [],
+    rating: p.rating ?? null,
+    ratingCount: p.ratingCount ?? null,
+    hypes: p.hypes ?? null,
+    developer: p.developer ?? null,
+    publisher: p.publisher ?? null,
+    genres: p.genres ?? [],
+    themes: p.themes ?? [],
+    gameModes: p.gameModes ?? [],
+    playerPerspectives: p.playerPerspectives ?? [],
+    platforms: p.platforms ?? [],
+    similarGames: p.similarGames ?? [],
+  }
+}
 
 export function useGameCatalogDetail() {
   const route = useRoute()
   const { authFetch, apiBase } = useAuthFetch()
 
-  const preview = useState<RecoGame | null>('catalog-preview', () => null)
-  const game = ref<RecoGame | null>(null)
+  const preview = useState<CatalogPreview | null>('catalog-preview', () => null)
+  const game = ref<IgdbGameDetail | null>(null)
   const loading = ref(false)
+  // true tant que `game` ne contient que le preview (titre/jaquette) et que le
+  // fetch complet est encore en vol : sert a afficher des skeletons sur les
+  // blocs pas encore charges plutot que les quelques champs epars du preview.
+  const previewOnly = ref(false)
 
   async function load() {
-    const gameId = String(route.params.gameId)
+    const gameIdParam = String(route.params.gameId)
+    const igdbId = Number(gameIdParam)
 
-    // Le preview en cache (posé par RecoCard) n'est valide que pour la fiche qu'il décrit :
-    // sans ce contrôle, naviguer d'un jeu A vers un jeu B réutilise les données de A.
-    if (preview.value?.id === gameId) {
-      game.value = preview.value
-      return
-    }
+    // Le preview en cache (posé par RecoCard / TimelineGameCard) n'est valide que pour
+    // la fiche qu'il décrit : sans ce contrôle, naviguer d'un jeu A vers un jeu B
+    // réutilise les données de A le temps du fetch.
+    const hasPreview = preview.value?.igdbId === igdbId
+    game.value = hasPreview ? previewToGame(preview.value!) : null
+    loading.value = !game.value
+    previewOnly.value = hasPreview
 
-    game.value = null
-    loading.value = true
     try {
-      const detail = await authFetch<IgdbGameDetail>(
-        `${apiBase}/api/games/igdb/${gameId}`,
-      )
-      game.value = {
-        id: String(detail.igdbId),
-        title: detail.title,
-        slug: detail.igdbId.toString(),
-        coverUrl: detail.coverUrl,
-        releaseDate: detail.releaseDate,
-        releaseStatus: detail.releaseStatus,
-        igdbRating: detail.rating,
-        genres: detail.genres.map(g => ({ id: String(g.igdbId), name: g.name, slug: g.slug })),
-      }
-    } catch { /* game reste null → affiche not-found */ }
-    finally { loading.value = false }
+      game.value = await authFetch<IgdbGameDetail>(`${apiBase}/api/games/igdb/${gameIdParam}`)
+    } catch { /* si un preview existait déjà il reste affiché, sinon → not-found */ }
+    finally {
+      loading.value = false
+      previewOnly.value = false
+    }
   }
 
   // La page catalog/[gameId] réutilise la même instance de composant entre deux
   // navigations (même route dynamique) : il faut réagir aux changements de gameId.
   watch(() => route.params.gameId, load, { immediate: true })
 
-  return { game, loading, load }
+  return { game, loading, previewOnly, load }
 }

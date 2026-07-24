@@ -47,6 +47,11 @@ export interface IgdbSimilarGame {
   coverUrl: string | null
 }
 
+// Aperçu partiel posé en cache (RecoCard, TimelineGameCard) avant navigation
+// vers /games/catalog/:igdbId, pour un affichage instantané en attendant le
+// fetch complet de IgdbGameDetail.
+export type CatalogPreview = Partial<Omit<IgdbGameDetail, 'igdbId'>> & { igdbId: number }
+
 export interface IgdbGameDetail {
   igdbId: number
   title: string
@@ -87,6 +92,7 @@ export interface SimilarGameRef {
   id: string
   title: string
   coverUrl: string | null
+  igdbId: number | null
 }
 
 export interface CollectionItemDTO {

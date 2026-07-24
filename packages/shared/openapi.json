@@ -2726,7 +2726,7 @@
         "tags": [
           "Collection"
         ],
-        "description": "Liste paginee de la collection de l'utilisateur, genres/tags inline. Filtrable par statut et recherche texte sur le titre. view=library (defaut) exclut les jeux ignores, view=ignored ne montre que ceux-la.",
+        "description": "Liste paginee de la collection de l'utilisateur, genres/tags inline. Filtrable par statut, plateforme(s) (platformId, repetable dans l'URL pour matcher plusieurs plateformes a la fois) et recherche texte sur le titre. Triable via sortBy (recent par defaut, platform, genre). view=library (defaut) exclut les jeux ignores, view=ignored ne montre que ceux-la.",
         "parameters": [
           {
             "schema": {
@@ -2750,6 +2750,42 @@
             },
             "in": "query",
             "name": "search",
+            "required": false
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                }
+              ]
+            },
+            "in": "query",
+            "name": "platformId",
+            "required": false
+          },
+          {
+            "schema": {
+              "default": "recent",
+              "type": "string",
+              "enum": [
+                "recent",
+                "platform",
+                "genre"
+              ]
+            },
+            "in": "query",
+            "name": "sortBy",
             "required": false
           },
           {
@@ -3020,6 +3056,52 @@
                             "additionalProperties": false,
                             "description": "Metadonnees du jeu affichees dans la collection"
                           },
+                          "platform": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "description": "Identifiant de la plateforme"
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "description": "Nom de la plateforme (ex: PlayStation 5)"
+                                  },
+                                  "code": {
+                                    "type": "string",
+                                    "description": "Code unique de la plateforme (ex: ps5)"
+                                  },
+                                  "iconUrl": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "URL de l'icone de la plateforme"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "code",
+                                  "iconUrl"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Plateforme du referentiel"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Plateforme de possession du jeu (null si non renseignee)"
+                          },
                           "genres": {
                             "type": "array",
                             "items": {
@@ -3092,6 +3174,7 @@
                           "completedAt",
                           "addedAt",
                           "game",
+                          "platform",
                           "genres",
                           "tags"
                         ],
@@ -3460,6 +3543,52 @@
                       "additionalProperties": false,
                       "description": "Metadonnees du jeu affichees dans la collection"
                     },
+                    "platform": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "description": "Identifiant de la plateforme"
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "Nom de la plateforme (ex: PlayStation 5)"
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "Code unique de la plateforme (ex: ps5)"
+                            },
+                            "iconUrl": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "URL de l'icone de la plateforme"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "code",
+                            "iconUrl"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Plateforme du referentiel"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Plateforme de possession du jeu (null si non renseignee)"
+                    },
                     "genres": {
                       "type": "array",
                       "items": {
@@ -3532,6 +3661,7 @@
                     "completedAt",
                     "addedAt",
                     "game",
+                    "platform",
                     "genres",
                     "tags"
                   ],
@@ -3907,6 +4037,52 @@
                       "additionalProperties": false,
                       "description": "Metadonnees du jeu affichees dans la collection"
                     },
+                    "platform": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "description": "Identifiant de la plateforme"
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "Nom de la plateforme (ex: PlayStation 5)"
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "Code unique de la plateforme (ex: ps5)"
+                            },
+                            "iconUrl": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "URL de l'icone de la plateforme"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "code",
+                            "iconUrl"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Plateforme du referentiel"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Plateforme de possession du jeu (null si non renseignee)"
+                    },
                     "genres": {
                       "type": "array",
                       "items": {
@@ -4027,6 +4203,7 @@
                     "completedAt",
                     "addedAt",
                     "game",
+                    "platform",
                     "genres",
                     "tags",
                     "description",
@@ -4424,6 +4601,52 @@
                       "additionalProperties": false,
                       "description": "Metadonnees du jeu affichees dans la collection"
                     },
+                    "platform": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "description": "Identifiant de la plateforme"
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "Nom de la plateforme (ex: PlayStation 5)"
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "Code unique de la plateforme (ex: ps5)"
+                            },
+                            "iconUrl": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "URL de l'icone de la plateforme"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "code",
+                            "iconUrl"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Plateforme du referentiel"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Plateforme de possession du jeu (null si non renseignee)"
+                    },
                     "genres": {
                       "type": "array",
                       "items": {
@@ -4496,6 +4719,7 @@
                     "completedAt",
                     "addedAt",
                     "game",
+                    "platform",
                     "genres",
                     "tags"
                   ],
@@ -5001,6 +5225,52 @@
                       "additionalProperties": false,
                       "description": "Metadonnees du jeu affichees dans la collection"
                     },
+                    "platform": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "description": "Identifiant de la plateforme"
+                            },
+                            "name": {
+                              "type": "string",
+                              "description": "Nom de la plateforme (ex: PlayStation 5)"
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "Code unique de la plateforme (ex: ps5)"
+                            },
+                            "iconUrl": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "URL de l'icone de la plateforme"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "code",
+                            "iconUrl"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Plateforme du referentiel"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Plateforme de possession du jeu (null si non renseignee)"
+                    },
                     "genres": {
                       "type": "array",
                       "items": {
@@ -5073,6 +5343,7 @@
                     "completedAt",
                     "addedAt",
                     "game",
+                    "platform",
                     "genres",
                     "tags"
                   ],

@@ -318,7 +318,7 @@ export async function getCollectionItem(
   let similar: SimilarGameRef[] = [];
   if (row.igdbId !== null) {
     similar = await db
-      .select({ id: games.id, title: games.title, coverUrl: games.coverUrl })
+      .select({ id: games.id, title: games.title, coverUrl: games.coverUrl, igdbId: games.igdbId })
       .from(gameSimilar)
       .innerJoin(games, eq(games.igdbId, gameSimilar.similarIgdbId))
       .where(eq(gameSimilar.gameId, row.gameId));

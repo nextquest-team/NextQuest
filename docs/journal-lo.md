@@ -1,5 +1,83 @@
 # Journal de bord — Lorelei
 
+## 2026-07-23 — Session 7 : Recherche live sur l'onglet « Prophéties à venir »
+
+### Résumé exécutif
+
+Sur `/timeline`, la recherche ne portait que sur les 20 jeux préchargés de la page courante côté « Prophéties à venir » — taper un titre absent du lot affiché ne remontait rien. La recherche appelle désormais `GET /api/games/igdb/search?scope=upcoming` à chaque frappe (debounce 300 ms), pour chercher dans tout le catalogue IGDB à venir. L'onglet « Quêtes annoncées » (jeux suivis/étoilés) garde son filtrage 100 % client sur la liste déjà en mémoire, sans appel réseau.
+
+### Ce qui a été fait
+
+#### `useTimeline.ts`
+- Ajout de l'état de recherche live : `searchActive` (computed, actif dès 2 caractères), `searchLoading`, `searchResults`
+- `watch(searchQuery, ...)` avec debounce 300 ms, `AbortController` pour annuler la requête précédente et compteur de séquence pour ignorer les réponses obsolètes (même pattern que `GameListAddModal.vue`)
+- `toTimelineGame()` mappe `IgdbSearchResult` (résultat de recherche, sans genres ni date précise) vers `TimelineGameDTO`
+- `filteredUpcoming` : bascule sur `searchResults` si une recherche est active, sinon filtrage client habituel sur le feed préchargé (le filtre genres ne s'applique plus en mode recherche, les résultats de recherche n'exposant pas de genres)
+- `filteredFollowed` inchangé : toujours filtré côté client sur la liste des jeux suivis
+
+#### `TimelineDesktop.vue` / `TimelineMobile.vue`
+- Loader de l'onglet upcoming tient compte de `searchLoading` quand une recherche est active
+- Bouton « charger plus » masqué pendant une recherche (résultats non paginés)
+
+#### `TimelineGameCard.vue` / `types/timeline.ts`
+- `releaseLabel` retombe sur `releaseYear` quand `releaseDate` est absent (cas des résultats de recherche, qui n'exposent que l'année)
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/composables/useTimeline.ts` | Recherche live débouncée sur l'onglet upcoming (API IGDB) |
+| `apps/web/components/timeline/TimelineDesktop.vue` | Loader + masquage load-more en mode recherche |
+| `apps/web/components/timeline/TimelineMobile.vue` | Idem, version mobile |
+| `apps/web/components/timeline/TimelineGameCard.vue` | Fallback `releaseYear` sur `releaseLabel` |
+| `apps/web/types/timeline.ts` | Ajout `releaseYear?` sur `TimelineGameDTO` |
+
+---
+
+## 2026-07-23 — Session 6 : Fix navigation RecoCard vers jeu introuvable
+
+### Résumé exécutif
+
+Cliquer sur une recommandation Next Quest renvoyait systématiquement sur « jeu introuvable ». `RecoCard.goToGame` naviguait vers `/games/catalog/${g.id}`, l'UUID interne du jeu — la page catalogue attend l'`igdbId` numérique (cf. `TimelineGameCard.vue`, même pattern). Le champ `igdbId` existe côté API depuis la PR #112 (`recommendations.dto.ts`, closes #110) mais n'avait jamais été répercuté dans le type front `RecoGame`.
+
+### Ce qui a été fait
+
+#### `types/recommendations.ts`
+- Ajout de `igdbId: number | null` sur `RecoGame`
+
+#### `RecoCard.vue`
+- `goToGame()` utilise désormais `g.igdbId` pour la navigation et le `catalogPreview`, avec garde si `null`
+- Suppression du mapping `genres` bancal du preview (`Number(genre.id)` sur un UUID — `IgdbTaxonRef[]` attend un `igdbId` numérique que les recos ne fournissent pas) ; la fiche complète est de toute façon refetchée juste après via `useGameCatalogDetail`
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/types/recommendations.ts` | Ajout `igdbId` sur `RecoGame` |
+| `apps/web/components/next-quest/RecoCard.vue` | Fix navigation vers la fiche jeu (utilise `igdbId` au lieu de l'UUID interne) |
+
+---
+
+## 2026-07-23 — Session 5 : Fix cover étirée sur RecoCard
+
+### Résumé exécutif
+
+Correctif visuel isolé sur `RecoCard.vue` : la cover du jeu était étirée en hauteur (`align-self: stretch`) pour remplir tout le corps de la carte, ce qui déformait des covers plus courtes que le corps. La cover garde maintenant son `aspect-ratio: 3/4` natif et s'aligne en haut de la carte.
+
+### Ce qui a été fait
+
+#### `RecoCard.vue`
+- `.nq-card-cover` : `align-self: stretch` → `flex-start` (la cover ne s'étire plus verticalement pour combler `.nq-card-body`)
+- Ajout de `max-height: 100%` pour éviter tout débordement si l'aspect-ratio pousse la cover plus haut que le corps de la carte
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/next-quest/RecoCard.vue` | Fix CSS cover étirée dans le corps de carte |
+
+---
+
 ## 2026-07-22 — Session 4 : Corrections review JB sur fix/generation-next-quest
 
 ### Résumé exécutif
@@ -1571,3 +1649,96 @@ Scan Silktide sur `/next-quest` : catégorie "Text contrast", 3 problèmes remon
 | Capture d'écran cartes Next Quest, mobile et desktop | ✅ teinte marron toujours cohérente avec le reste de l'UI, pas de régression |
 | `pnpm exec turbo run test --force --filter=@nextquest/web` | ✅ 252/252 |
 | `playwright test tests-e2e/accessibility-protected.spec.ts -g next-quest` | ✅ 1/1 (le point ouvert de la session 25 est résolu) |
+
+## 2026-07-22 — Session 27 : Suivi des sorties, modale captures d'écran et panneau feutrine sur les jeux similaires
+
+### Contexte
+
+Trois demandes distinctes sur la page détail catalogue (`GameCatalogDetailDesktop/Mobile.vue`) et les pages détail collection (`GameDetailDesktop/Mobile.vue`) : (1) pouvoir suivre la sortie d'un jeu pas encore sorti, (2) ouvrir les captures d'écran en grand, (3) un effet feutrine cohérent avec le reste du site sous le titre des jeux similaires en bas de page, avec des tuiles de hauteur égale.
+
+Point d'attention : la première formulation du problème feutrine ("il n'y a pas le panneau feutrine sous le titre du jeu des recommendations") a été mal comprise comme visant `RecoCard.vue` (les recommandations Next Quest) — après vérification (capture zoomée + `getComputedStyle`), ce composant était déjà correct. Correction reçue : la demande visait en réalité la section "Jeux similaires" en bas des pages détail. Vocabulaire à retenir : "jeux recommandés/similaires" sur une fiche jeu = section Similar Games, à ne pas confondre avec "Next Quest" (recommandations).
+
+### Ce qui a été fait
+
+#### Suivi de sortie (étoile)
+- `GameCatalogDetailDesktop.vue` / `Mobile.vue` — bouton étoile (`mdi-star`/`mdi-star-outline`) affiché uniquement si `releaseStatus === 'upcoming'`, branché sur le store existant `useFollowedGamesStore` (déjà utilisé par la Timeline) via `toggleFollow()` — le suivi reste synchronisé entre les deux pages (localStorage).
+- Scope volontairement limité aux pages catalogue : `CollectionDetailDTO` (jeux possédés) n'a pas de champ `releaseStatus`, donc pas de bouton étoile sur `GameDetailDesktop/Mobile.vue`.
+- Réutilisation des clés i18n `timeline.follow`/`timeline.unfollow` existantes plutôt que d'en dupliquer.
+
+#### Modale captures d'écran
+- Nouveau composant partagé `components/ui/ScreenshotModal.vue` : lightbox plein écran (précédent/suivant, compteur `{current}/{total}`, fermeture Échap/clic backdrop/croix), focus-trap via `useFocusTrap` (même pattern que `GameListAddModal.vue`).
+- Branché sur les 4 composants détail (`GameCatalogDetailDesktop/Mobile`, `GameDetailDesktop/Mobile`) : chaque `<img>` de la galerie devient cliquable (`role="button"`, `@click`/`@keydown.enter`), un seul `ref<number|null>` par composant pilote l'index ouvert.
+- 5 nouvelles clés i18n sous `gameDetail` (`screenshotOpen`, `screenshotClose`, `screenshotPrev`, `screenshotNext`, `screenshotCounter`) dans `fr.json`/`en.json`.
+
+#### Panneau feutrine + hauteur égale sur les jeux similaires
+- Classe `nq-felt-panel` appliquée aux tuiles "Jeux similaires" des 4 composants détail (elle ne l'était que sur `RecoCard.vue` et les autres panneaux jusqu'ici).
+- Problème : le texte du titre a besoin de `-webkit-line-clamp` (troncature 2 lignes) qui est incompatible avec `flex: 1` sur le même élément. Résolu avec un wrapper à deux couches : `<div class="…-similar-title nq-felt-panel">` (fond feutrine, `flex: 1`, centrage) contenant `<span class="…-similar-title-text">` (troncature 2 lignes). `align-items: stretch` sur le conteneur `…-similar` (comportement flex par défaut, déjà présent implicitement) + `flex-shrink: 0` sur la cover pour que seule la zone titre absorbe la différence de hauteur entre jeux de titres courts/longs.
+- Backend : `collection.dto.ts`/`collection.service.ts` — ajout d'`igdbId` (nullable) au schéma `similarGameRefSchema` et à la requête Drizzle, pour que les jeux similaires de la page collection puissent aussi linker vers `/games/catalog/:igdbId` (avant, seul le titre/la cover étaient exposés).
+
+### Décisions techniques
+
+**Deux couches DOM pour les tuiles similaires plutôt qu'une seule.** `display: -webkit-box` (requis par `line-clamp`) et `display: flex` (requis par `flex: 1` pour l'étirement) ne peuvent pas coexister sur le même élément — d'où le `<div>` extérieur (feutrine + flex) et le `<span>` intérieur (line-clamp).
+
+**Pas de composant modal dupliqué.** Un seul `UiScreenshotModal.vue` auto-enregistré (convention Nuxt `components/ui/`), consommé par les 4 pages détail via 3 props (`screenshots`, `index`, `alt`) + un événement (`update:index`) — évite 4 implémentations quasi identiques.
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `apps/web/components/games/catalog/GameCatalogDetailDesktop.vue` | Étoile suivi, modale screenshots, feutrine + hauteur égale similaires |
+| `apps/web/components/games/catalog/GameCatalogDetailMobile.vue` | idem |
+| `apps/web/components/games/GameDetailDesktop.vue` | Modale screenshots, feutrine + hauteur égale similaires (pas d'étoile) |
+| `apps/web/components/games/GameDetailMobile.vue` | idem |
+| `apps/web/components/ui/ScreenshotModal.vue` | **Nouveau** — lightbox partagée |
+| `apps/web/components/next-quest/RecoCard.vue` | Vérifié conforme (pas de changement fonctionnel) |
+| `apps/web/i18n/locales/fr.json` / `en.json` | 5 clés `gameDetail.screenshot*` |
+| `apps/web/types/game.ts` | Ajustement type lié aux jeux similaires |
+| `apps/api/src/modules/collection/collection.dto.ts` / `collection.service.ts` | `igdbId` ajouté à `similarGameRefSchema` |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm lint` (monorepo, via container `nextquest-web`) | ✅ 0 erreur (26 warnings pré-existants inchangés) |
+| `pnpm typecheck` (5 packages) | ✅ 0 erreur |
+| Playwright — étoile suivi (catalogue desktop/mobile) | ✅ toggle outline → filled or, synchronisé Timeline |
+| Playwright — modale captures d'écran (ouverture, suivant, Échap) | ✅ desktop + mobile |
+| Playwright — hauteur des tuiles similaires (`getBoundingClientRect().height`) avec titres de longueurs différentes | ✅ toutes les hauteurs identiques (37.1px desktop, 35px mobile) sur la même rangée |
+
+## 2026-07-22 — Session 28 : Correction des vulnérabilités Dependabot (tar / js-yaml / shell-quote)
+
+### Contexte
+
+GitHub a signalé 6 alertes Dependabot sur la branche par défaut (1 critique, 3 hautes, 2 modérées) après un push. Toutes portent sur des dépendances transitives de tooling (Expo/React Native côté mobile, devtools Nuxt, générateur de types OpenAPI), aucune sur du code de prod exposé à des entrées utilisateur non fiables.
+
+| Package | Sévérité | Origine | Version vulnérable | Corrigé dans |
+|---|---|---|---|---|
+| `tar` (x4 CVE) | Critique / Haute / Moyenne x2 | `expo` → `cacache` (mobile) | 7.5.16 | 7.5.19 |
+| `shell-quote` | Haute | `react-devtools-core` → `react-native` (mobile) | 1.8.4 | 1.9.0 |
+| `js-yaml` | Haute | `@redocly/openapi-core` → `openapi-typescript` (devDep `@nextquest/shared`) | 4.2.0 | 4.3.0 |
+
+### Ce qui a été fait
+
+- Le repo a déjà un bloc `overrides` dans `pnpm-workspace.yaml` (pas dans `package.json` — pnpm 10 ignore désormais ce champ là, warning `"pnpm" field in package.json is no longer read`). Relevé les bornes existantes trop permissives : `tar: ">=7.5.16"` → `">=7.5.19"`, `js-yaml: ">=4.2.0"` → `">=4.3.0"`, et ajouté `shell-quote: ">=1.9.0"` (absent jusque-là).
+- `pnpm install` relancé sur l'hôte **et** dans le container `nextquest-web` (node_modules du container = volume Docker séparé, non partagé avec l'hôte malgré le bind-mount du code source — un `pnpm install` côté hôte seul ne suffit pas à mettre à jour le container).
+
+### Décisions techniques
+
+**Overrides dans `pnpm-workspace.yaml`, pas `package.json`.** Tentative initiale via `package.json > pnpm.overrides` (convention pnpm < 10) : silencieusement ignorée par pnpm 10.33 avec un warning. Le fichier `pnpm-workspace.yaml` du repo est déjà le bon emplacement et contenait un commentaire expliquant la démarche (revisiter périodiquement quand les parents — expo, nuxt, drizzle-kit — sont mis à jour).
+
+### Fichiers modifiés
+
+| Fichier | Nature |
+|---|---|
+| `pnpm-workspace.yaml` | Bornes `overrides` relevées + ajout `shell-quote` |
+| `pnpm-lock.yaml` | Régénéré (dédup des versions vulnérables) |
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm why -r tar / shell-quote / js-yaml` | ✅ une seule version résolue par package, toutes patchées (7.5.20 / 1.10.0 / 4.3.0) |
+| `pnpm lint` (container) | ✅ 0 erreur |
+| `pnpm typecheck` (container, 5 packages) | ✅ 0 erreur |
+| `pnpm --filter @nextquest/web test` | ✅ 285/285 |
+| `pnpm test` (api) | ⚠️ échec pré-existant, sans rapport : BDD injoignable depuis le container (nécessite `pnpm docker:up`) |

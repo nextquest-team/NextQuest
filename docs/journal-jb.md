@@ -69,7 +69,7 @@
 
 **DTO public centralise** -- `toUserDTO()` dans `users.dto.ts` est la source unique de verite pour le format user expose au client. `/auth/me` refactore pour l utiliser. Garantit que `passwordHash`, `failedLoginAttempts`, `lockedUntil`, `deletedAt`, `role`, `emailVerifiedAt` ne fuitent jamais via une route. Le `role` reste accessible cote client via le claim JWT.
 
-**RGPD cascade documente** -- Regle ajoutee a `CLAUDE.md` : toute FK vers `users.id` = `ON DELETE CASCADE` par defaut, avec exceptions pour audit (SET NULL) et messages recus (soft delete + anonymisation sender). Audit complet du schema a faire lors de la spec dediee `DELETE /api/users/me`.
+**RGPD cascade documente** -- Regle ajoutee aux instructions projet : toute FK vers `users.id` = `ON DELETE CASCADE` par defaut, avec exceptions pour audit (SET NULL) et messages recus (soft delete + anonymisation sender). Audit complet du schema a faire lors de la spec dediee `DELETE /api/users/me`.
 
 **Avatar upload reporte** -- Pour le MVP, `avatarUrl` est juste une URL string (max 2048). L upload custom (storage + multipart + redimensionnement) est reporte a la spec profil/settings post-MVP.
 
@@ -212,7 +212,7 @@
 
 ## 20 juillet 2026
 
-**Abandon de l'IA pour la reco (le moteur algorithmique suffit)** -- Sortie définitive du re-ranker/explicateur LLM (Qwen local) du périmètre, stretch post-MVP compris. Le moteur déjà livré (similarité de contenu genres/thèmes/studio, cap de diversité, non-répétition, découverte multi-source, similaires par contenu) couvre le besoin. Raisons : explicable et démontrable au jury, déterministe donc testable, et sans dépendance à un LLM local non déployable (PC de dev uniquement, incompatible avec la contrainte de disponibilité). Docs alignées (README, DBML, CLAUDE.md) : "Recommandations IA" devient "moteur de recommandation algorithmique".
+**Abandon de l'IA pour la reco (le moteur algorithmique suffit)** -- Sortie définitive du re-ranker/explicateur LLM (Qwen local) du périmètre, stretch post-MVP compris. Le moteur déjà livré (similarité de contenu genres/thèmes/studio, cap de diversité, non-répétition, découverte multi-source, similaires par contenu) couvre le besoin. Raisons : explicable et démontrable au jury, déterministe donc testable, et sans dépendance à un LLM local non déployable (PC de dev uniquement, incompatible avec la contrainte de disponibilité). Docs alignées (README, DBML, instructions projet) : "Recommandations IA" devient "moteur de recommandation algorithmique".
 
 **Collection & import UX (auto-import, jaquettes live, ajout manuel IGDB)** -- Branche `feat/collection-import-ux`, 3 features. (1) Auto-import Steam à la 1re liaison : `linkSteamAccount` renvoie `isFirstLink`, le callback propage `first=0|1`, le front auto-déclenche l'import. (2) Modale de progression qui poll `GET /platforms/steam/import/status` (~500 ms) et fait monter les jaquettes une par une pendant l'enrichissement de fond (corrige au passage le refresh manuel obligatoire) ; progression suivie dans Redis, best-effort, aucune migration. (3) Ajout manuel via recherche live IGDB (`GET /games/igdb/search`) + `POST /collection/from-igdb` (crée le jeu depuis IGDB si absent puis l'ajoute), avec choix de plateforme et badge "déjà en collec". E2E réel côté IGDB validé (recherche → ajout → doublon 409). Ajouts front : système de toast, `usePlatforms`, endpoint `GET /platforms`. Suite : API 397 tests, web 224 tests.
 

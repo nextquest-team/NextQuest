@@ -46,7 +46,14 @@ export async function avatarRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const userId = userIdOf(request);
 
-      const file = await request.file();
+      // Un multipart illisible (content-type errone, boundary invalide) est une
+      // erreur du client : 400 explicite plutot qu'un 500 du parseur.
+      let file: Awaited<ReturnType<typeof request.file>>;
+      try {
+        file = await request.file();
+      } catch {
+        return reply.code(400).send({ error: "Requete multipart invalide" });
+      }
       if (!file) {
         return reply.code(400).send({ error: "Aucun fichier recu (champ multipart attendu)" });
       }

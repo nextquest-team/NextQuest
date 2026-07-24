@@ -83,6 +83,36 @@ describe("POST /api/users/me/avatar", () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it("400 : content-type non multipart (pas un 500 du parseur)", async () => {
+    const app = await buildApp();
+    const user = await createTestUser();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/users/me/avatar",
+      headers: {
+        authorization: `Bearer ${getToken(app, user.id)}`,
+        "content-type": "application/json",
+      },
+      payload: { pas: "un multipart" },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("400 : multipart sans boundary", async () => {
+    const app = await buildApp();
+    const user = await createTestUser();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/users/me/avatar",
+      headers: {
+        authorization: `Bearer ${getToken(app, user.id)}`,
+        "content-type": "multipart/form-data",
+      },
+      payload: Buffer.from("contenu sans boundary"),
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it("400 sans fichier", async () => {
     const app = await buildApp();
     const user = await createTestUser();

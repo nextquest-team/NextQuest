@@ -215,6 +215,10 @@ Table users {
   display_name varchar(50)
   avatar_url varchar(2048)
   bio varchar(500)
+  country varchar(2) [note: 'Code pays ISO 3166-1 alpha-2, valide par Zod cote API. Nullable : optionnel.']
+  birthdate date [note: 'Date de naissance YYYY-MM-DD. Donnee personnelle, purgee par la cascade users. Nullable.']
+  favorite_platform varchar(20) [note: 'Plateforme mise en avant (pc/playstation/xbox/nintendo/mobile). Enum applicative Zod, varchar en BDD.']
+  social_links jsonb [note: 'Liens sociaux whitelistes {twitch,youtube,discord,twitter,instagram}, URLs https validees par Zod. Jamais de cle arbitraire.']
   locale varchar(5) [default: 'fr']
   visibility visibility_enum [default: 'public', note: 'Remplace is_public pour coherence avec games/activities et support friends_only']
   role user_role_enum [default: 'user']
@@ -837,3 +841,9 @@ Table reports {
 //
 // RECHERCHE
 //   - games.title                  : index GIN pg_trgm pour recherche floue
+//
+// STOCKAGE OBJET (avatars) : les fichiers uploades vivent dans un bucket
+// S3-compatible (MinIO en dev), HORS du perimetre des cascades Postgres.
+// Le hard delete RGPD d'un user DOIT appeler purgeUserStorage(userId)
+// (apps/api/src/lib/storage.ts) AVANT le DELETE FROM users. C'est la seule
+// exception a la regle "un DELETE users suffit, la BDD purge tout".

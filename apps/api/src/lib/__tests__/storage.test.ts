@@ -104,6 +104,7 @@ describe("putAvatar", () => {
     expect(put!.input.Key).toBe("avatars/user-123.webp");
     expect(put!.input.Bucket).toBe("test-avatars");
     expect(put!.input.ContentType).toBe("image/webp");
+    expect(put!.input.CacheControl).toBe("public, max-age=31536000, immutable");
     expect(url).toMatch(
       /^http:\/\/127\.0\.0\.1:9000\/test-avatars\/avatars\/user-123\.webp\?v=\d+$/,
     );

@@ -21,6 +21,9 @@ export const gameDetailParamsSchema = z.object({
 export const searchIgdbQuerySchema = z.object({
   q: z.string().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(25).default(18),
+  // "upcoming" restreint aux jeux dont la sortie est future (timeline) ; absent =
+  // comportement historique de l'autocomplete (aucun filtre de date).
+  scope: z.enum(["upcoming"]).optional(),
 });
 
 export type UpcomingQueryInput = z.infer<typeof upcomingQuerySchema>;

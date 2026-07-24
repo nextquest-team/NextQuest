@@ -42,6 +42,11 @@ export type GenreRef = z.infer<typeof genreRefSchema>;
 export const recommendationGameMetaSchema = z
   .object({
     id: z.uuid().describe("Identifiant du jeu"),
+    igdbId: z
+      .number()
+      .int()
+      .nullable()
+      .describe("Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"),
     title: z.string().describe("Titre du jeu"),
     slug: z.string().describe("Slug du jeu"),
     coverUrl: z.string().nullable().describe("URL de la jaquette"),
@@ -81,6 +86,7 @@ export type RecommendationRow = {
   score: string | null;
   reason: unknown;
   gameId: string;
+  igdbId: number | null;
   title: string;
   slug: string;
   coverUrl: string | null;
@@ -110,6 +116,7 @@ export function toRecommendationDTO(
     },
     game: {
       id: row.gameId,
+      igdbId: row.igdbId,
       title: row.title,
       slug: row.slug,
       coverUrl: row.coverUrl,

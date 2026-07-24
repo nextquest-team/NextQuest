@@ -18,6 +18,18 @@ export const releaseStatusEnum = pgEnum("release_status_enum", [
   "cancelled",
 ]);
 
+// Precision de la date de sortie annoncee par IGDB (release_dates.date_format).
+// IGDB met "fin de periode" dans first_release_date quand la date est floue
+// (ex: "2027" -> 31 decembre 2027) : cette precision permet au front d'afficher
+// "2027" ou "T4 2027" au lieu d'une fausse date exacte.
+export const releaseDatePrecisionEnum = pgEnum("release_date_precision_enum", [
+  "day",
+  "month",
+  "quarter",
+  "year",
+  "tbd",
+]);
+
 export const gameStatusEnum = pgEnum("game_status_enum", [
   "wishlist",
   "backlog",

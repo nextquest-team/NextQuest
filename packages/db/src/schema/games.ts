@@ -19,6 +19,7 @@ import {
   releaseStatusEnum,
   visibilityEnum,
   gameUpdateSourceEnum,
+  releaseDatePrecisionEnum,
 } from "./enums.js";
 
 export const games = pgTable(
@@ -39,6 +40,8 @@ export const games = pgTable(
     releaseStatus: releaseStatusEnum("release_status")
       .notNull()
       .default("released"),
+    // Null = jamais calcule (lignes anterieures a la feature, jeux custom).
+    releaseDatePrecision: releaseDatePrecisionEnum("release_date_precision"),
     developer: varchar("developer", { length: 255 }),
     publisher: varchar("publisher", { length: 255 }),
     avgPlaytime: integer("avg_playtime"),
@@ -159,5 +162,29 @@ export const gameSimilar = pgTable(
   (t) => [
     primaryKey({ columns: [t.gameId, t.similarIgdbId] }),
     index("game_similar_similar_igdb_id_idx").on(t.similarIgdbId),
+  ],
+);
+
+// Suivi de sortie ("etoile" timeline) : quels users guettent quels jeux.
+// Le jeu est hydrate dans games au moment du follow (hydrateGamesByIgdbIds),
+// donc game_id est toujours resoluble. CASCADE des deux cotes : supprimer un
+// user purge ses suivis (RGPD), supprimer un jeu purge les suivis orphelins.
+export const userFollowedGames = pgTable(
+  "user_followed_games",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameId: uuid("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.gameId] }),
+    // "Quels users suivent ce jeu" : requete des futures alertes de sortie.
+    index("user_followed_games_game_id_idx").on(t.gameId),
   ],
 );

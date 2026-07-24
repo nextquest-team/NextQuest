@@ -14,7 +14,7 @@ import {
   genres,
   tags,
 } from "@nextquest/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   getOwnedForProfile,
   getDimensionFrequencies,
@@ -56,6 +56,10 @@ vi.mock("../hydrate.js", async () => {
   };
 });
 
+// Genres crees par les fixtures de ce fichier : on scope le delete dessus pour ne
+// pas percuter les genres d'autres suites en parallele.
+const TEST_GENRE_SLUGS = ["test-genre", "frequency-genre", "swipe-genre", "action"];
+
 // Cleanup after each test
 async function cleanup() {
   await db.delete(recommendations);
@@ -68,7 +72,7 @@ async function cleanup() {
   await db.delete(games);
   await db.delete(users);
   await db.delete(tags);
-  await db.delete(genres);
+  await db.delete(genres).where(inArray(genres.slug, TEST_GENRE_SLUGS));
   // platforms/services sont des donnees de reference (seedees par migration) : on ne
   // les supprime jamais, seulement les jointures/possessions crees par les tests.
 }
@@ -1101,6 +1105,7 @@ describe("getUpcomingCandidates", () => {
         name: "Swiped Game",
         summary: "A swiped game",
         releaseDate: "2026-12-01",
+        releaseDatePrecision: "day",
         rating: 75,
         ratingCount: 300,
         coverImageId: null,
@@ -1120,6 +1125,7 @@ describe("getUpcomingCandidates", () => {
         name: "Upcoming Game",
         summary: "An upcoming game",
         releaseDate: "2026-09-15",
+        releaseDatePrecision: "day",
         rating: 85,
         ratingCount: 200,
         coverImageId: null,

@@ -16,13 +16,17 @@ import { eq } from "drizzle-orm";
 import { enrichGames, upsertEnrichedGame } from "../igdb.service.js";
 import type { IgdbGame } from "../igdb.client.js";
 
+// Seul genre cree par les fixtures de ce fichier (sampleIgdbGame par defaut) : on
+// scope le delete dessus pour ne pas percuter les genres d'autres suites en parallele.
+const TEST_GENRE_SLUG = "shooter";
+
 async function cleanup() {
   await db.delete(gameSimilar);
   await db.delete(gameGenres);
   await db.delete(gameTags);
   await db.delete(userGames);
   await db.delete(games);
-  await db.delete(genres);
+  await db.delete(genres).where(eq(genres.slug, TEST_GENRE_SLUG));
   await db.delete(tags);
   await db.delete(users);
 }
@@ -48,6 +52,7 @@ const sampleIgdbGame = (over: Partial<IgdbGame> = {}): IgdbGame => ({
   name: "GTA V",
   summary: "Open world",
   releaseDate: "2013-09-17",
+  releaseDatePrecision: "day",
   rating: 92.3,
   ratingCount: 1500,
   coverImageId: "cover123",

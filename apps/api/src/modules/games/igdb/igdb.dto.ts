@@ -39,6 +39,10 @@ export const upcomingGameDTOSchema = z
     igdbId: z.number().int().describe("Identifiant IGDB du jeu"),
     title: z.string().describe("Titre du jeu"),
     releaseDate: z.string().nullable().describe("Date de sortie (YYYY-MM-DD)"),
+    releaseDatePrecision: z
+      .enum(["day", "month", "quarter", "year", "tbd"])
+      .nullable()
+      .describe("Precision de la date annoncee (les dates floues IGDB pointent fin de periode)"),
     coverUrl: z.string().nullable().describe("URL de la jaquette"),
     hypes: z.number().int().nullable().describe("Nombre d'anticipations IGDB"),
     genres: z.array(taxonRefSchema).describe("Genres du jeu"),
@@ -79,6 +83,10 @@ export const gameDetailDTOSchema = z
     summary: z.string().nullable().describe("Resume court"),
     storyline: z.string().nullable().describe("Trame narrative"),
     releaseDate: z.string().nullable().describe("Date de sortie (YYYY-MM-DD)"),
+    releaseDatePrecision: z
+      .enum(["day", "month", "quarter", "year", "tbd"])
+      .nullable()
+      .describe("Precision de la date annoncee (les dates floues IGDB pointent fin de periode)"),
     releaseStatus: z
       .enum(["upcoming", "released"])
       .describe("Statut de sortie, calcule par rapport a la date du jour"),
@@ -196,6 +204,7 @@ export function toUpcomingGameDTO(g: IgdbUpcomingGame): UpcomingGameDTO {
     igdbId: g.igdbId,
     title: g.name,
     releaseDate: g.releaseDate,
+    releaseDatePrecision: g.releaseDatePrecision,
     coverUrl: g.coverImageId ? igdbImageUrl(g.coverImageId, "t_cover_big") : null,
     hypes: g.hypes,
     genres: g.genres,
@@ -299,6 +308,7 @@ export function toGameDetailDTO(
     summary: g.summary,
     storyline: g.storyline,
     releaseDate: g.releaseDate,
+    releaseDatePrecision: g.releaseDatePrecision,
     releaseStatus,
     coverUrl: g.coverImageId ? igdbImageUrl(g.coverImageId, "t_cover_big") : null,
     artworkUrl: g.artworkImageId ? igdbImageUrl(g.artworkImageId, "t_1080p") : null,

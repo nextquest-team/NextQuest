@@ -10,7 +10,8 @@
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "generate:openapi": "tsx scripts/export-openapi.ts"
+    "generate:openapi": "tsx scripts/export-openapi.ts",
+    "refresh:releases": "tsx src/scripts/refresh-releases.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

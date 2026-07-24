@@ -34,6 +34,18 @@ Enum release_status_enum {
   cancelled
 }
 
+// Precision de la date de sortie annoncee par IGDB (release_dates.date_format).
+// IGDB met une date de fin de periode dans first_release_date quand la date est
+// floue : cette precision permet au front d afficher "2027" ou "T4 2027" plutot
+// qu une fausse date exacte
+Enum release_date_precision_enum {
+  day
+  month
+  quarter
+  year
+  tbd
+}
+
 Enum game_status_enum {
   wishlist
   backlog
@@ -315,11 +327,13 @@ Table games {
   background_url varchar(2048)
   release_date date
   release_status release_status_enum [default: 'released']
+  release_date_precision release_date_precision_enum [note: 'Precision de la date IGDB (day/month/quarter/year/tbd). Null = jamais calcule (lignes anterieures a la feature timeline, jeux custom). IGDB met une date de fin de periode dans first_release_date quand la date est floue (ex: "2027" -> 31/12/2027) : cette precision permet au front d afficher "2027" ou "T4 2027" au lieu d une fausse date exacte. Rafraichie avec release_date par le cron quotidien']
   developer varchar(255)
   publisher varchar(255)
   avg_playtime int [note: 'En minutes. CHECK (>= 0)']
   igdb_rating real [note: 'Note joueurs IGDB (0-100, decimale). Signal qualite exploite par la reco (#58)']
   igdb_rating_count int [note: 'Nombre de votes IGDB. Seuil minimum pour la reco (#58) : eviter de recommander sur note en base faible']
+  igdb_hypes int [note: 'Nombre d anticipations IGDB (follows pre-sortie). Signal de popularite pour les jeux pas encore notes, exploite par la reco (#58). Rafraichi quotidiennement par le cron de refresh des sorties (in-process, verrou Redis, cf. release-refresh.scheduler)']
   is_custom boolean [default: false]
   created_by uuid [ref: > users.id, note: 'Createur du jeu custom. Seul created_by peut modifier un jeu is_custom=true']
   visibility visibility_enum [default: 'private', note: 'Visibilite des jeux custom uniquement']
@@ -439,6 +453,19 @@ Table user_game_status_history {
   indexes {
     (user_game_id, changed_at) [note: 'Historique chronologique par jeu']
   }
+}
+
+Table user_followed_games {
+  user_id uuid [ref: > users.id, not null, note: 'ON DELETE CASCADE : supprimer un user purge ses suivis (RGPD)']
+  game_id uuid [ref: > games.id, not null, note: 'ON DELETE CASCADE : le jeu est hydrate dans games au follow']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, game_id) [pk]
+    (game_id) [note: 'Quels users suivent ce jeu : requete des futures alertes de sortie']
+  }
+
+  Note: 'Suivi de sortie (etoile timeline). Le jeu IGDB est hydrate dans le catalogue au moment du follow, la liste se sert donc en BDD sans dependre d IGDB'
 }
 
 // ============================================

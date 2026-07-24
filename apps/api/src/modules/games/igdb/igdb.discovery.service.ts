@@ -10,6 +10,7 @@ import {
   searchGamesByName,
   type UpcomingQuery,
   type IgdbGame,
+  type IgdbSearchGame,
 } from "./igdb.client.js";
 import { getTwitchToken } from "./igdb.auth.js";
 import { redis } from "../../../lib/redis.js";
@@ -99,7 +100,16 @@ export interface DiscoveryDeps {
   fetchGameDetail: typeof fetchGameDetail;
   fetchGamesByIds: typeof fetchGamesByIds;
   fetchGamesByDeveloper: typeof fetchGamesByDeveloper;
-  searchGamesByName: typeof searchGamesByName;
+  // Signature reduite par rapport au client (pas de fetchImpl : ce param n'a de
+  // sens que pour les tests unitaires du client lui-meme, pas pour cette
+  // injection de dependances). `upcomingAfterEpoch` porte le scope=upcoming.
+  searchGamesByName(
+    query: string,
+    limit: number,
+    token: string,
+    clientId: string,
+    upcomingAfterEpoch?: number | null,
+  ): Promise<IgdbSearchGame[]>;
   findOwnedIgdbIds(userId: string, igdbIds: number[]): Promise<Set<number>>;
   findPlatformsByIgdbIds(igdbIds: number[]): Promise<LocalPlatformWithIgdbId[]>;
   cache: CacheStore;
@@ -154,7 +164,8 @@ export function defaultDiscoveryDeps(): DiscoveryDeps {
     fetchGameDetail,
     fetchGamesByIds,
     fetchGamesByDeveloper,
-    searchGamesByName,
+    searchGamesByName: (query, limit, token, clientId, upcomingAfterEpoch) =>
+      searchGamesByName(query, limit, token, clientId, undefined, upcomingAfterEpoch),
     findOwnedIgdbIds,
     findPlatformsByIgdbIds,
     cache: redisStore,
@@ -303,10 +314,13 @@ export async function searchIgdbGames(
   query: string,
   userId: string,
   limit: number = 18,
+  scope?: "upcoming",
   clientId: string = process.env.TWITCH_CLIENT_ID ?? "",
   deps: DiscoveryDeps = defaultDiscoveryDeps(),
 ): Promise<IgdbSearchResult[]> {
-  const key = `igdb:search:${query}:${limit}`;
+  // Le scope fait partie de la cle : un pool filtre "a venir" ne doit jamais
+  // etre servi a l'autocomplete standard, et inversement.
+  const key = `igdb:search:${scope ?? "all"}:${query}:${limit}`;
   const cached = await deps.cache.get(key);
 
   let pool: IgdbSearchResultBase[];
@@ -317,7 +331,13 @@ export async function searchIgdbGames(
     // Pool de candidats bruts (au-dela du `limit` demande), cache tel quel : le
     // filtrage/reclassement ci-dessous depend de la requete courante et n'est
     // jamais cache, seul le pool brut IGDB l'est.
-    const foundGames = await deps.searchGamesByName(query, SEARCH_POOL_SIZE, token, clientId);
+    const foundGames = await deps.searchGamesByName(
+      query,
+      SEARCH_POOL_SIZE,
+      token,
+      clientId,
+      scope === "upcoming" ? Math.floor(deps.now().getTime() / 1000) : null,
+    );
     pool = foundGames.map(toSearchResultDTO);
     await deps.cache.set(key, JSON.stringify(pool), "EX", SEARCH_TTL);
   }

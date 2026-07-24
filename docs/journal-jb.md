@@ -261,3 +261,13 @@
 **RGPD storage** -- La cascade BDD ne couvre pas le bucket : `purgeUserStorage(userId)` livré et testé, le futur hard delete de compte devra l'appeler avant le DELETE FROM users (documenté dans schema.dbml).
 
 **Validation E2E réelle** -- Chaîne complète contre le MinIO du PC : upload JPEG 951 Ko -> WebP 512x512 servi publiquement, PATCH persisté, DELETE 204 puis objet 404. 539 tests API verts.
+
+---
+
+## 24 juillet 2026
+
+**Suppression et restauration de compte (RGPD)** -- `DELETE /users/me` demande le mot de passe pour les comptes locaux, puis place le compte en grace de 30 jours (sessions révoquées, compte invisible). Un login sur ce compte renvoie 403 `accountPendingDeletion` avec un token de restauration (JWT 15 min) plutôt que le 401 habituel. `POST /auth/restore` vérifie ce token, annule le soft delete et rouvre une session complète.
+
+**Purge quotidienne** -- Le cron traite les comptes dont la grace est expirée dans un ordre strict : `purgeUserStorage` (bucket) d'abord, puis la demande RGPD passée à `completed`, puis le `DELETE FROM users` qui déclenche la cascade. Si le stockage objet est injoignable, le compte est sauté et retenté au run suivant -- jamais de purge BDD sans purge du bucket.
+
+**Pas d'anonymisation pendant la grace** -- Décision : les données restent intactes pendant les 30 jours, juste invisibles via les guards `deleted_at`. Anonymiser partiellement aurait compliqué une restauration fidèle pour rien. La purge est totale (bucket + BDD) à l'expiration de la grace, pas une anonymisation différée.

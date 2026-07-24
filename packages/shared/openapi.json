@@ -295,7 +295,7 @@
         "tags": [
           "Auth"
         ],
-        "description": "Verifie les credentials, cree une session et renvoie access + refresh token. Apres 5 echecs, le compte est verrouille 15 minutes.",
+        "description": "Verifie les credentials, cree une session et renvoie access + refresh token. Apres 5 echecs, le compte est verrouille 15 minutes. Si le compte est en grace de suppression et le mot de passe correct, renvoie 403 avec un token de restauration.",
         "requestBody": {
           "required": true,
           "content": {
@@ -470,6 +470,286 @@
             }
           },
           "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Compte en attente de suppression : restauration possible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "accountPendingDeletion"
+                      ]
+                    },
+                    "deletedAt": {
+                      "type": "string",
+                      "description": "Date du soft delete (ISO 8601)"
+                    },
+                    "purgeAfter": {
+                      "type": "string",
+                      "description": "Fin de la grace (ISO 8601)"
+                    },
+                    "restoreToken": {
+                      "type": "string",
+                      "description": "JWT 15 min a presenter sur POST /auth/restore"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "deletedAt",
+                    "purgeAfter",
+                    "restoreToken"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Compte en attente de suppression : restauration possible"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/restore": {
+      "post": {
+        "operationId": "restoreAccount",
+        "summary": "Annule la suppression du compte pendant la grace",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Verifie le restore token (emis par le login 403 accountPendingDeletion ou le callback OAuth), annule le soft delete et ouvre une session complete. 410 si la grace est expiree ou le compte deja restaure/purge.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "restoreToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "JWT recu du login (403) ou du callback OAuth"
+                  }
+                },
+                "required": [
+                  "restoreToken"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session authentifiee : profil et tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "description": "Identifiant de l'utilisateur"
+                        },
+                        "email": {
+                          "type": "string",
+                          "format": "email",
+                          "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                          "description": "Adresse email"
+                        },
+                        "username": {
+                          "type": "string",
+                          "description": "Nom d'utilisateur"
+                        },
+                        "displayName": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Nom d'affichage"
+                        },
+                        "locale": {
+                          "type": "string",
+                          "description": "Langue preferee (ex: fr, en)"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "user",
+                            "admin"
+                          ],
+                          "description": "Role applicatif"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "username",
+                        "displayName",
+                        "locale",
+                        "role"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Utilisateur (forme retournee a l'authentification)"
+                    },
+                    "accessToken": {
+                      "type": "string",
+                      "description": "Access token JWT, valide 15 minutes"
+                    },
+                    "refreshToken": {
+                      "type": "string",
+                      "description": "Refresh token valide 30 jours (aussi pose dans un cookie HttpOnly)"
+                    }
+                  },
+                  "required": [
+                    "user",
+                    "accessToken",
+                    "refreshToken"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Session authentifiee : profil et tokens"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (erreur de validation ou erreur metier)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Libelle de l'erreur",
+                          "enum": [
+                            "Validation Error"
+                          ]
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "field": {
+                                "type": "string",
+                                "description": "Chemin du champ invalide (ex: email)"
+                              },
+                              "message": {
+                                "type": "string",
+                                "description": "Raison de l'invalidite"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Liste des champs invalides"
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "details"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur de validation des entrees"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Message d'erreur lisible"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur"
+                    }
+                  ],
+                  "description": "Requete invalide (erreur de validation ou erreur metier)"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "429": {
             "description": "Erreur",
             "content": {
               "application/json": {
@@ -1541,6 +1821,178 @@
             }
           },
           "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMyAccount",
+        "summary": "Suppression du compte (grace de 30 jours)",
+        "tags": [
+          "Users"
+        ],
+        "description": "Place le compte en attente de suppression : sessions revoquees, compte invisible, purge definitive apres la grace (ACCOUNT_PURGE_GRACE_DAYS). Mot de passe requis pour les comptes locaux. Restauration possible via le login puis POST /auth/restore. Idempotent.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "password": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compte place en grace de suppression",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deletedAt": {
+                      "type": "string",
+                      "description": "Date du soft delete (ISO 8601)"
+                    },
+                    "purgeAfter": {
+                      "type": "string",
+                      "description": "Date de purge definitive (ISO 8601) — restauration possible avant"
+                    }
+                  },
+                  "required": [
+                    "deletedAt",
+                    "purgeAfter"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Compte place en grace de suppression"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requete invalide (erreur de validation ou erreur metier)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Libelle de l'erreur",
+                          "enum": [
+                            "Validation Error"
+                          ]
+                        },
+                        "details": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "field": {
+                                "type": "string",
+                                "description": "Chemin du champ invalide (ex: email)"
+                              },
+                              "message": {
+                                "type": "string",
+                                "description": "Raison de l'invalidite"
+                              }
+                            },
+                            "required": [
+                              "field",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Liste des champs invalides"
+                        }
+                      },
+                      "required": [
+                        "error",
+                        "details"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur de validation des entrees"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "description": "Message d'erreur lisible"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Erreur"
+                    }
+                  ],
+                  "description": "Requete invalide (erreur de validation ou erreur metier)"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Message d'erreur lisible"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Erreur"
+                }
+              }
+            }
+          },
+          "429": {
             "description": "Erreur",
             "content": {
               "application/json": {
@@ -4179,12 +4631,24 @@
                               }
                             ],
                             "description": "URL de la jaquette"
+                          },
+                          "igdbId": {
+                            "anyOf": [
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Identifiant IGDB : permet au front de lier vers /games/catalog/:igdbId"
                           }
                         },
                         "required": [
                           "id",
                           "title",
-                          "coverUrl"
+                          "coverUrl",
+                          "igdbId"
                         ],
                         "additionalProperties": false,
                         "description": "Jeu similaire (recommandation IGDB)"
@@ -10198,7 +10662,7 @@
         "tags": [
           "OAuth"
         ],
-        "description": "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token (302). En cas d'erreur, redirige (302) vers le front avec ?error=oauth_denied|missing_params|invalid_state|oauth_failed. Pas de schema de reponse : cette route ne renvoie jamais de JSON.",
+        "description": "Verifie le state CSRF, echange le code contre les tokens du provider, recupere le profil, cree ou retrouve le user, cree une session NextQuest et redirige vers le front avec l'access token (302). En cas d'erreur, redirige (302) vers le front avec ?error=oauth_denied|missing_params|invalid_state|account_pending_deletion|oauth_failed. Le cas account_pending_deletion fournit aussi &restore_token=<jwt> (15 min) pour le flux de restauration. Pas de schema de reponse : cette route ne renvoie jamais de JSON.",
         "parameters": [
           {
             "schema": {

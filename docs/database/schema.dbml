@@ -227,7 +227,7 @@ Table users {
   onboarding_completed boolean [default: false, not null, note: 'Flag pilote par le tour guide front Vue. Mis a true via POST /api/users/me/onboarding/complete une fois le tour termine. Tous les nouveaux users sont a false. Le back ne connait pas les etapes UX du tour, juste cet etat binaire.']
   failed_login_attempts int [default: 0, note: 'CHECK (>= 0). Reset a 0 apres login reussi']
   locked_until timestamptz [note: 'Verrouillage apres 5 tentatives echouees']
-  deleted_at timestamptz [note: 'Soft delete RGPD. Anonymiser : email, username, display_name, bio, avatar_url, country, birthdate, favorite_platform, social_links']
+  deleted_at timestamptz [note: 'Soft delete RGPD : grace de 30 jours (ACCOUNT_PURGE_GRACE_DAYS) SANS anonymisation, donnees intactes mais invisibles (guards is null). Restauration self-service via login 403 + POST /auth/restore. Purge definitive par cron quotidien : purgeUserStorage (bucket) PUIS DELETE cascade. Trace conservee dans gdpr_requests (user_id SET NULL).']
   created_at timestamptz [default: `now()`]
   updated_at timestamptz
 }
@@ -711,6 +711,11 @@ Table user_consents {
 }
 
 // Suivi des demandes d'exercice de droits RGPD (articles 15 a 22)
+// Flow erasure (suppression de compte) : ligne inseree en 'pending' des le
+// soft delete (DELETE /users/me), passee a 'completed' par le cron de purge
+// juste avant le DELETE FROM users, ou 'rejected' si l'utilisateur restaure
+// son compte pendant la grace (POST /auth/restore). user_id passe a SET NULL
+// au hard delete : la ligne reste comme trace anonyme de la demande traitee.
 Table gdpr_requests {
   id uuid [pk]
   user_id uuid [ref: > users.id, note: 'Nullable -- SET NULL a la suppression, preuve conservee']
@@ -844,6 +849,8 @@ Table reports {
 //
 // STOCKAGE OBJET (avatars) : les fichiers uploades vivent dans un bucket
 // S3-compatible (MinIO en dev), HORS du perimetre des cascades Postgres.
-// Le hard delete RGPD d'un user DOIT appeler purgeUserStorage(userId)
-// (apps/api/src/lib/storage.ts) AVANT le DELETE FROM users. C'est la seule
-// exception a la regle "un DELETE users suffit, la BDD purge tout".
+// Le hard delete (purge.service.ts) appelle purgeUserStorage AVANT le
+// DELETE -- promesse tenue. Si le storage est injoignable, le compte est
+// saute (pas de purge BDD sans purge bucket) et retente au prochain cron.
+// C'est la seule exception a la regle "un DELETE users suffit, la BDD
+// purge tout".

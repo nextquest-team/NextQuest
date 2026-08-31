@@ -20,7 +20,7 @@
     "codegen": "pnpm --filter @nextquest/api generate:openapi && pnpm --filter @nextquest/shared generate:types"
   },
   "devDependencies": {
-    "turbo": "^2.10.5",
-    "vuetify": "4.1.5"
+    "turbo": "^2.10.12",
+    "vuetify": "4.1.12"
   }
 }

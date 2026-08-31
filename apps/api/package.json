@@ -14,34 +14,34 @@
     "refresh:releases": "tsx src/scripts/refresh-releases.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1094.0",
+    "@aws-sdk/client-s3": "^3.1120.0",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
-    "@fastify/helmet": "^13.1.0",
-    "@fastify/jwt": "^10.2.0",
-    "@fastify/multipart": "^10.1.0",
+    "@fastify/helmet": "^13.1.1",
+    "@fastify/jwt": "^10.2.2",
+    "@fastify/multipart": "^10.1.1",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.1.1",
     "@nextquest/db": "workspace:*",
     "@nextquest/shared": "workspace:*",
-    "argon2": "^0.45.0",
+    "argon2": "^0.45.1",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.45.2",
-    "fastify": "^5.10.0",
+    "fastify": "^5.12.1",
     "fastify-type-provider-zod": "^6.1.0",
     "ioredis": "^5.11.1",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@nextquest/config": "workspace:*",
     "@types/supertest": "^6.0.2",
-    "eslint": "^10.7.0",
+    "eslint": "^10.9.1",
     "pino-pretty": "^13.0.0",
     "supertest": "^7.2.2",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

@@ -11,12 +11,12 @@
     "generate:types": "openapi-typescript openapi.json -o src/types/api.ts"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@nextquest/config": "workspace:*",
     "openapi-typescript": "^7.8.0",
     "typescript": "^5.9.3",
-    "eslint": "^10.7.0"
+    "eslint": "^10.10.0"
   }
 }

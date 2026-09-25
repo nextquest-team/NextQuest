@@ -261,3 +261,17 @@
 **RGPD storage** -- La cascade BDD ne couvre pas le bucket : `purgeUserStorage(userId)` livré et testé, le futur hard delete de compte devra l'appeler avant le DELETE FROM users (documenté dans schema.dbml).
 
 **Validation E2E réelle** -- Chaîne complète contre le MinIO du PC : upload JPEG 951 Ko -> WebP 512x512 servi publiquement, PATCH persisté, DELETE 204 puis objet 404. 539 tests API verts.
+
+---
+
+## 25 aout 2026
+
+**21 des 23 alertes Dependabot corrigées** -- Dont une critique (`@nuxt/devtools` < 3.3.1 : RPC non authentifié permettant l'exécution de commandes arbitraires) et une RCE serveur Nuxt via compilation de template runtime. Bump de `nuxt` en 3.21.11 et des transitives `postcss`, `nanoid`, `js-yaml`, `undici`, `brace-expansion`, `fast-uri`, `tar`, `find-my-way`.
+
+**Cause racine des récidives** -- Les overrides étaient écrits en floor nu (`postcss: ">=8.5.10"`) : un floor déjà satisfait n'invalide pas la résolution figée du lockfile, donc pnpm gardait la version vulnérable (jusqu'à 4 versions de `postcss` cohabitaient). Désormais chaque override porte le floor de la version patchée **et** un plafond de majeure (`">=8.5.23 <9"`), ce qui force la re-résolution sans risquer la majeure suivante (leçon vite 8 / js-yaml 5).
+
+**@fastify/swagger-ui passé en 6.1.1** -- `@fastify/static` n'est patché qu'à partir de la 10.1.2 (contournement de garde de route par path traversal) et swagger-ui 5 le pinne en `^9`. La majeure 6 ne retire que le paramètre déprécié `useUnsafeMarkdown`, qu'on n'utilise pas.
+
+**2 vulnérabilités de plus trouvées par `pnpm audit`** -- Dependabot ne voit pas tout : `nanoid` demande en réalité la 3.3.18 (avis GHSA-2v37-7h3g-55p8) et non la 3.3.16 annoncée, et `qs` (DoS `qs.stringify`, tiré par `supertest`) n'était pas remonté du tout. Les deux corrigés. `pnpm audit` ne laisse plus que les 2 `image-size`.
+
+**Non corrigeable : image-size** -- 2 alertes DoS (parsers ICNS/JXL/HEIF) sur `image-size` 1.2.1, tiré par `metro`, le bundler d'Expo. Aucune version patchée n'existe encore en amont, et la dépendance est de développement mobile uniquement (jamais exposée à une image tierce en production). À re-vérifier au prochain bump d'Expo.

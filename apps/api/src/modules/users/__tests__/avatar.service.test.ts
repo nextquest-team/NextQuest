@@ -6,9 +6,12 @@ import { eq } from "drizzle-orm";
 vi.mock("../../../lib/storage.js", () => ({
   putAvatar: vi.fn(async (userId: string) => `http://s3.local/avatars/${userId}.webp?v=1`),
   deleteAvatar: vi.fn(async () => undefined),
+  putDefaultAvatar: vi.fn(
+    async (userId: string) => `http://s3.local/avatars/${userId}-default.webp?v=1`,
+  ),
 }));
 
-import { putAvatar, deleteAvatar } from "../../../lib/storage.js";
+import { putAvatar, deleteAvatar, putDefaultAvatar } from "../../../lib/storage.js";
 import {
   detectImageFormat,
   processAvatarImage,
@@ -109,11 +112,17 @@ describe("uploadUserAvatar", () => {
 });
 
 describe("removeUserAvatar", () => {
-  it("supprime l'objet et remet avatar_url a null", async () => {
+  it("supprime l'objet uploade et retombe sur un avatar genere", async () => {
     const user = await createTestUser();
-    await removeUserAvatar(user.id);
+    const dto = await removeUserAvatar(user.id);
+
     expect(deleteAvatar).toHaveBeenCalledWith(user.id);
+    expect(putDefaultAvatar).toHaveBeenCalledOnce();
+    const [calledUserId] = vi.mocked(putDefaultAvatar).mock.calls[0];
+    expect(calledUserId).toBe(user.id);
+
+    expect(dto.avatarUrl).toBe(`http://s3.local/avatars/${user.id}-default.webp?v=1`);
     const [row] = await db.select().from(users).where(eq(users.id, user.id));
-    expect(row.avatarUrl).toBeNull();
+    expect(row.avatarUrl).toBe(`http://s3.local/avatars/${user.id}-default.webp?v=1`);
   });
 });

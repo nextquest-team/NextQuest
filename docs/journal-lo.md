@@ -1742,3 +1742,135 @@ GitHub a signalé 6 alertes Dependabot sur la branche par défaut (1 critique, 3
 | `pnpm typecheck` (container, 5 packages) | ✅ 0 erreur |
 | `pnpm --filter @nextquest/web test` | ✅ 285/285 |
 | `pnpm test` (api) | ⚠️ échec pré-existant, sans rapport : BDD injoignable depuis le container (nécessite `pnpm docker:up`) |
+
+## 2026-07-24 — Session 29 : Intégration frontend PR #116 (avatar, profil enrichi) + correctifs post-merge
+
+### Résumé exécutif
+
+La PR #116 (backend : upload/suppression d'avatar via S3/MinIO, champs de profil étendus — pays, date de naissance, plateforme favorite, liens sociaux) a été squash-mergée sur `develop`. Intégré côté frontend sur `feat/profil-page` : nouveaux champs en édition inline sur `/profil` (desktop + mobile), suivant le pattern déjà en place pour bio/visibilité. Tests unitaires dédiés pour `useProfil` (upload/suppression avatar, validation type/taille, pays, date de naissance, plateforme favorite, liens sociaux). Deux bugs découverts en vérification visuelle et corrigés : icône Discord absente (`mdi-discord` retiré de `@mdi/font` depuis la 7.x) et upload d'avatar impossible en local (conteneur API tournant sans les variables `S3_*`, restart sans recreate après ajout au compose).
+
+### Ce qui a été fait
+
+#### Resynchronisation avec `develop`
+- `feat/profil-page` avait déjà mergé les commits bruts de la branche PR #116 (merge commit), alors que `develop` contient désormais la même PR sous forme squash — deux historiques incompatibles pour le même contenu.
+- Résolu par `git stash push -u` (travail frontend en cours) → `git reset --hard origin/develop` → `git stash pop` : application propre sans conflit (13 fichiers concernés), plutôt qu'un `git merge` qui aurait généré des conflits en cascade sur du contenu dupliqué.
+
+#### `useProfil.ts` — nouvelles actions
+- `uploadAvatar` / `removeAvatar` : validation type MIME + taille (5 Mo max) côté client avant l'appel `POST/DELETE /api/users/me/avatar` (multipart `FormData`)
+- `saveCountry` / `saveBirthdate` / `saveFavoritePlatform` / `saveSocialLinks` : même pattern édition inline que `saveBio` (état `isEditing*` / `isSaving*` / `*Error`)
+- `saveSocialLinks` filtre les champs vides et envoie `null` si tous vides (évite de stocker `{twitch: "", ...}` en base)
+
+#### `ProfilDesktop.vue` / `ProfilMobile.vue`
+- Lignes d'info pays/date de naissance/plateforme favorite (`pd__info-row--visibility`, réutilisation du pattern visibilité)
+- Section réseaux sociaux avec formulaire d'édition (5 champs URL) et liste de liens cliquables
+- Overlay de chargement `v-progress-circular` sur l'avatar pendant l'upload
+
+#### `SocialLinkIcon.vue` (nouveau composant)
+- `mdi-discord` n'existe plus dans `@mdi/font@7.4.47` (glyphe de marque retiré en amont) — confirmé par `grep -io discord` sur le CSS installé, zéro résultat, alors que twitch/youtube/twitter/instagram sont bien présents
+- Plutôt qu'une icône générique de substitution, composant dédié rendant le vrai SVG Discord pour cette plateforme, et `v-icon` (MDI) pour les autres — cohérent avec le pattern déjà utilisé pour Google/Microsoft/Apple dans `SocialButton.vue`
+
+#### Tests
+- `tests/composables/useProfil.test.ts` (nouveau, ~300 lignes) : couverture complète des nouvelles actions, y compris upload multipart simulé (`Object.defineProperty(input, 'files', ...)`)
+- `tests/pages/profil.test.ts` et `tests/components/profil/ProfilMobile.test.ts` : nouveaux blocs `describe` par champ, ajout du stub `VProgressCircular` manquant (crash Vuetify sans lui)
+- Fixtures utilisateur mises à jour dans `useAuth.test.ts`, `auth.test.ts` (store), `middleware/auth.test.ts`, `OnboardingOverlay.test.ts` pour inclure les nouveaux champs requis par le type `User` étendu
+
+#### Environnement Docker local
+- Conteneur `api` tournait avec les anciennes variables d'environnement (`docker restart` ne relit pas `docker-compose.yml`, contrairement à `docker compose up -d` qui recrée le conteneur si la config a changé) → warning `Stockage objet non configure (S3_*) : upload d'avatar desactive` au démarrage malgré les vars présentes dans le fichier compose
+- `docker compose up -d api` : recreate propre, variables `S3_*` chargées, bucket `nextquest-avatars` déjà présent dans MinIO
+- Migration Drizzle déjà appliquée (colonnes `country`/`birthdate`/`favorite_platform`/`social_links` présentes en base), confirmé via `\d users`
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm --filter @nextquest/web test` | ✅ 356/356 |
+| `pnpm --filter @nextquest/web typecheck` | ✅ 0 erreur |
+| `pnpm --filter @nextquest/web lint` | ✅ 0 erreur (26 warnings pré-existants inchangés) |
+| Playwright — capture desktop/mobile état vide | ✅ nouveaux champs affichés correctement (Not set / None / no links) |
+| Playwright — ouverture formulaire réseaux sociaux | ✅ icône Discord (SVG) rendue correctement à côté des icônes MDI |
+| `curl` direct API avec compte de test réel (hors mock e2e) — `POST /api/users/me/avatar` | ✅ avatar uploadé vers MinIO, URL retournée |
+| `curl` direct API — `PATCH /api/users/me` (socialLinks) | ✅ enregistré en base |
+| Compte de test + captures temporaires | supprimés après vérification |
+
+## 2026-07-24 — Session 30 : Book layout mobile, avatar dynamique du dashboard, avatar généré par défaut (backend)
+
+### Résumé exécutif
+
+Trois volets sur `fix/timeline-jeux-tbd` : (1) `ProfilMobile.vue` restructuré en mise en page "carnet" avec fond `carnet-page-unique.png` (contenu profil/social en deux blocs empilés, la largeur mobile ne permettant pas les deux colonnes de la version desktop) ; (2) `DbProfileCard.vue` affiche désormais le vrai avatar de l'utilisateur au lieu de l'image statique `avatar-profile.png`, avec un loader (`v-progress-circular`) tant qu'aucun avatar n'est disponible plutôt qu'un avatar généré côté client, et une forme circulaire pour la variante mobile ; (3) côté API (autorisation explicite de JB pour toucher au backend) : génération d'un avatar par défaut (initiale du nom sur fond de couleur, rendu via `sharp`) à la création de compte, persisté sur une clé S3 séparée (`avatars/{userId}-default.webp`) pour survivre à la suppression de l'avatar uploadé — la suppression d'avatar régénère et réutilise ce défaut au lieu de mettre `avatarUrl` à `null`.
+
+### Ce qui a été fait
+
+#### `ProfilMobile.vue` — mise en page "carnet"
+- `.pm__card` remplacé par `.pm__book` (fond `carnet-page-unique.png`, `background-size: 100% 100%`), sans `aspect-ratio` fixe pour laisser le contenu déterminer la hauteur
+- Contenu scindé en `.pm__section--profil` (avatar, nom, badges, bio) et `.pm__section--social`, séparés par une ligne pointillée (`.pm__page-divider`)
+- Bouton déconnexion sorti du `.pm__book` (action de compte, pas contenu du carnet)
+- Bug de test découvert et corrigé : la classe `pm__section` partagée sur le nouveau wrapper décalait l'index positionnel `findAll('.pm__section')[1]` utilisé par `ProfilMobile.test.ts` — retirée du wrapper profil
+
+#### `DbProfileCard.vue` — avatar dynamique
+- `avatarSrc = computed(() => user.value?.avatarUrl ?? null)` : plus de génération DiceBear par défaut, un loader s'affiche à la place tant qu'il n'y a pas d'URL réelle
+- Variante mobile/portrait : `.profile-card__avatar-wrap` passée d'un bloc rectangulaire à un cercle (`border-radius: 50%`, `aspect-ratio: 1`)
+
+#### Avatar par défaut généré côté API (`apps/api`)
+- `default-avatar.service.ts` (nouveau) : SVG (initiale du nom, regex Unicode `/[\p{L}\p{N}]/u` pour gérer accents/scripts non-latins) rasterisé en WebP via `sharp`, couleurs alignées sur la palette existante (`#5C3317` / `#EDC78E`)
+- `storage.ts` : nouvelle clé dédiée `defaultAvatarKey` (`avatars/{userId}-default.webp`), distincte de la clé de l'avatar uploadé — supprimer l'avatar réel ne doit pas détruire le défaut. `putDefaultAvatar`/`deleteDefaultAvatar` ajoutées, `purgeUserStorage` supprime maintenant les deux objets
+- `createUser` (email/mdp) et `findOrCreateUserFromOAuth` (branche nouvel utilisateur, uniquement si le provider ne fournit pas déjà une vraie photo) génèrent l'avatar par défaut à la création du compte
+- `removeUserAvatar` régénère l'avatar par défaut après suppression de l'avatar uploadé plutôt que de mettre `avatarUrl` à `null` ; la route `DELETE /users/me/avatar` renvoie donc `200 UserDTO` (au lieu de `204`)
+- Toute génération est best-effort (try/catch) : une panne du stockage objet ne doit jamais faire échouer une inscription ou une suppression d'avatar
+
+#### Réconciliation frontend
+- `useProfil.ts` : `removeAvatar()` consomme désormais le corps de la réponse `200` (`store.setAuth(updated, ...)`) au lieu de forcer `avatarUrl: null` localement
+- `avatarInitial` (lettre de repli, calculée côté client) ajouté en parité sur `ProfilMobile.vue` (n'existait jusque-là que sur `ProfilDesktop.vue`)
+- Tests mis à jour en conséquence : mocks `putDefaultAvatar` ajoutés dans `avatar.service.test.ts`/`avatar.routes.test.ts`, assertions `avatarUrl` non-null après suppression, tests DiceBear obsolètes remplacés par des tests d'initiale de repli
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `pnpm --filter @nextquest/api test` | ✅ 543/546 (3 skip, MinIO réel indisponible en local) |
+| `npx tsc --noEmit` (api) | ✅ 0 erreur |
+| `pnpm --filter @nextquest/web test` | ✅ 356/356 |
+| `npx vue-tsc --noEmit` (web) | ✅ 0 erreur |
+| Playwright — `ProfilMobile.vue` book layout (390x844, données vides et riches) | ✅ pas de débordement, séparateur pointillé visible |
+| Playwright — `DbProfileCard.vue` desktop/mobile | ✅ loader dans le cadre circulaire, forme mobile circulaire confirmée |
+
+---
+
+## 2026-09-25 — Session 31 : Reprise après 2 mois, roadmap à jour, conteneurs api/web réparés (pnpm épinglé)
+
+### Résumé exécutif
+
+Reprise du projet après la pause estivale (dernière session le 24 juillet). Trois volets sur `feat/profil-page` : (1) `docs/roadmap-mvp.md` remise à jour, elle affichait encore les lots 1 à 6 « à faire » alors que les 6 issues de la milestone MVP sont fermées ; (2) commit des retouches de lisibilité des fiches jeu restées en attente ; (3) diagnostic et correctif des conteneurs `nextquest-api` et `nextquest-web` qui ne démarraient plus : l'installation de pnpm sans version récupérait pnpm 12, incompatible avec Alpine ARM. Version épinglée à `10.33.0` dans le compose et le Dockerfile de prod.
+
+### Ce qui a été fait
+
+#### Roadmap MVP (`docs/roadmap-mvp.md`)
+- Lots 1 à 6 cochés avec les PR correspondantes (milestone MVP fermée, 6/6)
+- Décisions clés : ajout de l'abandon du re-ranker LLM (décision JB du 20 juillet 2026, reco 100 % algorithmique), anciennes décisions Qwen barrées
+- Nouvelle section « Livré après le MVP » (ajout IGDB, accessibilité, timeline des sorties, filtres multi-plateforme, avatar) ; la page profil reste à livrer via `feat/profil-page`
+- App mobile Expo ajoutée au « Reste à faire » (toujours au stade du scaffold)
+- Point ouvert : aucune trace d'un écran de swipe côté web, alors que le lot 6 est coché (issue #58 fermée). À vérifier avec JB
+
+#### Fiches jeu (`GameDetail*.vue`, `GameCatalogDetail*.vue`)
+- Libellés plus contrastés (`--nq-brown` plein au lieu d'un brun à 75 % d'opacité, `letter-spacing` 0.08em)
+- Boutons de statut : fond « feutrine » crème semi-opaque pour rester lisibles sur le fond maille, survol en `filter: brightness`
+
+#### Conteneurs Docker : `ERR_PNPM_PNPM_ENGINE_NO_NATIVE_BINARY`
+- Symptôme : Postgres, Redis et MinIO « healthy », mais `nextquest-api` et `nextquest-web` en `Exited (1)` dès le démarrage
+- Cause : la commande `npm install -g pnpm` (sans version) installe désormais pnpm 12. Celui-ci lit `packageManager: pnpm@10.33.0` dans le `package.json` racine et tente de basculer vers cette version via `@pnpm/exe`, qui ne fournit aucun binaire `linux-arm64-musl` (image `node:22-alpine` sur Mac Apple Silicon). Rien n'avait changé dans le repo : c'est la sortie de pnpm 12 qui a cassé le démarrage
+- Correctif : `npm install -g pnpm@10.33.0` dans `docker/docker-compose.yml` (services `api` et `web`) et dans `apps/web/Dockerfile` (même piège au build de prod)
+- Doc : section « Version de pnpm épinglée dans les conteneurs » ajoutée à `docs/docker.md` (les 3 endroits à garder alignés sur `packageManager`)
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `docker ps` après `up -d api web` | ✅ 5 conteneurs Up |
+| Logs API | ✅ `Server listening` sur :3000 (install via pnpm v10.33.0) |
+| `GET http://localhost:3000/docs` | ✅ 200 |
+| `GET http://localhost:3001/` | ✅ 200 |
+
+### À faire ensuite
+- Récupérer `develop` (commit #137, correctifs Dependabot), relancer les tests, ouvrir la PR `feat/profil-page`
+- Prévenir JB du correctif Docker (config partagée)
+- Vérifier l'état de l'écran de swipe (lot 6)
+- Trier les PR Dependabot ouvertes (#141 à #148)

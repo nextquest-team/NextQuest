@@ -9,7 +9,7 @@ import {
 } from "./avatar.service.js";
 import { StorageError } from "../../lib/storage.js";
 import { requireAuth, userIdOf } from "../../lib/guards.js";
-import { errorResponses, noContentSchema } from "../../lib/openapi.js";
+import { errorResponses } from "../../lib/openapi.js";
 
 export async function avatarRoutes(app: FastifyInstance) {
   // Multipart enregistre ICI (encapsulation Fastify) : seules ces routes
@@ -97,10 +97,10 @@ export async function avatarRoutes(app: FastifyInstance) {
         operationId: "deleteMyAvatar",
         summary: "Suppression de l'avatar",
         description:
-          "Supprime l'avatar uploade et remet avatar_url a null (le front retombe sur l'avatar genere). Idempotent.",
+          "Supprime l'avatar uploade et retombe sur un avatar genere (initiale du nom). Renvoie le profil a jour.",
         security: [{ bearerAuth: [] }],
         response: {
-          204: noContentSchema,
+          200: userDTOSchema,
           ...errorResponses(401, 503),
         },
       },
@@ -108,7 +108,8 @@ export async function avatarRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const userId = userIdOf(request);
       try {
-        await removeUserAvatar(userId);
+        const dto = await removeUserAvatar(userId);
+        return reply.send(dto);
       } catch (err) {
         if (err instanceof StorageError) {
           request.log.error(err, "stockage objet indisponible");
@@ -116,7 +117,6 @@ export async function avatarRoutes(app: FastifyInstance) {
         }
         throw err;
       }
-      return reply.code(204).send(null);
     },
   );
 }

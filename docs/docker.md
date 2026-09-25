@@ -40,7 +40,7 @@ services:
   api:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "npm install -g pnpm && pnpm install && pnpm --filter @nextquest/api dev"
+    command: sh -c "npm install -g pnpm@10.33.0 && pnpm install && pnpm --filter @nextquest/api dev"
     ports:
       - "3000:3000"
     volumes:
@@ -63,7 +63,7 @@ services:
   web:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "npm install -g pnpm && pnpm install && pnpm --filter @nextquest/web dev"
+    command: sh -c "npm install -g pnpm@10.33.0 && pnpm install && pnpm --filter @nextquest/web dev"
     ports:
       - "3001:3001"
     volumes:
@@ -110,7 +110,7 @@ Meme principe pour Redis : version 7, variante legere, port 6379.
 ```yaml
 api:
   image: node:22-alpine
-  command: sh -c "npm install -g pnpm && pnpm install && pnpm --filter @nextquest/api dev"
+  command: sh -c "npm install -g pnpm@10.33.0 && pnpm install && pnpm --filter @nextquest/api dev"
   ports:
     - "3000:3000"
   env_file:
@@ -143,7 +143,7 @@ Le service `web` injecte deux variables :
 web:
   image: node:22-alpine
   working_dir: /app
-  command: sh -c "npm install -g pnpm && pnpm install && pnpm --filter @nextquest/web dev"
+  command: sh -c "npm install -g pnpm@10.33.0 && pnpm install && pnpm --filter @nextquest/web dev"
   ports:
     - "3001:3001"
   volumes:
@@ -289,6 +289,19 @@ Ou stopper/relancer complètement :
 ```bash
 docker compose -f docker/docker-compose.yml up -d --force-recreate web
 ```
+
+## Version de pnpm épinglée dans les conteneurs
+
+Les commandes des services `api` et `web` (et le Dockerfile de prod web) installent **`pnpm@10.33.0`**, pas `pnpm` tout court. La version doit rester alignée sur le champ `packageManager` du `package.json` racine.
+
+**Pourquoi :** sans version, `npm install -g pnpm` installe la dernière (pnpm 12 en septembre 2026). pnpm 12 voit `packageManager: pnpm@10.33.0` et tente de basculer tout seul vers cette version via le binaire `@pnpm/exe`, qui n'existe pas pour Alpine (`linux-arm64-musl`, Mac Apple Silicon). Les conteneurs `api` et `web` s'arrêtent alors au démarrage avec :
+
+```
+Error: ERR_PNPM_PNPM_ENGINE_NO_NATIVE_BINARY
+Cannot run @pnpm/exe@10.33.0 on this host: it ships no native binary for linux-arm64-musl.
+```
+
+**Si on monte la version de pnpm**, mettre à jour les 3 endroits en même temps : `package.json` (`packageManager`), `docker/docker-compose.yml` (services `api` et `web`) et `apps/web/Dockerfile`.
 
 ## Hot reload des nouveaux fichiers (polling Vite)
 

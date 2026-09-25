@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { db, users, authProviders } from "@nextquest/db";
 import { eq, and, ne } from "drizzle-orm";
 import type { OAuthUserProfile } from "./providers/types.js";
+import { generateDefaultAvatar } from "../../users/default-avatar.service.js";
 
 interface OAuthResult {
   user: {
@@ -104,6 +105,21 @@ export async function findOrCreateUserFromOAuth(
     email: profile.email,
     avatarUrl: profile.avatarUrl,
   });
+
+  // Avatar de repli uniquement si le provider n'en fournit pas deja un
+  // (Google/Microsoft renvoient generalement une vraie photo de profil).
+  // Best-effort : ne bloque jamais la creation de compte.
+  if (!profile.avatarUrl) {
+    try {
+      const avatarUrl = await generateDefaultAvatar(
+        newUser!.id,
+        newUser!.displayName ?? newUser!.username,
+      );
+      await db.update(users).set({ avatarUrl }).where(eq(users.id, newUser!.id));
+    } catch {
+      // ignore : voir commentaire ci-dessus
+    }
+  }
 
   return { user: newUser!, isNewUser: true };
 }

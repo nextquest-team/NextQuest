@@ -280,7 +280,7 @@ const lightboxIndex = ref<number | null>(null)
 
 .gdd__title { font-size: clamp(1.2rem, 3.5vw, 1.6rem); font-weight: bold; color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; line-height: 1.25; }
 
-.gdd__label { font-size: clamp(0.76rem, 1.7vw, 0.9rem); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(var(--nq-brown-dark-rgb), 0.75); margin: 0 0 6px; }
+.gdd__label { font-size: clamp(0.76rem, 1.7vw, 0.9rem); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nq-brown, #5C3317); margin: 0 0 6px; }
 .gdd__value { font-size: clamp(0.95rem, 2.2vw, 1.08rem); color: var(--nq-brown-dark, #3A1A0A); margin: 0 0 1rem; }
 
 .gdd__statuses { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
@@ -291,18 +291,23 @@ const lightboxIndex = ref<number | null>(null)
   gap: 4px;
   padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(var(--nq-brown-rgb), 0.25);
-  background: transparent;
-  color: rgba(var(--nq-brown-dark-rgb), 0.72);
+  border: 1px solid rgba(var(--nq-brown-rgb), 0.45);
+  /* Patch feutrine : fond crème semi-opaque pour rester lisible sur le fond maille */
+  background-image:
+    linear-gradient(rgba(var(--nq-cream-alt-rgb), 0.82), rgba(var(--nq-cream-alt-rgb), 0.82)),
+    url('/images/backgrounds/feutrine-panel.jpg');
+  background-size: auto, 220px 220px;
+  background-repeat: no-repeat, repeat;
+  color: var(--nq-brown-dark, #3A1A0A);
   font-family: var(--nq-font);
   font-size: 0.75rem;
   cursor: pointer;
   white-space: nowrap;
   min-height: 30px;
-  transition: background 0.1s, color 0.1s;
+  transition: filter 0.1s, color 0.1s, background 0.1s;
 }
 
-.gdd__status-btn:hover:not(.gdd__status-btn--active) { background: rgba(var(--nq-brown-rgb), 0.08); color: var(--nq-brown-dark); }
+.gdd__status-btn:hover:not(.gdd__status-btn--active) { filter: brightness(0.95); }
 .gdd__status-btn--active { background: var(--nq-brown, #5C3317); color: #edc78e; border-color: var(--nq-brown); }
 
 .gdd__coming-soon {
@@ -324,18 +329,18 @@ const lightboxIndex = ref<number | null>(null)
   font-size: clamp(0.85rem, 2vw, 0.98rem);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(var(--nq-brown-dark-rgb), 0.75);
+  letter-spacing: 0.08em;
+  color: var(--nq-brown-dark, #3A1A0A);
   margin: 0 0 0.6rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
+  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.28);
 }
 
 .gdd__summary { font-size: clamp(0.95rem, 2.2vw, 1.08rem); line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
 
 .gdd__meta { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; }
 
-.gdd__dt { font-size: clamp(0.8rem, 1.8vw, 0.92rem); font-weight: 700; color: rgba(var(--nq-brown-dark-rgb), 0.75); white-space: nowrap; align-self: start; padding-top: 2px; }
+.gdd__dt { font-size: clamp(0.8rem, 1.8vw, 0.92rem); font-weight: 700; color: var(--nq-brown, #5C3317); white-space: nowrap; align-self: start; padding-top: 2px; }
 .gdd__dd { font-size: clamp(0.92rem, 2.1vw, 1.05rem); color: var(--nq-brown-dark, #3A1A0A); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 
 .gdd__chip { display: inline-block; background: rgba(var(--nq-brown-rgb), 0.08); color: var(--nq-brown, #5C3317); border-radius: 999px; padding: 2px 10px; font-size: clamp(0.82rem, 1.9vw, 0.95rem); font-weight: 600; }

@@ -303,11 +303,11 @@ function ratingStars(rating: number | null): string {
   font-size: clamp(0.85rem, 2vw, 0.98rem);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(var(--nq-brown-dark-rgb), 0.75);
+  letter-spacing: 0.08em;
+  color: var(--nq-brown-dark, #3A1A0A);
   margin: 0 0 0.6rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.1);
+  border-bottom: 1px solid rgba(var(--nq-brown-rgb), 0.28);
 }
 
 .cdd__summary { font-size: clamp(0.95rem, 2.2vw, 1.08rem); line-height: 1.65; color: rgba(var(--nq-brown-dark-rgb), 0.85); margin: 0; }
@@ -317,12 +317,12 @@ function ratingStars(rating: number | null): string {
 .cdd__dt {
   font-size: clamp(0.8rem, 1.8vw, 0.92rem);
   font-weight: 700;
-  color: rgba(var(--nq-brown-dark-rgb), 0.72);
+  color: var(--nq-brown, #5C3317);
   white-space: nowrap;
   align-self: start;
   padding-top: 2px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 .cdd__dd { font-size: clamp(0.92rem, 2.1vw, 1.05rem); color: var(--nq-brown-dark); margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }

@@ -4,6 +4,7 @@ import { db, users, sessions } from "@nextquest/db";
 import { eq, and, isNull } from "drizzle-orm";
 import type { RegisterInput } from "./auth.schemas.js";
 import { toUserDTO } from "../users/users.dto.js";
+import { generateDefaultAvatar } from "../users/default-avatar.service.js";
 
 // Config Argon2id recommandee par OWASP
 // memoryCost en KiB (64 Mo), timeCost = iterations, parallelism = threads
@@ -40,6 +41,17 @@ export async function createUser(input: RegisterInput) {
       locale: users.locale,
       role: users.role,
     });
+
+  // Avatar de repli (initiale du nom) genere a la creation du compte :
+  // best-effort, une inscription ne doit jamais echouer si le stockage objet
+  // est indisponible (le compte reste utilisable, avatar_url reste null en
+  // attendant -- le prochain upload/suppression d'avatar le regenerera).
+  try {
+    const avatarUrl = await generateDefaultAvatar(user.id, user.displayName ?? user.username);
+    await db.update(users).set({ avatarUrl }).where(eq(users.id, user.id));
+  } catch {
+    // ignore : voir commentaire ci-dessus
+  }
 
   return user;
 }

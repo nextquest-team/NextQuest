@@ -64,7 +64,55 @@
     "onboarding": {
       "completed": "Profile complete",
       "pending": "Profile incomplete"
-    }
+    },
+    "avatar": {
+      "change": "Change avatar",
+      "remove": "Remove avatar",
+      "invalidType": "The file must be an image (jpeg, png or webp).",
+      "tooLarge": "Image too large (5 MB max).",
+      "uploadError": "Could not upload avatar, please try again.",
+      "deleteError": "Could not delete avatar, please try again."
+    },
+    "country": {
+      "label": "Country",
+      "edit": "Edit country",
+      "none": "Not set",
+      "FR": "France",
+      "BE": "Belgium",
+      "CH": "Switzerland",
+      "CA": "Canada",
+      "LU": "Luxembourg",
+      "GB": "United Kingdom",
+      "DE": "Germany",
+      "ES": "Spain",
+      "IT": "Italy",
+      "US": "United States"
+    },
+    "countrySaveError": "Could not save country, please try again.",
+    "birthdate": {
+      "label": "Birthdate",
+      "edit": "Edit birthdate",
+      "none": "Not set"
+    },
+    "birthdateSaveError": "Could not save birthdate, please try again.",
+    "platform": {
+      "label": "Favorite platform",
+      "edit": "Edit favorite platform",
+      "none": "None",
+      "pc": "PC",
+      "playstation": "PlayStation",
+      "xbox": "Xbox",
+      "nintendo": "Nintendo",
+      "mobile": "Mobile"
+    },
+    "favoritePlatformSaveError": "Could not save favorite platform, please try again.",
+    "socialLinks": {
+      "label": "Social links",
+      "edit": "Edit social links",
+      "none": "No social link set.",
+      "placeholder": "https://…"
+    },
+    "socialLinksSaveError": "Could not save social links, please try again."
   },
   "gameList": {
     "title": "My game list",

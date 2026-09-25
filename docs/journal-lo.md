@@ -1832,3 +1832,45 @@ Trois volets sur `fix/timeline-jeux-tbd` : (1) `ProfilMobile.vue` restructuré e
 | `npx vue-tsc --noEmit` (web) | ✅ 0 erreur |
 | Playwright — `ProfilMobile.vue` book layout (390x844, données vides et riches) | ✅ pas de débordement, séparateur pointillé visible |
 | Playwright — `DbProfileCard.vue` desktop/mobile | ✅ loader dans le cadre circulaire, forme mobile circulaire confirmée |
+
+---
+
+## 2026-09-25 — Session 31 : Reprise après 2 mois, roadmap à jour, conteneurs api/web réparés (pnpm épinglé)
+
+### Résumé exécutif
+
+Reprise du projet après la pause estivale (dernière session le 24 juillet). Trois volets sur `feat/profil-page` : (1) `docs/roadmap-mvp.md` remise à jour, elle affichait encore les lots 1 à 6 « à faire » alors que les 6 issues de la milestone MVP sont fermées ; (2) commit des retouches de lisibilité des fiches jeu restées en attente ; (3) diagnostic et correctif des conteneurs `nextquest-api` et `nextquest-web` qui ne démarraient plus : l'installation de pnpm sans version récupérait pnpm 12, incompatible avec Alpine ARM. Version épinglée à `10.33.0` dans le compose et le Dockerfile de prod.
+
+### Ce qui a été fait
+
+#### Roadmap MVP (`docs/roadmap-mvp.md`)
+- Lots 1 à 6 cochés avec les PR correspondantes (milestone MVP fermée, 6/6)
+- Décisions clés : ajout de l'abandon du re-ranker LLM (décision JB du 20 juillet 2026, reco 100 % algorithmique), anciennes décisions Qwen barrées
+- Nouvelle section « Livré après le MVP » (ajout IGDB, accessibilité, timeline des sorties, filtres multi-plateforme, avatar) ; la page profil reste à livrer via `feat/profil-page`
+- App mobile Expo ajoutée au « Reste à faire » (toujours au stade du scaffold)
+- Point ouvert : aucune trace d'un écran de swipe côté web, alors que le lot 6 est coché (issue #58 fermée). À vérifier avec JB
+
+#### Fiches jeu (`GameDetail*.vue`, `GameCatalogDetail*.vue`)
+- Libellés plus contrastés (`--nq-brown` plein au lieu d'un brun à 75 % d'opacité, `letter-spacing` 0.08em)
+- Boutons de statut : fond « feutrine » crème semi-opaque pour rester lisibles sur le fond maille, survol en `filter: brightness`
+
+#### Conteneurs Docker : `ERR_PNPM_PNPM_ENGINE_NO_NATIVE_BINARY`
+- Symptôme : Postgres, Redis et MinIO « healthy », mais `nextquest-api` et `nextquest-web` en `Exited (1)` dès le démarrage
+- Cause : la commande `npm install -g pnpm` (sans version) installe désormais pnpm 12. Celui-ci lit `packageManager: pnpm@10.33.0` dans le `package.json` racine et tente de basculer vers cette version via `@pnpm/exe`, qui ne fournit aucun binaire `linux-arm64-musl` (image `node:22-alpine` sur Mac Apple Silicon). Rien n'avait changé dans le repo : c'est la sortie de pnpm 12 qui a cassé le démarrage
+- Correctif : `npm install -g pnpm@10.33.0` dans `docker/docker-compose.yml` (services `api` et `web`) et dans `apps/web/Dockerfile` (même piège au build de prod)
+- Doc : section « Version de pnpm épinglée dans les conteneurs » ajoutée à `docs/docker.md` (les 3 endroits à garder alignés sur `packageManager`)
+
+### Vérifications
+
+| Check | Résultat |
+|---|---|
+| `docker ps` après `up -d api web` | ✅ 5 conteneurs Up |
+| Logs API | ✅ `Server listening` sur :3000 (install via pnpm v10.33.0) |
+| `GET http://localhost:3000/docs` | ✅ 200 |
+| `GET http://localhost:3001/` | ✅ 200 |
+
+### À faire ensuite
+- Récupérer `develop` (commit #137, correctifs Dependabot), relancer les tests, ouvrir la PR `feat/profil-page`
+- Prévenir JB du correctif Docker (config partagée)
+- Vérifier l'état de l'écran de swipe (lot 6)
+- Trier les PR Dependabot ouvertes (#141 à #148)

@@ -19,6 +19,20 @@ export default defineNuxtConfig({
     },
   },
 
+  hooks: {
+    // Nuxt 3 coupe le HMR du serveur Vite SSR avec `server.hmr: false`, mais
+    // depuis Vite 8.1 c'est `server.ws` qui décide d'ouvrir le websocket. Le
+    // serveur SSR branchait donc un second listener d'upgrade sur le même
+    // serveur HTTP que le client : crash "handleUpgrade() was called more
+    // than once" à la première connexion d'un navigateur. À retirer avec
+    // la migration Nuxt 4 (#161).
+    'vite:extendConfig'(config, { isServer }) {
+      if (isServer && config.server) {
+        ;(config.server as { ws?: false }).ws = false
+      }
+    },
+  },
+
   app: {
     head: {
       htmlAttrs: { lang: 'fr' },

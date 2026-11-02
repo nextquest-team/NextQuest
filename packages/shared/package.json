@@ -11,7 +11,7 @@
     "generate:types": "openapi-typescript openapi.json -o src/types/api.ts"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@nextquest/config": "workspace:*",

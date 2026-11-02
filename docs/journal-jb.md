@@ -275,3 +275,13 @@
 **2 vulnérabilités de plus trouvées par `pnpm audit`** -- Dependabot ne voit pas tout : `nanoid` demande en réalité la 3.3.18 (avis GHSA-2v37-7h3g-55p8) et non la 3.3.16 annoncée, et `qs` (DoS `qs.stringify`, tiré par `supertest`) n'était pas remonté du tout. Les deux corrigés. `pnpm audit` ne laisse plus que les 2 `image-size`.
 
 **Non corrigeable : image-size** -- 2 alertes DoS (parsers ICNS/JXL/HEIF) sur `image-size` 1.2.1, tiré par `metro`, le bundler d'Expo. Aucune version patchée n'existe encore en amont, et la dépendance est de développement mobile uniquement (jamais exposée à une image tierce en production). À re-vérifier au prochain bump d'Expo.
+
+## 2 novembre 2026
+
+**Alertes Dependabot : toutes traitées** -- Les 60 alertes ouvertes au 30/10 (+ 10 arrivées le week-end) sont corrigées par overrides pnpm, floor patché + plafond de majeure : `fast-jwt` (dont une critique), `fastify`, `undici`, `fast-uri`, `@xmldom/xmldom`, `devalue`, `vite`, `vitest`, `sharp`, `compression`, `svgo`, `browserslist`, `happy-dom` 21, etc. `image-size` passe en 2.x : metro ne l'appelle qu'avec un Buffer, signature inchangée.
+
+**Vite 8.1.6 et le crash HMR de juillet** -- Le pin `vite 8.0.16` bloquait trois alertes. Cause réelle du crash `handleUpgrade() was called more than once` : Nuxt 3 coupe le websocket du serveur Vite SSR avec `server.hmr: false`, mais Vite 8.1 ne regarde plus que `server.ws`. Le SSR branchait donc un second listener sur le même serveur HTTP. Contourné par un hook `vite:extendConfig` dans `nuxt.config.ts`, vérifié avec un vrai navigateur. À retirer avec Nuxt 4.
+
+**Nuxt : 6 alertes rejetées, migration Nuxt 4 planifiée (#161)** -- Pas de correctif en 3.x. Aucune ne nous expose : notre seule route rule (`/timeline` en `ssr: false`) ne protège rien, on n'utilise ni server islands ni `useHeadSafe`, et le routeur `pages/` est actif. L'issue #161 dit quand ça cesse d'être vrai.
+
+**`pnpm audit` : 25 failles hors radar corrigées sur 37** -- Dont 3 critiques (`shell-quote`, `simple-git` via les devtools Nuxt) et `node-forge` (via Expo). Famille `vue` alignée en 3.5.44, `vue-i18n` 11.4.16, `zod` 4.6.7. Restent 12 low/moderate : Nuxt 3 (#161), `glob` et `minimatch` (majeure suivante uniquement), `deepmerge` (pas de patch).

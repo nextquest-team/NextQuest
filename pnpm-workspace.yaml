@@ -85,6 +85,7 @@ overrides:
   # Tire par @nuxt/devtools (outil de dev uniquement, jamais embarque en prod) qui
   # declare ^3.36.0 ; la 4.x est la seule lignee corrigee, usage devtools limite a git log/status.
   simple-git: ">=4.0.1 <5"
-  # Tire par @expo/cli (mobile, outillage de dev) : 12 avis dont 6 high, tous
-  # corriges en 1.4.1, meme majeure.
-  node-forge: ">=1.4.1 <2"
+  # Tire par @expo/cli (mobile, outillage de dev) : 12 avis dont 6 high
+  # corriges en 1.4.1, puis 4 autres (3 medium, 1 low) corriges en 1.4.3,
+  # meme majeure.
+  node-forge: ">=1.4.3 <2"

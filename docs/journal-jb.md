@@ -285,3 +285,7 @@
 **Nuxt : 6 alertes rejetées, migration Nuxt 4 planifiée (#161)** -- Pas de correctif en 3.x. Aucune ne nous expose : notre seule route rule (`/timeline` en `ssr: false`) ne protège rien, on n'utilise ni server islands ni `useHeadSafe`, et le routeur `pages/` est actif. L'issue #161 dit quand ça cesse d'être vrai.
 
 **`pnpm audit` : 25 failles hors radar corrigées sur 37** -- Dont 3 critiques (`shell-quote`, `simple-git` via les devtools Nuxt) et `node-forge` (via Expo). Famille `vue` alignée en 3.5.44, `vue-i18n` 11.4.16, `zod` 4.6.7. Restent 12 low/moderate : Nuxt 3 (#161), `glob` et `minimatch` (majeure suivante uniquement), `deepmerge` (pas de patch).
+
+## 16 novembre 2026
+
+**5 nouvelles alertes Dependabot traitées** -- `node-forge` (4 avis, 3 medium + 1 low, tiré par `@expo/cli`, outillage de dev mobile) : override pnpm relevé à `>=1.4.3 <2`. `@nuxt/schema` (GHSA-mjrq-cffv-q4qc, serveur de dev uniquement) : Nuxt 3 est en fin de vie, pas de correctif en 3.x. On applique le contournement officiel, `workspaceDir` fixé à la racine du monorepo dans `nuxt.config.ts`, pour que Nuxt ne retienne jamais un dossier parent contenant un lockfile oublié. Alerte rejetée ensuite, suivie dans la migration Nuxt 4 (#161).

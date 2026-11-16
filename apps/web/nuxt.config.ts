@@ -1,5 +1,15 @@
+import { fileURLToPath } from 'node:url'
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-03-31',
+
+  // Racine du monorepo fixée à la main (GHSA-mjrq-cffv-q4qc, sans correctif
+  // en 3.x). Sans ça, Nuxt devine workspaceDir en remontant l'arborescence et
+  // peut retenir un dossier parent qui contient juste un lockfile oublié : le
+  // serveur de dev sert alors tout ce dossier via /_nuxt/@fs/. À retirer avec
+  // la migration Nuxt 4 (#161).
+  workspaceDir: fileURLToPath(new URL('../..', import.meta.url)),
+
   devtools: { enabled: false },
   devServer: { port: 3001 },
 

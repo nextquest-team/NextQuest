@@ -128,8 +128,8 @@ describe('RecoCard', () => {
       await wrapper.find('.nq-quest-cta').trigger('click')
       const emitted = wrapper.emitted('feedback')
       expect(emitted).toBeTruthy()
-      expect(emitted![0][0]).toEqual(fakeReco)
-      expect(emitted![0][1]).toBe('added')
+      expect(emitted![0]![0]).toEqual(fakeReco)
+      expect(emitted![0]![1]).toBe('added')
     })
 
     it('émet feedback(reco, dismissed) au clic sur Ignorer', async () => {
@@ -140,7 +140,7 @@ describe('RecoCard', () => {
       await wrapper.find('.nq-quest-dismiss').trigger('click')
       const emitted = wrapper.emitted('feedback')
       expect(emitted).toBeTruthy()
-      expect(emitted![0][1]).toBe('dismissed')
+      expect(emitted![0]![1]).toBe('dismissed')
     })
 
     it('désactive les boutons si feedbackPending=true', () => {
@@ -158,7 +158,7 @@ describe('RecoCard', () => {
         global: { stubs },
       })
       await wrapper.find('.nq-quest-cta').trigger('click')
-      expect(wrapper.emitted('feedback')![0][1]).toBe('liked')
+      expect(wrapper.emitted('feedback')![0]![1]).toBe('liked')
     })
   })
 })

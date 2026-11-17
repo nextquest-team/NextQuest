@@ -206,7 +206,7 @@ describe('ProfilDesktop', () => {
       authFetchMock.mockResolvedValue({})
       const wrapper = mount(ProfilDesktop, { global: { stubs } })
       await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
-      await wrapper.findAll('.pd__visibility-opt')[0].trigger('click')
+      await wrapper.findAll('.pd__visibility-opt')[0]!.trigger('click')
       await flushPromises()
 
       expect(authFetchMock).toHaveBeenCalledWith(
@@ -218,7 +218,7 @@ describe('ProfilDesktop', () => {
     it("ne fait pas d'appel API si la visibilité est inchangée (public → public)", async () => {
       const wrapper = mount(ProfilDesktop, { global: { stubs } })
       await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
-      await wrapper.findAll('.pd__visibility-opt')[2].trigger('click')
+      await wrapper.findAll('.pd__visibility-opt')[2]!.trigger('click')
       await flushPromises()
 
       expect(authFetchMock).not.toHaveBeenCalled()
@@ -228,7 +228,7 @@ describe('ProfilDesktop', () => {
       authFetchMock.mockRejectedValue(new Error('network'))
       const wrapper = mount(ProfilDesktop, { global: { stubs } })
       await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
-      await wrapper.findAll('.pd__visibility-opt')[0].trigger('click')
+      await wrapper.findAll('.pd__visibility-opt')[0]!.trigger('click')
       await flushPromises()
 
       expect(wrapper.find('.pd__error').exists()).toBe(true)
@@ -237,7 +237,7 @@ describe('ProfilDesktop', () => {
     it('ferme le sélecteur sans appel API quand on clique sur la valeur identique', async () => {
       const wrapper = mount(ProfilDesktop, { global: { stubs } })
       await wrapper.find('.pd__info-row--visibility .pd__edit-btn').trigger('click')
-      await wrapper.findAll('.pd__visibility-opt')[2].trigger('click')
+      await wrapper.findAll('.pd__visibility-opt')[2]!.trigger('click')
       await flushPromises()
 
       expect(wrapper.findAll('.pd__visibility-opt')).toHaveLength(0)

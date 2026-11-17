@@ -12,8 +12,8 @@ describe('useToast', () => {
     const { toasts, push } = useToast()
     push({ type: 'success', text: 'Ajoute', timeout: 0 })
     expect(toasts.value).toHaveLength(1)
-    expect(toasts.value[0].text).toBe('Ajoute')
-    expect(toasts.value[0].type).toBe('success')
+    expect(toasts.value[0]!.text).toBe('Ajoute')
+    expect(toasts.value[0]!.type).toBe('success')
   })
 
   it('dismiss retire le toast par son id', () => {

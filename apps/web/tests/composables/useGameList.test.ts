@@ -160,7 +160,7 @@ describe('useGameList', () => {
       games.value = [{ id: 'ug-1', title: 'Jeu A', status: 'backlog' }] as any[]
 
       await onStatusChange('ug-1', 'playing')
-      expect(games.value[0].status).toBe('playing')
+      expect(games.value[0]!.status).toBe('playing')
     })
 
     it('envoie un PATCH au bon endpoint', async () => {
@@ -181,7 +181,7 @@ describe('useGameList', () => {
       games.value = [{ id: 'ug-1', title: 'Jeu A', status: 'backlog' }] as any[]
 
       await onStatusChange('ug-1', 'playing')
-      expect(games.value[0].status).toBe('backlog')
+      expect(games.value[0]!.status).toBe('backlog')
     })
   })
 

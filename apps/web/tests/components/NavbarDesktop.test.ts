@@ -34,14 +34,14 @@ describe('NavbarDesktop', () => {
     const wrapper = mount(NavbarDesktop, { global: { stubs } })
     const activeLinks = wrapper.findAll('a.nd__item--active')
     expect(activeLinks).toHaveLength(1)
-    expect(activeLinks[0].attributes('href')).toBe('/profil')
+    expect(activeLinks[0]!.attributes('href')).toBe('/profil')
   })
 
   it('ajoute aria-current="page" uniquement sur le lien actif', () => {
     const wrapper = mount(NavbarDesktop, { global: { stubs } })
     const withCurrent = wrapper.findAll('[aria-current="page"]')
     expect(withCurrent).toHaveLength(1)
-    expect(withCurrent[0].attributes('href')).toBe('/profil')
+    expect(withCurrent[0]!.attributes('href')).toBe('/profil')
   })
 
   it('les 5 liens inactifs n\'ont pas de aria-current', () => {

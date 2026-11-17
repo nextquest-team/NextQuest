@@ -1,14 +1,5 @@
-import { fileURLToPath } from 'node:url'
-
 export default defineNuxtConfig({
   compatibilityDate: '2026-03-31',
-
-  // Racine du monorepo fixée à la main (GHSA-mjrq-cffv-q4qc, sans correctif
-  // en 3.x). Sans ça, Nuxt devine workspaceDir en remontant l'arborescence et
-  // peut retenir un dossier parent qui contient juste un lockfile oublié : le
-  // serveur de dev sert alors tout ce dossier via /_nuxt/@fs/. À retirer avec
-  // la migration Nuxt 4 (#161).
-  workspaceDir: fileURLToPath(new URL('../..', import.meta.url)),
 
   devtools: { enabled: false },
   devServer: { port: 3001 },
@@ -26,20 +17,6 @@ export default defineNuxtConfig({
         // node_modules et .git sont déjà ignorés par défaut par Vite.
         ignored: ['**/.nuxt/**'],
       },
-    },
-  },
-
-  hooks: {
-    // Nuxt 3 coupe le HMR du serveur Vite SSR avec `server.hmr: false`, mais
-    // depuis Vite 8.1 c'est `server.ws` qui décide d'ouvrir le websocket. Le
-    // serveur SSR branchait donc un second listener d'upgrade sur le même
-    // serveur HTTP que le client : crash "handleUpgrade() was called more
-    // than once" à la première connexion d'un navigateur. À retirer avec
-    // la migration Nuxt 4 (#161).
-    'vite:extendConfig'(config, { isServer }) {
-      if (isServer && config.server) {
-        ;(config.server as { ws?: false }).ws = false
-      }
     },
   },
 

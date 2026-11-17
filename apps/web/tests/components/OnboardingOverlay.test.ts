@@ -240,7 +240,7 @@ describe('OnboardingOverlay', () => {
 
     const fakeFooter = { appendChild: vi.fn() }
     capturedConfig?.onPopoverRender({ footer: fakeFooter })
-    const skipBtn = fakeFooter.appendChild.mock.calls[0][0] as HTMLButtonElement
+    const skipBtn = fakeFooter.appendChild.mock.calls[0]![0] as HTMLButtonElement
 
     skipBtn.onclick?.(new PointerEvent('click'))
     await flushPromises()

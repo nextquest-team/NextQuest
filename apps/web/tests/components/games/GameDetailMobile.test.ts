@@ -118,7 +118,7 @@ describe('GameDetailMobile', () => {
     mockLoading.value = false
     mockGame.value = fakeGame
     const wrapper = mount(GameDetailMobile, { global: { stubs } })
-    await wrapper.findAll('.gdm__status-btn')[0].trigger('click')
+    await wrapper.findAll('.gdm__status-btn')[0]!.trigger('click')
     expect(onStatusChangeMock).toHaveBeenCalledWith('backlog')
   })
 

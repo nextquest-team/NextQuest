@@ -34,14 +34,14 @@ describe('NavbarMobile', () => {
     const wrapper = mount(NavbarMobile, { global: { stubs } })
     const activeLinks = wrapper.findAll('a.nm__item--active')
     expect(activeLinks).toHaveLength(1)
-    expect(activeLinks[0].attributes('href')).toBe('/dashboard')
+    expect(activeLinks[0]!.attributes('href')).toBe('/dashboard')
   })
 
   it('ajoute aria-current="page" uniquement sur le lien actif', () => {
     const wrapper = mount(NavbarMobile, { global: { stubs } })
     const withCurrent = wrapper.findAll('[aria-current="page"]')
     expect(withCurrent).toHaveLength(1)
-    expect(withCurrent[0].attributes('href')).toBe('/dashboard')
+    expect(withCurrent[0]!.attributes('href')).toBe('/dashboard')
   })
 
   it('les 5 liens inactifs n\'ont pas de aria-current', () => {

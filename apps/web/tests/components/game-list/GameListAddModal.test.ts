@@ -91,7 +91,7 @@ describe('GameListAddModal', () => {
     expect(platformBtns).toHaveLength(3)
 
     authFetchMock.mockResolvedValueOnce({})
-    await platformBtns[1].trigger('click') // Xbox Series X|S
+    await platformBtns[1]!.trigger('click') // Xbox Series X|S
     await flushPromises()
 
     expect(authFetchMock).toHaveBeenCalledWith('http://localhost:3000/api/collection/from-igdb', {
@@ -114,7 +114,7 @@ describe('GameListAddModal', () => {
 
     authFetchMock.mockRejectedValueOnce(new Error('network'))
     const platformBtns = wrapper.findAll('.gl-add__platform-btn')
-    await platformBtns[0].trigger('click')
+    await platformBtns[0]!.trigger('click')
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', text: 'addError' }))
@@ -136,7 +136,7 @@ describe('GameListAddModal', () => {
 
     authFetchMock.mockRejectedValueOnce({ status: 409 })
     const platformBtns = wrapper.findAll('.gl-add__platform-btn')
-    await platformBtns[0].trigger('click')
+    await platformBtns[0]!.trigger('click')
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith(expect.objectContaining({ type: 'info', text: 'alreadyIn' }))

@@ -37,35 +37,35 @@ describe('useLoginForm', () => {
   describe('emailRules', () => {
     it('rejette un email vide', () => {
       const { emailRules } = useLoginForm()
-      expect(emailRules[0]('')).not.toBe(true)
+      expect(emailRules[0]!('')).not.toBe(true)
     })
 
     it('rejette un email mal formé', () => {
       const { emailRules } = useLoginForm()
-      expect(emailRules[1]('pas-un-email')).not.toBe(true)
+      expect(emailRules[1]!('pas-un-email')).not.toBe(true)
     })
 
     it('accepte un email valide', () => {
       const { emailRules } = useLoginForm()
-      expect(emailRules[0]('lo@test.fr')).toBe(true)
-      expect(emailRules[1]('lo@test.fr')).toBe(true)
+      expect(emailRules[0]!('lo@test.fr')).toBe(true)
+      expect(emailRules[1]!('lo@test.fr')).toBe(true)
     })
   })
 
   describe('passwordRules', () => {
     it('rejette un mot de passe vide', () => {
       const { passwordRules } = useLoginForm()
-      expect(passwordRules[0]('')).not.toBe(true)
+      expect(passwordRules[0]!('')).not.toBe(true)
     })
 
     it('rejette un mot de passe trop court', () => {
       const { passwordRules } = useLoginForm()
-      expect(passwordRules[1]('short')).not.toBe(true)
+      expect(passwordRules[1]!('short')).not.toBe(true)
     })
 
     it('accepte un mot de passe de 8 caractères ou plus', () => {
       const { passwordRules } = useLoginForm()
-      expect(passwordRules[1]('password123')).toBe(true)
+      expect(passwordRules[1]!('password123')).toBe(true)
     })
   })
 

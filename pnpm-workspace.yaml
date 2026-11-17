@@ -9,10 +9,10 @@ onlyBuiltDependencies:
 
 # Forcer les versions patch sur les transitives flaggees par Dependabot. A
 # revoir periodiquement quand les parents (expo, nuxt, drizzle-kit) sont
-# updates. vite est fige en exact 8.1.6 (pas en floor >=) : la regression
-# handleUpgrade venait d'un conflit Nuxt 3 / Vite 8.1, contournee dans
-# apps/web/nuxt.config.ts. On garde l'exact pour ne pas monter de mineure
-# sans repasser le test HMR (nuxt dev + vrai navigateur).
+# updates. vite est fige en exact 8.3.8 (pas en floor >=) : Nuxt 4.6 exige
+# vite ^8.3.5. Le contournement Nuxt 3 / Vite 8.1 (handleUpgrade) a ete retire
+# avec la migration Nuxt 4 (#161). On garde l'exact pour ne pas monter de
+# mineure sans repasser le test HMR (nuxt dev + vrai navigateur).
 overrides:
   fast-jwt: ">=6.3.4 <7"
   fast-uri: ">=4.2.3 <5"
@@ -26,12 +26,10 @@ overrides:
   # forcerait la majeure 5 que personne ne supporte (meme piege que vite 8).
   js-yaml: ">=4.3.2 <5"
   shell-quote: ">=1.11.0 <2"
-  vite: "8.1.6"
+  vite: "8.3.8"
   "@fastify/static": ">=10.1.2 <11"
   esbuild: ">=0.25.0"
   postcss: ">=8.5.23 <9"
-  unhead: ">=2.1.13 <3"
-  "@unhead/vue": ">=2.1.13 <3"
   uuid: ">=14.0.0"
   ws: ">=8.20.1"
   brace-expansion: ">=5.0.12 <6"
@@ -89,3 +87,6 @@ overrides:
   # corriges en 1.4.1, puis 4 autres (3 medium, 1 low) corriges en 1.4.3,
   # meme majeure.
   node-forge: ">=1.4.3 <2"
+  # DoS minimatch (GHSA-g3hv-75wg-m249) : vulnerable de 7.0.0 a <11.0.1. Selecteur de
+  # plage pour ne pas toucher les lignees 3.x et 5.x (non touchees), plafond <12.
+  "minimatch@>=7.0.0 <11.0.1": ">=11.0.1 <12"

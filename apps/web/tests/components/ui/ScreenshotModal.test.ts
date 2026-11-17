@@ -33,7 +33,7 @@ describe('ScreenshotModal', () => {
   })
 
   it('les fleches prev/next ne sont pas affichees pour un seul screenshot', () => {
-    const wrapper = mount(ScreenshotModal, { props: { screenshots: [screenshots[0]], index: 0, alt: 'jeu' }, global: { stubs } })
+    const wrapper = mount(ScreenshotModal, { props: { screenshots: [screenshots[0]!], index: 0, alt: 'jeu' }, global: { stubs } })
     expect(wrapper.find('.ssm__nav--prev').exists()).toBe(false)
     expect(wrapper.find('.ssm__nav--next').exists()).toBe(false)
     expect(wrapper.find('.ssm__counter').exists()).toBe(false)

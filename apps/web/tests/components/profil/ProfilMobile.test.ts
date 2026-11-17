@@ -154,7 +154,7 @@ describe('ProfilMobile', () => {
       authFetchMock.mockResolvedValue({})
       const wrapper = mount(ProfilMobile, { global: { stubs } })
       await wrapper.find('.pm__info-row--visibility .pm__edit-btn').trigger('click')
-      await wrapper.findAll('.pm__visibility-opt')[0].trigger('click')
+      await wrapper.findAll('.pm__visibility-opt')[0]!.trigger('click')
       await flushPromises()
       expect(authFetchMock).toHaveBeenCalledWith(
         'http://localhost:3000/api/users/me',

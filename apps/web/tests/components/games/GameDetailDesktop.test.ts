@@ -118,7 +118,7 @@ describe('GameDetailDesktop', () => {
     mockLoading.value = false
     mockGame.value = fakeGame
     const wrapper = mount(GameDetailDesktop, { global: { stubs } })
-    await wrapper.findAll('.gdd__status-btn')[1].trigger('click')
+    await wrapper.findAll('.gdd__status-btn')[1]!.trigger('click')
     expect(onStatusChangeMock).toHaveBeenCalledWith('playing')
   })
 

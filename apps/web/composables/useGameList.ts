@@ -176,7 +176,7 @@ export function useGameList() {
         offset: (currentPage.value - 1) * LIMIT,
       }
       if (searchQuery.value.trim()) query.search = searchQuery.value.trim()
-      if (selectedStatuses.value.length === 1) query.status = selectedStatuses.value[0]
+      if (selectedStatuses.value.length === 1) query.status = selectedStatuses.value[0]!
       // platformId peut etre repete dans l'URL : ufo serialise un tableau en
       // plusieurs occurrences (?platformId=a&platformId=b), Fastify les recompose
       // en tableau cote API (match "au moins une des plateformes selectionnees").

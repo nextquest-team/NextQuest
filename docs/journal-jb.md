@@ -289,3 +289,9 @@
 ## 16 novembre 2026
 
 **5 nouvelles alertes Dependabot traitées** -- `node-forge` (4 avis, 3 medium + 1 low, tiré par `@expo/cli`, outillage de dev mobile) : override pnpm relevé à `>=1.4.3 <2`. `@nuxt/schema` (GHSA-mjrq-cffv-q4qc, serveur de dev uniquement) : Nuxt 3 est en fin de vie, pas de correctif en 3.x. On applique le contournement officiel, `workspaceDir` fixé à la racine du monorepo dans `nuxt.config.ts`, pour que Nuxt ne retienne jamais un dossier parent contenant un lockfile oublié. Alerte rejetée ensuite, suivie dans la migration Nuxt 4 (#161).
+
+## 17 novembre 2026
+
+**Migration Nuxt 3 vers Nuxt 4 (#161)** -- `nuxt` passe en `^4.6.4` et `vue-router` en `^5.4.0` ; Nuxt 4.6 exige `vite ^8.3.5`, l'override est donc figé en exact 8.3.8. Je retire les deux contournements Nuxt 3 de `nuxt.config.ts` (`workspaceDir` et le hook `vite:extendConfig`) : le HMR vérifié dans un vrai navigateur ne produit plus l'erreur `handleUpgrade`. Les 8 alertes Dependabot visant `nuxt` < 4 disparaissent.
+
+**Ce que Nuxt 4 a cassé côté code** -- `noUncheckedIndexedAccess` est actif dans son tsconfig (des `!` dans 13 fichiers de tests, un `?.` dans `useFocusTrap`), et `$fetch` est désormais un auto-import de `#build/fetch` : `vi.stubGlobal('$fetch')` ne l'atteint plus, `useAuth.test.ts` passe par `mockNuxtImport('$fetch')`. Les tests de stores ont besoin de l'environnement `nuxt`. Reste un avertissement `useLayout` (Vuetify entre en collision avec l'auto-import natif), sans effet.

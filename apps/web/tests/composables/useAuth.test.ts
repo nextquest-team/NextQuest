@@ -40,6 +40,14 @@ const fakeRouter = {
 }
 mockNuxtImport('useRouter', () => () => fakeRouter)
 
+// Nuxt 4 auto-importe $fetch depuis #build/fetch : vi.stubGlobal('$fetch') n'a
+// plus d'effet. On mocke l'import et on delegue a l'implementation du test.
+const fetchHolder = vi.hoisted(() => ({ impl: (() => Promise.reject(new Error('$fetch non stubbe'))) as (...args: unknown[]) => unknown }))
+mockNuxtImport('$fetch', () => (...args: unknown[]) => fetchHolder.impl(...args))
+function stubFetch(impl: (...args: unknown[]) => unknown) {
+  fetchHolder.impl = impl
+}
+
 const fakeUser = {
   id: 'u-1',
   email: 'lo@test.fr',
@@ -66,7 +74,7 @@ describe('useAuth', () => {
       user: fakeUser,
       accessToken: 'jwt-token',
     })
-    vi.stubGlobal('$fetch', fetchMock)
+    stubFetch(fetchMock)
 
     const { login } = useAuth()
     await login('lo@test.fr', 'password123')
@@ -90,7 +98,7 @@ describe('useAuth', () => {
       status: 401,
       data: { error: 'Email ou mot de passe incorrect' },
     })
-    vi.stubGlobal('$fetch', vi.fn().mockRejectedValue(apiError))
+    stubFetch(vi.fn().mockRejectedValue(apiError))
 
     const { login, error } = useAuth()
     await expect(login('lo@test.fr', 'wrong')).rejects.toThrow()
@@ -102,7 +110,7 @@ describe('useAuth', () => {
       status: 409,
       data: { error: 'duplicate' },
     })
-    vi.stubGlobal('$fetch', vi.fn().mockRejectedValue(apiError))
+    stubFetch(vi.fn().mockRejectedValue(apiError))
 
     const { register, error } = useAuth()
     await expect(register('lo', 'lo@test.fr', 'password123')).rejects.toThrow()
@@ -110,7 +118,7 @@ describe('useAuth', () => {
   })
 
   it('refreshTokens renvoie true et hydrate le store en cas de succès', async () => {
-    vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({
+    stubFetch(vi.fn().mockResolvedValue({
       user: fakeUser,
       accessToken: 'new-jwt',
     }))
@@ -126,7 +134,7 @@ describe('useAuth', () => {
     const store = useAuthStore()
     store.setAuth(fakeUser, 'old-jwt')
 
-    vi.stubGlobal('$fetch', vi.fn().mockRejectedValue(new Error('401')))
+    stubFetch(vi.fn().mockRejectedValue(new Error('401')))
 
     const { refreshTokens } = useAuth()
     const result = await refreshTokens()
@@ -141,7 +149,7 @@ describe('useAuth', () => {
       status: 400,
       data: { error: 'Provider google is not configured' },
     })
-    vi.stubGlobal('$fetch', vi.fn().mockRejectedValue(apiError))
+    stubFetch(vi.fn().mockRejectedValue(apiError))
 
     const { loginWithOAuth, error } = useAuth()
     // Ne doit PAS throw (l'appelant @click ne peut pas catch)
@@ -150,7 +158,7 @@ describe('useAuth', () => {
   })
 
   it('loginWithOAuth ouvre une popup vers l\'URL du provider', async () => {
-    vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({
+    stubFetch(vi.fn().mockResolvedValue({
       url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=...',
     }))
 
@@ -170,7 +178,7 @@ describe('useAuth', () => {
   })
 
   it('loginWithOAuth fait un fallback en redirection complète si la popup est bloquée', async () => {
-    vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({
+    stubFetch(vi.fn().mockResolvedValue({
       url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=...',
     }))
 
@@ -193,7 +201,7 @@ describe('useAuth', () => {
     const store = useAuthStore()
     store.setAuth(fakeUser, 'jwt')
 
-    vi.stubGlobal('$fetch', vi.fn().mockRejectedValue(new Error('network')))
+    stubFetch(vi.fn().mockRejectedValue(new Error('network')))
 
     const { logout } = useAuth()
     await logout()
@@ -203,7 +211,7 @@ describe('useAuth', () => {
   })
 
   it('fetchMe stocke le user et le token quand fourni', async () => {
-    vi.stubGlobal('$fetch', vi.fn().mockResolvedValue(fakeUser))
+    stubFetch(vi.fn().mockResolvedValue(fakeUser))
 
     const { fetchMe } = useAuth()
     const result = await fetchMe('jwt-from-oauth')
@@ -218,7 +226,7 @@ describe('useAuth', () => {
     const store = useAuthStore()
     store.setAuth(fakeUser, 'old-jwt')
 
-    vi.stubGlobal('$fetch', vi.fn().mockRejectedValue(new Error('401')))
+    stubFetch(vi.fn().mockRejectedValue(new Error('401')))
 
     const { fetchMe } = useAuth()
     const result = await fetchMe('jwt-from-oauth')
@@ -230,7 +238,7 @@ describe('useAuth', () => {
 
   it('fetchMe sans token ni store retourne null sans appeler l\'API', async () => {
     const fetchMock = vi.fn()
-    vi.stubGlobal('$fetch', fetchMock)
+    stubFetch(fetchMock)
 
     const { fetchMe } = useAuth()
     const result = await fetchMe()

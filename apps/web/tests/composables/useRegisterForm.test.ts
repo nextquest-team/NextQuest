@@ -36,42 +36,42 @@ describe('useRegisterForm', () => {
   describe('usernameRules', () => {
     it('rejette un pseudo vide', () => {
       const { usernameRules } = useRegisterForm()
-      expect(usernameRules[0]('')).not.toBe(true)
+      expect(usernameRules[0]!('')).not.toBe(true)
     })
 
     it('rejette un pseudo trop court', () => {
       const { usernameRules } = useRegisterForm()
-      expect(usernameRules[1]('ab')).not.toBe(true)
+      expect(usernameRules[1]!('ab')).not.toBe(true)
     })
 
     it('rejette un pseudo trop long', () => {
       const { usernameRules } = useRegisterForm()
-      expect(usernameRules[2]('a'.repeat(31))).not.toBe(true)
+      expect(usernameRules[2]!('a'.repeat(31))).not.toBe(true)
     })
 
     it('accepte un pseudo valide', () => {
       const { usernameRules } = useRegisterForm()
-      expect(usernameRules[1]('lorelei')).toBe(true)
-      expect(usernameRules[2]('lorelei')).toBe(true)
+      expect(usernameRules[1]!('lorelei')).toBe(true)
+      expect(usernameRules[2]!('lorelei')).toBe(true)
     })
   })
 
   describe('passwordConfirmRules', () => {
     it('rejette une confirmation vide', () => {
       const { passwordConfirmRules } = useRegisterForm()
-      expect(passwordConfirmRules[0]('')).not.toBe(true)
+      expect(passwordConfirmRules[0]!('')).not.toBe(true)
     })
 
     it('rejette une confirmation différente du mot de passe', () => {
       const { password, passwordConfirmRules } = useRegisterForm()
       password.value = 'password123'
-      expect(passwordConfirmRules[1]('autrepassword')).not.toBe(true)
+      expect(passwordConfirmRules[1]!('autrepassword')).not.toBe(true)
     })
 
     it('accepte une confirmation identique au mot de passe', () => {
       const { password, passwordConfirmRules } = useRegisterForm()
       password.value = 'password123'
-      expect(passwordConfirmRules[1]('password123')).toBe(true)
+      expect(passwordConfirmRules[1]!('password123')).toBe(true)
     })
   })
 

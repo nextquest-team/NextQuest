@@ -289,3 +289,11 @@
 ## 16 novembre 2026
 
 **5 nouvelles alertes Dependabot traitées** -- `node-forge` (4 avis, 3 medium + 1 low, tiré par `@expo/cli`, outillage de dev mobile) : override pnpm relevé à `>=1.4.3 <2`. `@nuxt/schema` (GHSA-mjrq-cffv-q4qc, serveur de dev uniquement) : Nuxt 3 est en fin de vie, pas de correctif en 3.x. On applique le contournement officiel, `workspaceDir` fixé à la racine du monorepo dans `nuxt.config.ts`, pour que Nuxt ne retienne jamais un dossier parent contenant un lockfile oublié. Alerte rejetée ensuite, suivie dans la migration Nuxt 4 (#161).
+
+## 17 novembre 2026
+
+**Backlog de user stories (`docs/user-stories.md`)** -- 56 stories en 11 épics, alignées sur le cahier des charges v1.1 et ses trois personas (Maxime, Émilie, Lucas). Chaque story a son rôle, son besoin, son bénéfice, des critères d'acceptation vérifiables, une priorité MoSCoW et un état. Priorité et état sont deux axes séparés : 17 faites, 7 en cours, 32 à faire, « fait » voulant dire faisable de bout en bout sur le web.
+
+**Suivi sur Trello** -- Une carte par story (critères en liste à cocher) et une carte par livraison passée, rangées en Backlog produit, Backlog JB, Backlog Loreleï, En cours, En revue, Fait. Les anciennes cartes sont archivées, pas supprimées.
+
+**Diaporama des user stories (`presentation/user-stories/`)** -- Support de la présentation du 20/11 : le parcours d'une joueuse en cinq stories (inscription, import Steam, statut, suivi des sorties, recommandations) avec les écrans réels, la carte des épics et le backlog complet en annexe. Même design system que le web, scène 1920x1080 mise à l'échelle, export PDF possible.

@@ -1,45 +1,50 @@
-# Dependabot : updates automatiques des dependances.
-# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Mises a jour des dependances : une PR groupee par semaine pour les mineures et correctifs
+# (fusionnee seule si la CI est verte, voir workflows/dependabot-auto-merge.yml).
+# Les majeures sont ignorees : elles cassent souvent les peer deps Nuxt/Expo et se bumpent
+# a la main, au cas par cas. Le cooldown laisse quelques jours a la communaute pour reperer
+# une version piegee avant qu'elle n'arrive ici.
 version: 2
-
 updates:
-  # Dependances npm/pnpm pour tout le monorepo (root + apps + packages)
-  - package-ecosystem: "npm"
-    directory: "/"
+  # Un seul pnpm-lock.yaml a la racine : "/" couvre tout le monorepo (apps/* et packages/*).
+  - package-ecosystem: npm
+    directory: /
+    target-branch: develop
     schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    target-branch: "develop"
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
-      include: "scope"
-    # Les majors cassent souvent les peer deps Nuxt/Expo. On les ignore par
-    # defaut et on les bumpera a la main au cas par cas quand l'ecosysteme suit.
+      include: scope
+    cooldown:
+      default-days: 5
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-    groups:
-      # Regrouper les patches/minor en une seule PR par semaine pour eviter le bruit
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-      # Les @types/* (qui sont en theorie alignes avec le runtime) en groupe
-      types:
-        patterns:
-          - "@types/*"
-
-  # Versions des actions GitHub elles-memes (actions/checkout, etc.)
-  - package-ecosystem: "github-actions"
-    directory: "/"
+      # vite est fige volontairement en 8.3.8 (overrides de pnpm-workspace.yaml) : on ne monte
+      # pas de version sans repasser le test HMR (nuxt dev + vrai navigateur).
+      - dependency-name: vite
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
     schedule:
-      interval: "weekly"
-      day: "monday"
-    target-branch: "develop"
+      interval: monthly
+      time: "06:00"
+      timezone: Europe/Paris
     commit-message:
       prefix: "chore(ci)"
-    # Idem npm : majors a la main, Dependabot ne nous deborde pas
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]

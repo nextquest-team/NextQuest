@@ -31,3 +31,11 @@
 # Documentation
 /docs/              @Jeeiib @Meii-Dicale
 README.md           @Jeeiib @Meii-Dicale
+
+# Fichiers de dependances SANS owner : ils n'exigent plus la revue d'un code owner pour que
+# le workflow dependabot-auto-merge puisse approuver les PR Dependabot (mineures et
+# correctifs). Une PR humaine qui ne touche qu'eux exige toujours 1 approbation. La derniere
+# regle correspondante l'emporte, donc ces lignes doivent rester en fin de fichier.
+package.json
+**/package.json
+pnpm-lock.yaml

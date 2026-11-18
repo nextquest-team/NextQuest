@@ -23,6 +23,19 @@ updates:
       semver-minor-days: 7
       semver-patch-days: 3
     groups:
+      # Dependances sensibles (voir SENSIBLES du workflow) : leurs mineures sont relues a la main.
+      # Groupe place AVANT le principal (premiere correspondance) pour ne pas bloquer le reste.
+      sensibles:
+        patterns:
+          - "nuxt"
+          - "vue"
+          - "vuetify"
+          - "fastify"
+          - "expo"
+          - "react-native"
+          - "drizzle-orm"
+          - "drizzle-kit"
+        update-types: ["minor", "patch"]
       minor-and-patch:
         update-types: ["minor", "patch"]
     ignore:

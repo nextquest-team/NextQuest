@@ -21,6 +21,6 @@
   },
   "devDependencies": {
     "turbo": "^2.10.5",
-    "vuetify": "4.1.5"
+    "vuetify": "4.3.3"
   }
 }

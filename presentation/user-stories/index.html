@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NextQuest, les user stories</title>
+<link rel="icon" href="assets/img/logo.png" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<main class="stage" id="stage" aria-live="polite">
+
+  <!-- 1. Titre -->
+  <section class="slide slide--cover" aria-label="Titre">
+    <img class="cover-logo" src="assets/img/logo.png" alt="Logo NextQuest" />
+    <div class="cover-text">
+      <h1>Les user stories<br />de NextQuest</h1>
+      <p class="cover-sub">Le parcours d'un joueur, de l'inscription à sa prochaine quête</p>
+      <p class="cover-meta">Loreleï et Jean-Baptiste, formation CDA, 20 novembre 2026</p>
+    </div>
+  </section>
+
+  <!-- 2. Le problème -->
+  <section class="slide slide--voice" aria-label="Le problème">
+    <blockquote class="voice">
+      <p>« J'ai des jeux partout,<br />et je ne sais plus où j'en suis. »</p>
+      <p class="voice-second">« Samedi soir, j'ai deux heures.<br />Je joue à quoi ? »</p>
+    </blockquote>
+    <p class="voice-answer">NextQuest rassemble la ludothèque d'un joueur, suit sa progression et lui propose sa prochaine quête.</p>
+  </section>
+
+  <!-- 3. Acteurs et personas -->
+  <section class="slide" aria-label="Acteurs et personas">
+    <header class="head">
+      <h2>Qui utilise NextQuest</h2>
+      <p>Trois rôles dans l'application. Trois joueurs pour incarner le principal.</p>
+    </header>
+    <div class="roles">
+      <article class="role">
+        <h3>Visiteur</h3>
+        <p>Découvre NextQuest, crée un compte ou se connecte.</p>
+      </article>
+      <article class="role role--main">
+        <h3>Joueur connecté</h3>
+        <p>Gère sa ludothèque, suit sa progression, échange avec ses amis.</p>
+      </article>
+      <article class="role">
+        <h3>Administrateur</h3>
+        <p>Entretient le catalogue de jeux et modère la communauté.</p>
+      </article>
+    </div>
+    <div class="personas">
+      <article class="persona felt">
+        <h3>Maxime, 28 ans</h3>
+        <p class="persona-kind">Le joueur occasionnel. PS5 et Switch, 5 à 10 heures par semaine.</p>
+        <p class="persona-quote">« Trop de jeux en attente, je ne sais jamais à quoi jouer. »</p>
+        <p class="persona-want">Il attend des recommandations de jeux courts, adaptées à son temps libre.</p>
+        <p class="persona-epics">Recommandations, timeline, alertes, statut</p>
+      </article>
+      <article class="persona felt">
+        <h3>Émilie, 24 ans</h3>
+        <p class="persona-kind">La passionnée collectionneuse. PC, PS5 et Xbox, plus de 30 heures par semaine.</p>
+        <p class="persona-quote">« Ma bibliothèque est éparpillée sur plus de cinq launchers. »</p>
+        <p class="persona-want">Elle attend une vue unifiée de tous ses jeux et des statistiques détaillées.</p>
+        <p class="persona-epics">Comptes externes, collection, profil, statut</p>
+      </article>
+      <article class="persona felt">
+        <h3>Lucas, 19 ans</h3>
+        <p class="persona-kind">Le joueur social. PC et Xbox, surtout en multijoueur.</p>
+        <p class="persona-quote">« Difficile de savoir à quoi jouent mes amis. »</p>
+        <p class="persona-want">Il attend de voir l'activité de ses amis et de partager ses découvertes.</p>
+        <p class="persona-epics">Social, fil d'actualité, profil</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- 4. Anatomie d'une user story -->
+  <section class="slide" aria-label="Ce qu'est une user story">
+    <header class="head">
+      <h2>Une user story, c'est un besoin dit par celui qui l'a</h2>
+      <p>Toutes les nôtres suivent le même modèle. Exemple avec STA-01.</p>
+    </header>
+    <div class="anatomy">
+      <article class="quest wool">
+        <div class="quest-top">
+          <span class="quest-id">STA-01</span>
+          <h3>Changer le statut d'un jeu</h3>
+        </div>
+        <p class="quest-sentence">
+          En tant que <mark class="m-who">joueur connecté</mark>,
+          je veux <mark class="m-what">indiquer qu'un jeu est à faire, en cours, terminé ou abandonné</mark>,
+          afin de <mark class="m-why">savoir à tout moment où j'en suis</mark>.
+        </p>
+        <ul class="criteria">
+          <li>Un jeu n'a qu'un seul statut à la fois : en choisir un nouveau remplace l'ancien.</li>
+          <li>Le changement est visible aussitôt dans la liste et sur la fiche du jeu.</li>
+          <li>Si l'enregistrement échoue, le statut précédent est conservé et un message s'affiche.</li>
+        </ul>
+        <div class="quest-foot">
+          <span class="chip chip--prio">Indispensable</span>
+          <span class="chip chip--done">Fait sur le web</span>
+          <span class="chip chip--todo">Mobile à faire</span>
+        </div>
+      </article>
+      <ol class="legend-anatomy">
+        <li><span class="swatch m-who"></span><div><strong>Qui</strong><p>Un rôle ou un persona, jamais « le système ».</p></div></li>
+        <li><span class="swatch m-what"></span><div><strong>Quoi</strong><p>Ce que la personne veut faire, avec ses mots.</p></div></li>
+        <li><span class="swatch m-why"></span><div><strong>Pourquoi</strong><p>Le bénéfice. Sans lui, la story ne sert à personne.</p></div></li>
+        <li><span class="swatch m-check"></span><div><strong>Critères d'acceptation</strong><p>Ce qu'on vérifie à la main pour dire « c'est fait ».</p></div></li>
+        <li><span class="swatch m-meta"></span><div><strong>Priorité et état</strong><p>Deux axes séparés : une story peut être indispensable et pas encore faite.</p></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 5. Carte des épics -->
+  <section class="slide" aria-label="Carte des épics">
+    <header class="head head--row">
+      <div>
+        <h2>56 stories, 11 épics</h2>
+        <p>Un point de couture par story. À droite, les stories faites : faisables de bout en bout sur le web aujourd'hui.</p>
+      </div>
+      <ul class="totals">
+        <li><span class="stitch stitch--done"></span><strong>17</strong> faites</li>
+        <li><span class="stitch stitch--wip"></span><strong>7</strong> en cours</li>
+        <li><span class="stitch stitch--todo"></span><strong>32</strong> à faire</li>
+      </ul>
+    </header>
+    <div class="epics felt" id="epics"></div>
+  </section>
+
+  <!-- 6 à 10. Le parcours -->
+  <section class="slide slide--step" data-step="1" aria-label="Parcours, étape 1 : s'inscrire">
+    <header class="head">
+      <h2>S'inscrire</h2>
+      <p>Émilie découvre NextQuest et crée son compte.</p>
+    </header>
+    <div class="step">
+      <article class="quest wool">
+        <div class="quest-top"><span class="quest-id">CPT-01</span><h3>Créer un compte avec mon email</h3></div>
+        <p class="quest-sentence">En tant que visiteur, je veux créer un compte avec mon adresse email et un mot de passe, afin de retrouver ma ludothèque sur tous mes appareils.</p>
+        <ul class="criteria">
+          <li>Le compte est créé quand l'email est valide et que le mot de passe respecte les règles affichées sous le champ.</li>
+          <li>Une adresse déjà utilisée est refusée avec un message explicite, sans second compte.</li>
+          <li>Un mot de passe trop faible est refusé avant l'envoi du formulaire.</li>
+        </ul>
+        <div class="quest-foot">
+          <span class="chip chip--prio">Indispensable</span>
+          <span class="chip chip--done">Fait sur le web</span>
+          <span class="chip chip--todo">Mobile à faire</span>
+        </div>
+      </article>
+      <figure class="shot">
+        <img src="assets/captures/01-inscription.jpg" alt="Écran d'inscription de NextQuest" />
+        <figcaption>Le site web sur un écran d'iPhone 16</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="slide slide--step" data-step="2" aria-label="Parcours, étape 2 : importer sa bibliothèque Steam">
+    <header class="head">
+      <h2>Importer sa bibliothèque Steam</h2>
+      <p>Elle relie son compte Steam : ses jeux arrivent avec leurs heures de jeu.</p>
+    </header>
+    <div class="step">
+      <article class="quest wool">
+        <div class="quest-top"><span class="quest-id">EXT-02</span><h3>Importer ma bibliothèque Steam</h3></div>
+        <p class="quest-sentence">En tant que joueur qui a des jeux sur Steam, je veux importer toute ma bibliothèque Steam avec mon temps de jeu, afin de voir ma collection réelle dès le premier jour.</p>
+        <ul class="criteria">
+          <li>À la fin, les jeux apparaissent dans la collection avec leurs heures jouées.</li>
+          <li>Relancer l'import ne crée aucun doublon.</li>
+          <li>Un profil Steam privé produit un message qui explique comment le rendre public.</li>
+        </ul>
+        <div class="quest-foot">
+          <span class="chip chip--prio">Indispensable</span>
+          <span class="chip chip--done">Fait sur le web</span>
+          <span class="chip chip--todo">Mobile à faire</span>
+        </div>
+      </article>
+      <figure class="shot">
+        <img src="assets/captures/02-import-steam.jpg" alt="Collection après l'import Steam" />
+        <figcaption>Le site web sur un écran d'iPhone 16</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="slide slide--step" data-step="3" aria-label="Parcours, étape 3 : ranger sa collection">
+    <header class="head">
+      <h2>Ranger sa collection</h2>
+      <p>Elle dit où elle en est : à faire, en cours, terminé, abandonné.</p>
+    </header>
+    <div class="step">
+      <article class="quest wool">
+        <div class="quest-top"><span class="quest-id">STA-01</span><h3>Changer le statut d'un jeu</h3></div>
+        <p class="quest-sentence">En tant que joueur connecté, je veux indiquer qu'un jeu est à faire, en cours, terminé ou abandonné, afin de savoir à tout moment où j'en suis.</p>
+        <ul class="criteria">
+          <li>Un jeu n'a qu'un seul statut à la fois : en choisir un nouveau remplace l'ancien.</li>
+          <li>Le changement est visible aussitôt dans la liste et sur la fiche du jeu.</li>
+          <li>Si l'enregistrement échoue, le statut précédent est conservé et un message s'affiche.</li>
+        </ul>
+        <div class="quest-foot">
+          <span class="chip chip--prio">Indispensable</span>
+          <span class="chip chip--done">Fait sur le web</span>
+          <span class="chip chip--todo">Mobile à faire</span>
+        </div>
+      </article>
+      <figure class="shot">
+        <img src="assets/captures/03-statut.jpg" alt="Changement de statut d'un jeu dans la collection" />
+        <figcaption>Le site web sur un écran d'iPhone 16</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="slide slide--step" data-step="4" aria-label="Parcours, étape 4 : suivre les sorties">
+    <header class="head">
+      <h2>Suivre les sorties</h2>
+      <p>Elle repère un jeu qui n'est pas encore sorti et décide de le suivre.</p>
+    </header>
+    <div class="step">
+      <article class="quest wool">
+        <div class="quest-top"><span class="quest-id">TIM-04</span><h3>Suivre un jeu à venir</h3></div>
+        <p class="quest-sentence">En tant que joueur qui attend une sortie, je veux suivre un jeu pas encore sorti, afin de le retrouver dans ma liste de suivi et d'être prévenu à sa sortie.</p>
+        <ul class="criteria">
+          <li>Un bouton permet de suivre ou de ne plus suivre un jeu, et son état se voit sur la carte du jeu.</li>
+          <li>Le suivi est distinct de la wishlist : il sert à repérer une sortie.</li>
+          <li class="is-open">Les jeux suivis sont conservés sur le compte, d'un appareil à l'autre.</li>
+        </ul>
+        <p class="quest-note">Aujourd'hui, le suivi reste dans le navigateur : l'écran n'est pas encore relié au serveur.</p>
+        <div class="quest-foot">
+          <span class="chip chip--prio">Important</span>
+          <span class="chip chip--wip">En cours sur le web</span>
+          <span class="chip chip--todo">Mobile à faire</span>
+        </div>
+      </article>
+      <figure class="shot">
+        <img src="assets/captures/04-timeline.jpg" alt="Timeline des prochaines sorties" />
+        <figcaption>Le site web sur un écran d'iPhone 16</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="slide slide--step" data-step="5" aria-label="Parcours, étape 5 : trouver sa prochaine quête">
+    <header class="head">
+      <h2>Trouver sa prochaine quête</h2>
+      <p>Elle demande à NextQuest quoi lancer ce soir.</p>
+    </header>
+    <div class="step">
+      <article class="quest wool">
+        <div class="quest-top"><span class="quest-id">REC-01</span><h3>Obtenir des recommandations personnalisées</h3></div>
+        <p class="quest-sentence">En tant que joueur qui ne sait pas quoi lancer ce soir, je veux recevoir des jeux recommandés d'après ma collection et mes heures de jeu, afin de choisir en quelques secondes.</p>
+        <ul class="criteria">
+          <li>Trois familles : découvertes, jeux de ma bibliothèque jamais lancés, sorties à venir.</li>
+          <li>Une découverte n'est jamais un jeu déjà présent dans ma collection.</li>
+          <li>Un joueur sans collection est invité à importer ou à ajouter des jeux.</li>
+        </ul>
+        <div class="quest-foot">
+          <span class="chip chip--prio">Indispensable</span>
+          <span class="chip chip--done">Fait sur le web</span>
+          <span class="chip chip--todo">Mobile à faire</span>
+        </div>
+      </article>
+      <figure class="shot">
+        <img src="assets/captures/05-next-quest.jpg" alt="Écran des recommandations Next Quest" />
+        <figcaption>Le site web sur un écran d'iPhone 16</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 11. Ce qui vient -->
+  <section class="slide" aria-label="Ce qui vient">
+    <header class="head">
+      <h2>Ce qui vient</h2>
+      <p>32 stories restent à faire. Les voici par grands blocs, avec les maquettes qui existent déjà.</p>
+    </header>
+    <div class="next">
+      <div class="phones">
+        <figure class="phone"><img src="assets/maquettes/mobile-dashboard.png" alt="Maquette mobile du tableau de bord" /><figcaption>App mobile : l'accueil</figcaption></figure>
+        <figure class="phone"><img src="assets/maquettes/mobile-nextquest.png" alt="Maquette mobile de l'écran Next Quest" /><figcaption>App mobile : prochaine quête</figcaption></figure>
+      </div>
+      <div class="blocks">
+        <article class="block felt">
+          <h3>L'application mobile</h3>
+          <p>Tout le parcours web, sur téléphone, avec les notifications push. Les écrans sont maquettés, le développement n'a pas commencé.</p>
+        </article>
+        <article class="block felt">
+          <h3>Les autres plateformes</h3>
+          <p>PlayStation, Xbox, Nintendo et Epic Games, puis la mise à jour automatique des bibliothèques. 5 stories.</p>
+        </article>
+        <article class="block felt">
+          <h3>Les alertes</h3>
+          <p>Être prévenu d'une sortie ou d'une mise à jour, et régler ses préférences. 4 stories, pas encore maquettées.</p>
+        </article>
+        <article class="block felt">
+          <h3>Le social et le fil d'actualité</h3>
+          <p>Amis, messages, partage, activité des amis et actualités des jeux. 9 stories classées en bonus, pas encore maquettées.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12. Priorisation et suite -->
+  <section class="slide" aria-label="Priorisation et suite">
+    <header class="head">
+      <h2>Par quoi on continue</h2>
+      <p>La priorité dit ce qui compte, l'état dit où on en est. On croise les deux.</p>
+    </header>
+    <div class="prio">
+      <table class="matrix felt">
+        <thead>
+          <tr><th scope="col">Priorité</th><th scope="col">Fait</th><th scope="col">En cours</th><th scope="col">À faire</th><th scope="col">Total</th></tr>
+        </thead>
+        <tbody>
+          <tr class="row-hot"><th scope="row">Indispensable</th><td>13</td><td class="cell-hot">1</td><td class="cell-hot">2</td><td>16</td></tr>
+          <tr><th scope="row">Important</th><td>4</td><td>6</td><td>19</td><td>29</td></tr>
+          <tr><th scope="row">Bonus</th><td>0</td><td>0</td><td>10</td><td>10</td></tr>
+          <tr><th scope="row">Plus tard</th><td>0</td><td>0</td><td>1</td><td>1</td></tr>
+        </tbody>
+      </table>
+      <ol class="suite">
+        <li>
+          <strong>Finir les trois indispensables qui manquent</strong>
+          <p>Valider son adresse email, réinitialiser un mot de passe oublié, supprimer son compte et toutes ses données.</p>
+        </li>
+        <li>
+          <strong>Terminer ce qui est commencé</strong>
+          <p>Relier le suivi des jeux au compte, les filtres de la timeline, l'avatar, le choix de la langue.</p>
+        </li>
+        <li>
+          <strong>Ouvrir le mobile et les autres plateformes</strong>
+          <p>Le plus gros bloc des stories importantes.</p>
+        </li>
+      </ol>
+    </div>
+    <p class="foot-note">Le backlog vit sur notre tableau Trello : une carte par story, ses critères en liste à cocher.</p>
+  </section>
+
+  <!-- Annexes : backlog complet -->
+  <section class="slide slide--annex" data-speaker="Annexe" aria-label="Annexe : backlog complet, première partie">
+    <header class="head head--row">
+      <div><h2>Annexe : le backlog complet</h2><p>Compte, comptes externes, collection, statut, timeline.</p></div>
+      <ul class="totals totals--small">
+        <li><span class="stitch stitch--done"></span>Fait</li>
+        <li><span class="stitch stitch--wip"></span>En cours</li>
+        <li><span class="stitch stitch--todo"></span>À faire</li>
+      </ul>
+    </header>
+    <div class="annex felt" id="annex-1"></div>
+  </section>
+
+  <section class="slide slide--annex" data-speaker="Annexe" aria-label="Annexe : backlog complet, seconde partie">
+    <header class="head head--row">
+      <div><h2>Annexe : le backlog complet</h2><p>Alertes, recommandations, social, profil, fil d'actualité, administration.</p></div>
+      <ul class="totals totals--small">
+        <li><span class="stitch stitch--done"></span>Fait</li>
+        <li><span class="stitch stitch--wip"></span>En cours</li>
+        <li><span class="stitch stitch--todo"></span>À faire</li>
+      </ul>
+    </header>
+    <div class="annex felt" id="annex-2"></div>
+  </section>
+
+</main>
+
+<nav class="hud" aria-label="Navigation du diaporama">
+  <button type="button" id="prev" aria-label="Diapositive précédente">&#8592;</button>
+  <span class="hud-speaker" id="speaker"></span>
+  <span class="hud-count"><span id="current">1</span> / <span id="total">14</span></span>
+  <button type="button" id="next" aria-label="Diapositive suivante">&#8594;</button>
+</nav>
+
+<script src="script.js"></script>
+</body>
+</html>

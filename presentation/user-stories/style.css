@@ -1,0 +1,719 @@
+/*
+ * Diaporama des user stories.
+ * Le visuel reprend le design system du web (apps/web/assets/css/main.css) :
+ * mêmes couleurs, même police, fond tricot, panneaux feutrine, bordure laine.
+ * Les fichiers de assets/img et assets/fonts en sont des copies allégées.
+ */
+
+@font-face {
+  font-family: 'Knights Quest';
+  src: url('assets/fonts/KnightsQuest.ttf') format('truetype');
+  font-weight: 400;
+  font-display: block;
+  /* mêmes exclusions que dans l'app : ©, ® et ™ sont malformés dans cette fonte. */
+  /* les guillemets français n'existent pas non plus : on les laisse à la police de texte */
+  unicode-range: U+0020-00A8, U+00AA, U+00AC-00AD, U+00AF-00BA, U+00BC-2121, U+2123-FFFF;
+}
+
+:root {
+  --nq-brown: #5C3317;
+  --nq-brown-light: #A07850;
+  /* traits et pointillés : assez foncés pour tenir 3:1 sur le tricot comme sur la feutrine */
+  --nq-line: #80532F;
+  --nq-brown-mid: #7A3E2A;
+  --nq-brown-dark: #3A1A0A;
+  --nq-cream: #F8F4EA;
+  --nq-cream-alt: #F5EDDF;
+  --nq-cream-light: #EDC78E;
+  --nq-gold: #C8A44A;
+  --nq-beige: #EDE8DC;
+  --nq-navy: #1A2F48;
+  --nq-focus: #264a2e;
+  --nq-success-bg: #D4EDDA;
+  --nq-success-text: #1A5C2A;
+  --nq-warning-bg: #FDEBC8;
+  --nq-warning-text: #7A4A00;
+  --nq-text: #332B25;
+
+  --font-display: 'Knights Quest', Georgia, serif;
+  --font-body: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+
+  /* Échelle typographique de la scène 1920 x 1080 (rapport 4:3 entre les crans) */
+  --fs-small: 24px;
+  --fs-body: 29px;
+  --fs-lead: 36px;
+  --fs-h3: 42px;
+  --fs-h2: 68px;
+  --fs-h1: 124px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--nq-brown-dark);
+  color: var(--nq-text);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: 1.4;
+}
+
+ul, ol { list-style: none; }
+img { display: block; max-width: 100%; }
+
+:focus-visible {
+  outline: 3px solid var(--nq-focus);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* ── Scène ── */
+
+.stage {
+  --scale: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--scale));
+  transform-origin: center;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  padding: 64px 96px 56px;
+  background:
+    linear-gradient(rgba(248, 244, 234, 0.34), rgba(248, 244, 234, 0.34)),
+    var(--nq-beige) url('assets/img/fond.jpg') center / cover;
+}
+
+.slide.is-active { display: flex; }
+
+/* ── Titres ── */
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--nq-brown-dark);
+  line-height: 1.08;
+}
+
+.head { margin-bottom: 36px; }
+.head h2 { font-size: var(--fs-h2); }
+.head p {
+  margin-top: 10px;
+  max-width: 58ch;
+  font-size: var(--fs-lead);
+  color: var(--nq-brown-dark);
+}
+
+.head--row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 48px;
+}
+
+/* ── Matières du design system ── */
+
+.felt {
+  background-image:
+    linear-gradient(rgba(245, 237, 223, 0.72), rgba(245, 237, 223, 0.72)),
+    url('assets/img/feutrine-panel.jpg');
+  background-size: auto, 220px 220px;
+  background-repeat: no-repeat, repeat;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(58, 26, 10, 0.18);
+  /* le fil de couture qui court à l'intérieur du panneau */
+  outline: 3px dashed rgba(92, 51, 23, 0.45);
+  outline-offset: -12px;
+}
+
+/* Bordure laine en 9 tranches, comme les boutons « patch » de l'app */
+.wool {
+  border: 46px solid transparent;
+  padding: 8px 20px 28px;
+  border-image: url('assets/img/wooly-btn.png') 175 fill round;
+}
+
+/* ── Points de couture : l'état d'une story ── */
+
+.stitch {
+  display: inline-block;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 3px solid var(--nq-success-text);
+}
+
+.stitch--done { background: var(--nq-success-text); }
+
+.stitch--wip {
+  border-color: var(--nq-warning-text);
+  background: linear-gradient(135deg, var(--nq-gold) 50%, var(--nq-cream) 50%);
+}
+
+.stitch--todo {
+  border: 3px dashed var(--nq-line);
+  background: rgba(248, 244, 234, 0.7);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 18px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  font-size: var(--fs-small);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.chip--prio { color: var(--nq-cream); background: var(--nq-brown); border-color: var(--nq-brown); }
+.chip--done { color: var(--nq-success-text); background: var(--nq-success-bg); }
+.chip--wip { color: var(--nq-warning-text); background: var(--nq-warning-bg); }
+.chip--todo { color: var(--nq-brown); background: transparent; border-style: dashed; }
+
+/* ── 1. Titre ── */
+
+.slide--cover {
+  flex-direction: row;
+  align-items: center;
+  gap: 88px;
+  padding-left: 150px;
+}
+
+.cover-logo { width: 430px; height: auto; flex: none; }
+.cover-text h1 { font-size: var(--fs-h1); line-height: 1; }
+
+.cover-sub {
+  margin-top: 36px;
+  max-width: 24ch;
+  font-family: var(--font-display);
+  font-size: 52px;
+  line-height: 1.15;
+  color: var(--nq-brown-dark);
+}
+
+.cover-meta { margin-top: 56px; font-size: var(--fs-lead); color: var(--nq-brown-dark); }
+
+/* ── 2. Le problème ── */
+
+.slide--voice { justify-content: center; padding-left: 170px; }
+
+.voice p {
+  font-family: var(--font-display);
+  font-size: 112px;
+  line-height: 1.1;
+  color: var(--nq-brown-dark);
+}
+
+.voice .voice-second { margin-top: 56px; color: var(--nq-brown); }
+
+.voice-answer {
+  margin-top: 72px;
+  padding-left: 28px;
+  max-width: 50ch;
+  border-left: 6px solid var(--nq-gold);
+  font-size: 40px;
+  color: var(--nq-brown-dark);
+}
+
+/* ── 3. Acteurs et personas ── */
+
+.roles {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr 1fr;
+  gap: 32px;
+  margin-bottom: 36px;
+}
+
+.role { padding: 6px 0 14px 24px; border-left: 5px solid var(--nq-line); }
+.role h3 { font-size: var(--fs-h3); }
+.role p { margin-top: 6px; }
+.role--main { border-left-color: var(--nq-brown-dark); border-left-width: 9px; }
+
+.personas {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  min-height: 0;
+}
+
+.persona { display: flex; flex-direction: column; padding: 40px 44px 36px; }
+.persona h3 { font-size: 50px; }
+.persona-kind { margin-top: 8px; color: var(--nq-brown); }
+
+.persona-quote {
+  margin-top: 24px;
+  font-family: var(--font-display);
+  font-size: 38px;
+  line-height: 1.2;
+  color: var(--nq-brown-dark);
+}
+
+.persona-want { margin-top: 20px; }
+
+.persona-epics {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 3px dashed rgba(92, 51, 23, 0.4);
+  font-size: var(--fs-small);
+  color: var(--nq-brown);
+}
+
+/* ── Carte de story ── */
+
+.quest { display: flex; flex-direction: column; color: var(--nq-text); }
+
+.quest-top { display: flex; align-items: baseline; gap: 22px; }
+
+.quest-id {
+  flex: none;
+  padding: 4px 16px;
+  border-radius: 8px;
+  background: var(--nq-brown-dark);
+  color: var(--nq-cream);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: 0.03em;
+}
+
+.quest-top h3 { font-size: var(--fs-h3); }
+
+.quest-sentence { margin-top: 20px; font-size: 31px; line-height: 1.36; color: var(--nq-brown-dark); }
+
+.criteria { margin-top: 20px; display: grid; gap: 10px; }
+
+.criteria li { position: relative; padding-left: 46px; font-size: 26px; line-height: 1.32; }
+
+.criteria li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--nq-success-text);
+  box-shadow: inset 0 0 0 3px var(--nq-success-text);
+}
+
+.criteria li::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 8px;
+  width: 8px;
+  height: 15px;
+  border: solid var(--nq-cream);
+  border-width: 0 4px 4px 0;
+  transform: rotate(40deg);
+}
+
+/* critère pas encore tenu : case vide en pointillés, sans coche */
+.criteria li.is-open::before {
+  background: transparent;
+  box-shadow: none;
+  border: 3px dashed var(--nq-warning-text);
+}
+.criteria li.is-open::after { display: none; }
+
+.quest-note {
+  margin-top: 16px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: var(--nq-warning-bg);
+  color: var(--nq-warning-text);
+  font-size: var(--fs-small);
+  line-height: 1.35;
+}
+
+.quest-foot { display: flex; flex-wrap: wrap; gap: 12px; margin-top: auto; padding-top: 18px; }
+
+/* ── 4. Anatomie ── */
+
+.anatomy {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 64px;
+  align-items: center;
+  min-height: 0;
+}
+
+.anatomy .quest { align-self: stretch; }
+
+mark { background: none; color: inherit; padding: 0 2px; border-bottom: 7px solid; }
+.m-who { border-color: var(--nq-brown-mid); }
+.m-what { border-color: var(--nq-navy); }
+.m-why { border-color: var(--nq-gold); }
+
+.legend-anatomy { display: grid; gap: 26px; }
+.legend-anatomy li { display: grid; grid-template-columns: 44px 1fr; gap: 22px; align-items: start; }
+.legend-anatomy strong { font-family: var(--font-display); font-weight: 400; font-size: 40px; color: var(--nq-brown-dark); }
+.legend-anatomy p { margin-top: 2px; }
+
+.swatch { width: 44px; height: 14px; margin-top: 20px; border-radius: 4px; }
+.swatch.m-who { background: var(--nq-brown-mid); }
+.swatch.m-what { background: var(--nq-navy); }
+.swatch.m-why { background: var(--nq-gold); }
+.swatch.m-check { height: 30px; margin-top: 12px; width: 30px; border-radius: 7px; background: var(--nq-success-text); }
+.swatch.m-meta { height: 30px; margin-top: 12px; border-radius: 999px; background: var(--nq-brown); }
+
+/* ── 5. Carte des épics ── */
+
+.totals { display: flex; gap: 40px; font-size: var(--fs-lead); color: var(--nq-brown-dark); white-space: nowrap; }
+.totals li { display: flex; align-items: center; gap: 12px; }
+.totals strong { font-family: var(--font-display); font-weight: 400; font-size: 54px; line-height: 1; }
+.totals--small { font-size: var(--fs-body); gap: 32px; }
+
+.epics {
+  flex: 1;
+  display: grid;
+  grid-template-rows: repeat(11, 1fr);
+  padding: 34px 56px;
+  min-height: 0;
+}
+
+.epic {
+  display: grid;
+  grid-template-columns: 110px 420px 1fr 150px;
+  align-items: center;
+  gap: 24px;
+  border-bottom: 2px solid rgba(92, 51, 23, 0.14);
+}
+.epic:last-child { border-bottom: 0; }
+
+.epic-code { font-weight: 700; font-size: 28px; color: var(--nq-brown); letter-spacing: 0.06em; }
+.epic-name { font-family: var(--font-display); font-size: 38px; color: var(--nq-brown-dark); }
+.epic-stitches { display: flex; gap: 14px; }
+.epic-stitches .stitch { width: 44px; height: 44px; border-radius: 9px; }
+.epic-count { text-align: right; font-size: var(--fs-body); color: var(--nq-brown); font-variant-numeric: tabular-nums; }
+
+/* ── 6 à 10. Le parcours ── */
+
+.slide--step { padding-bottom: 36px; }
+.slide--step .head { margin-bottom: 20px; }
+
+/* Le téléphone occupe toute la hauteur à droite ; le titre et la carte se partagent la gauche. */
+.slide--step {
+  display: none;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'head shot' 'quest shot' 'thread thread';
+  column-gap: 72px;
+}
+.slide--step.is-active { display: grid; }
+.slide--step .head { grid-area: head; }
+.step { display: contents; }
+.step .quest { grid-area: quest; align-self: start; max-height: 100%; }
+.step .quest-top h3 { font-size: 46px; }
+.step .quest-sentence { font-size: 36px; }
+.step .criteria { gap: 14px; margin-top: 26px; }
+.step .criteria li { font-size: 30px; padding-left: 50px; }
+.step .criteria li::before { top: 7px; }
+.step .criteria li::after { top: 10px; }
+.step .quest-note { font-size: 27px; margin-top: 14px; padding: 7px 18px; }
+.step .quest-foot { padding-top: 28px; }
+
+.shot {
+  grid-area: shot;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-height: 0;
+}
+
+.shot img {
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: 393 / 852;
+  width: auto;
+  max-width: 100%;
+  object-fit: cover;
+  object-position: top center;
+  border: 9px solid var(--nq-brown-dark);
+  border-radius: 46px;
+  background: var(--nq-beige);
+  box-shadow: 0 10px 26px rgba(58, 26, 10, 0.3);
+}
+
+.shot figcaption { flex: none; font-size: 22px; line-height: 1.25; color: var(--nq-brown-dark); text-align: center; }
+
+.shot.is-missing img { display: none; }
+.shot.is-missing::before {
+  content: 'Capture à prendre';
+  flex: 1;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  border: 4px dashed var(--nq-line);
+  border-radius: 46px;
+  color: var(--nq-brown);
+  font-family: var(--font-display);
+  font-size: 40px;
+}
+
+.thread {
+  grid-area: thread;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin-top: 26px;
+  padding-top: 4px;
+}
+
+/* le fil : cousu jusqu'à l'étape en cours, en pointillés ensuite */
+.thread::before {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 30px;
+  border-top: 5px dashed var(--nq-line);
+}
+
+.thread li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+
+.thread li.is-past::after,
+.thread li.is-current:not(:first-child)::after {
+  content: '';
+  position: absolute;
+  top: 26px;
+  height: 5px;
+  background: var(--nq-brown-dark);
+}
+.thread li.is-past::after { left: 50%; width: 100%; }
+.thread li.is-current:not(:first-child)::after { display: none; }
+
+.knot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 4px solid var(--nq-line);
+  background: var(--nq-cream);
+  color: var(--nq-brown);
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.knot-label { font-size: var(--fs-small); color: var(--nq-brown-dark); }
+
+.thread .is-past .knot { background: var(--nq-brown-dark); border-color: var(--nq-brown-dark); color: var(--nq-cream); }
+.thread .is-current .knot {
+  background: var(--nq-gold);
+  border-color: var(--nq-brown-dark);
+  color: var(--nq-brown-dark);
+  box-shadow: 0 0 0 7px rgba(200, 164, 74, 0.35);
+}
+.thread .is-current .knot-label { color: var(--nq-brown-dark); font-family: var(--font-display); font-size: 30px; }
+
+/* ── 11. Ce qui vient ── */
+
+.next { flex: 1; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: 720px 1fr; gap: 64px; min-height: 0; }
+
+.phones { display: flex; gap: 36px; min-height: 0; }
+.phone { flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.phone img {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: cover;
+  object-position: top;
+  border: 8px solid var(--nq-brown-dark);
+  border-radius: 38px;
+  box-shadow: 0 10px 26px rgba(58, 26, 10, 0.3);
+}
+.phone figcaption { font-size: var(--fs-small); color: var(--nq-brown-dark); text-align: center; }
+
+.blocks { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 28px; min-height: 0; }
+.block { padding: 34px 38px 28px; }
+.block h3 { font-size: 38px; }
+.block p { margin-top: 10px; font-size: 27px; line-height: 1.36; }
+
+/* ── 12. Priorisation ── */
+
+.prio { flex: 1; display: grid; grid-template-rows: minmax(0, 1fr); grid-template-columns: 1.05fr 1fr; gap: 64px; align-items: start; min-height: 0; }
+
+.matrix { width: 100%; border-collapse: separate; border-spacing: 0; padding: 30px 44px; font-size: var(--fs-lead); }
+.matrix th, .matrix td { padding: 20px 14px; text-align: right; border-bottom: 2px solid rgba(92, 51, 23, 0.16); font-variant-numeric: tabular-nums; }
+.matrix tbody tr:last-child th, .matrix tbody tr:last-child td { border-bottom: 0; }
+.matrix th { font-family: var(--font-display); font-weight: 400; color: var(--nq-brown-dark); }
+.matrix thead th { font-size: var(--fs-body); color: var(--nq-brown); }
+.matrix th:first-child { text-align: left; }
+.matrix td { font-size: 46px; font-family: var(--font-display); color: var(--nq-brown); }
+.matrix .cell-hot {
+  color: var(--nq-cream);
+  background: var(--nq-brown-mid);
+  background-clip: padding-box;
+  border: 8px solid transparent;
+  border-radius: 18px;
+  padding: 12px 6px;
+  text-align: center;
+}
+.matrix .row-hot td:nth-child(2) { color: var(--nq-success-text); }
+
+.suite { counter-reset: suite; display: grid; gap: 30px; }
+.suite li { counter-increment: suite; position: relative; padding-left: 84px; }
+.suite li::before {
+  content: counter(suite);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--nq-brown-dark);
+  color: var(--nq-cream);
+  font-family: var(--font-display);
+  font-size: 32px;
+}
+.suite strong { font-family: var(--font-display); font-weight: 400; font-size: 40px; line-height: 1.15; color: var(--nq-brown-dark); }
+.suite p { margin-top: 6px; }
+
+.foot-note { margin-top: 24px; font-size: var(--fs-body); color: var(--nq-brown-dark); }
+
+/* ── Annexes ── */
+
+.slide--annex .head { margin-bottom: 20px; }
+.slide--annex .head p { display: none; }
+.slide--annex .head h2 { font-size: 54px; }
+.slide--annex .head p { font-size: var(--fs-body); }
+
+.annex { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-content: start; padding: 30px 48px 24px; min-height: 0; }
+.annex-group + .annex-group { margin-top: 20px; }
+.annex-group h3 { font-size: 32px; color: var(--nq-brown); margin-bottom: 4px; }
+.annex-group li {
+  display: grid;
+  grid-template-columns: 26px 104px 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 25px;
+  line-height: 1.22;
+}
+.annex-group .stitch { width: 24px; height: 24px; border-radius: 6px; align-self: center; }
+.annex-id { font-weight: 700; font-size: 22px; color: var(--nq-brown-dark); letter-spacing: 0.03em; }
+.annex-prio { color: var(--nq-brown); font-size: 21px; }
+
+/* ── Navigation ── */
+
+.hud {
+  position: fixed;
+  right: 18px;
+  top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(58, 26, 10, 0.88);
+  color: var(--nq-cream);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.hud-speaker { padding: 0 6px 0 8px; }
+.hud-speaker:empty { display: none; }
+.hud button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+.hud button:hover { background: rgba(248, 244, 234, 0.2); }
+
+/* ── Vue de l'orateur (touche P) : l'aperçu à gauche, les notes à droite ── */
+
+.pv { display: none; }
+
+html.is-presenter body { background: #1D0C04; }
+html.is-presenter .hud { display: none; }
+html.is-presenter .stage { z-index: 2; border-radius: 6px; box-shadow: 0 0 0 2px rgba(248, 244, 234, 0.22); }
+
+html.is-presenter .pv {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas: 'bar bar' 'box notes' 'next notes';
+  gap: 18px 32px;
+  padding: 18px 28px 24px;
+  color: var(--nq-cream);
+  font-size: 24px;
+  line-height: 1.4;
+}
+
+.pv-bar { grid-area: bar; display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+.pv-pos { display: flex; align-items: baseline; gap: 16px; min-width: 0; }
+.pv-pos strong { flex: none; font-size: 30px; font-variant-numeric: tabular-nums; color: var(--nq-cream-light); }
+.pv-pos span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-time { display: flex; align-items: baseline; gap: 16px; flex: none; font-size: 20px; color: #D9CDB8; }
+.pv-time button {
+  border: 0;
+  background: none;
+  color: var(--nq-cream);
+  font: 700 46px/1 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.pv-time button.is-late { color: #FFB45C; }
+
+.pv-box { grid-area: box; aspect-ratio: 16 / 9; }
+
+.pv-next { grid-area: next; align-self: start; display: flex; align-items: baseline; gap: 14px; }
+.pv-next span { color: #D9CDB8; font-size: 20px; }
+.pv-next strong { font-weight: 400; font-size: 26px; }
+
+.pv-notes { grid-area: notes; overflow-y: auto; padding: 4px 8px 0 0; }
+.pv-notes ul { display: grid; gap: 16px; }
+.pv-notes li { position: relative; padding-left: 26px; font-size: 27px; line-height: 1.36; }
+.pv-notes li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 10px; height: 10px; border-radius: 3px; background: var(--nq-gold); }
+.pv-key { margin-top: 22px; padding: 14px 18px; border-left: 6px solid var(--nq-gold); border-radius: 0 10px 10px 0; background: rgba(248, 244, 234, 0.1); font-size: 27px; line-height: 1.36; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+/* ── Export PDF : une diapositive par page ── */
+
+@page { size: 1920px 1080px; margin: 0; }
+
+@media print {
+  html, body { height: auto; overflow: visible; background: none; }
+  .hud { display: none; }
+  .stage { position: static; width: auto; height: auto; transform: none; overflow: visible; }
+  .slide {
+    position: relative;
+    display: flex;
+    width: 1920px;
+    height: 1080px;
+    break-after: page;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
